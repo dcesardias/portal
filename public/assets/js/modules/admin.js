@@ -17,7 +17,8 @@ window.PortalAdmin = {
         
         const savedWidth = localStorage.getItem('adminPanelWidth');
         if (savedWidth) {
-            panel.style.width = savedWidth + 'px';
+            // Aceita valores salvos como "300" ou "300px"
+            panel.style.width = String(savedWidth).trim().endsWith('px') ? String(savedWidth).trim() : String(savedWidth).trim() + 'px';
         }
         
         this.loadPagesList();
@@ -31,9 +32,15 @@ window.PortalAdmin = {
         }
         
         document.getElementById('overlay').onclick = () => this.closeAdminPanel();
+
+        // Habilitar redimensionamento por arrastar
+        try { this.enablePanelDragResize(panel); } catch (e) { console.warn('enablePanelDragResize error', e); }
     },
 
     closeAdminPanel() {
+        // Desabilitar redimensionamento e limpar listeners/elementos
+        try { this.disablePanelDragResize(); } catch (e) { console.warn('disablePanelDragResize error', e); }
+
         document.getElementById('adminPanel').classList.remove('show');
         document.getElementById('overlay').classList.remove('show');
     },
@@ -2242,9 +2249,109 @@ window.PortalAdmin = {
             console.error('Erro:', error);
             alert(error.message || 'Erro');
         }
-    }
-    
+    },
+
+    // Novo: Habilita redimensionamento do painel admin via drag (mouse / touch / pointer)
+    enablePanelDragResize(panel) {
+        if (!panel) return;
+        // evita duplicar handle
+        if (document.getElementById('adminPanelResizeHandle')) return;
+
+        // assegura que o painel esteja posicionado para colocar o handle absoluto
+        const computedPos = window.getComputedStyle(panel).position;
+        if (!computedPos || computedPos === 'static') {
+            panel.style.position = 'fixed';
+        }
+
+        const handle = document.createElement('div');
+        handle.id = 'adminPanelResizeHandle';
+        handle.style.cssText = `
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 10px;
+            height: 100%;
+            cursor: ew-resize;
+            z-index: 2000;
+            background: transparent;
+        `;
+        panel.appendChild(handle);
+
+        const state = {
+            dragging: false,
+            startX: 0,
+            startWidth: 0,
+            handle
+        };
+        this._panelResizeState = state;
+
+        const onPointerDown = (ev) => {
+            ev.preventDefault();
+            const clientX = ev.clientX ?? (ev.touches && ev.touches[0] && ev.touches[0].clientX);
+            if (clientX === undefined) return;
+            state.dragging = true;
+            state.startX = clientX;
+            state.startWidth = panel.getBoundingClientRect().width;
+            // evita seleção de texto indesejada
+            document.body.style.userSelect = 'none';
+            if (ev.pointerId && handle.setPointerCapture) {
+                try { handle.setPointerCapture(ev.pointerId); } catch(e) {}
+            }
+        };
+
+        const onPointerMove = (ev) => {
+            if (!state.dragging) return;
+            const clientX = ev.clientX ?? (ev.touches && ev.touches[0] && ev.touches[0].clientX);
+            if (clientX === undefined) return;
+            let newWidth = state.startWidth + (clientX - state.startX);
+            const min = 320;
+            const max = Math.max(360, window.innerWidth - 80);
+            newWidth = Math.max(min, Math.min(max, Math.round(newWidth)));
+            panel.style.width = newWidth + 'px';
+        };
+
+        const onPointerUp = (ev) => {
+            if (!state.dragging) return;
+            state.dragging = false;
+            document.body.style.userSelect = '';
+            // salva a largura (somente número) no localStorage
+            try {
+                const finalW = Math.round(panel.getBoundingClientRect().width);
+                localStorage.setItem('adminPanelWidth', String(finalW));
+            } catch (e) {}
+            if (ev.pointerId && handle.releasePointerCapture) {
+                try { handle.releasePointerCapture(ev.pointerId); } catch(e) {}
+            }
+        };
+
+        // Usar pointer events quando possível (inclui mouse e touch)
+        handle.addEventListener('pointerdown', onPointerDown);
+        // document listeners para cobrir movimentos fora do handle
+        document.addEventListener('pointermove', onPointerMove);
+        document.addEventListener('pointerup', onPointerUp);
+
+        // guardar refs para limpeza
+        state._cleanup = () => {
+            try { handle.removeEventListener('pointerdown', onPointerDown); } catch(e){}
+            try { document.removeEventListener('pointermove', onPointerMove); } catch(e){}
+            try { document.removeEventListener('pointerup', onPointerUp); } catch(e){}
+            if (handle && handle.parentNode) handle.parentNode.removeChild(handle);
+            delete this._panelResizeState;
+        };
+    },
+
+    // Novo: Desabilita e limpa listeners/elemento de resize
+    disablePanelDragResize() {
+        if (this._panelResizeState && this._panelResizeState._cleanup) {
+            try { this._panelResizeState._cleanup(); } catch (e) { console.warn('cleanup resize error', e); }
+        } else {
+            const existing = document.getElementById('adminPanelResizeHandle');
+            if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+        }
+    },
+
 };
+
 
 // Expor funções globais para compatibilidade com HTML
 window.toggleAdmin = () => window.PortalAdmin.toggleAdmin();
