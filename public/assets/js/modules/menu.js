@@ -50,6 +50,14 @@ window.PortalMenu = {
         homeBtn.appendChild(homeSpan);
         
         homeBtn.onclick = () => {
+            // Recolher todos os menus expandidos
+            document.querySelectorAll('.menu-item.expanded').forEach(btn => {
+                btn.classList.remove('expanded');
+            });
+            document.querySelectorAll('.submenu.show').forEach(sub => {
+                sub.classList.remove('show');
+            });
+            
             if (window.PortalPages) {
                 window.PortalPages.showHome();
             }
