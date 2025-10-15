@@ -1,0 +1,1264 @@
+Conectado ao SQL Server
+Servidor rodando em http://undefined:\\.\pipe\50d4464e-c993-4703-b6bd-90308692cadf
+Acesse: http://localhost:\\.\pipe\50d4464e-c993-4703-b6bd-90308692cadf
+[2025-10-10T17:31:33.767Z] GET /favicon.ico
+[2025-10-10T17:31:33.782Z] GET /api/verify-token
+[2025-10-10T17:31:33.794Z] GET /api/pages
+GET /api/pages - requester admin (id:1)
+[2025-10-10T17:31:33.814Z] GET /api/menu
+GET /api/menu - requester admin (id:1)
+[2025-10-10T17:31:33.852Z] GET /api/config?cb=1760117493812
+[2025-10-10T17:31:43.100Z] GET /api/data-dictionaries
+[2025-10-10T17:31:43.111Z] GET /api/data-dictionaries
+[2025-10-10T17:34:43.046Z] GET /api/data-dictionaries
+[2025-10-10T17:34:44.210Z] GET /api/data-dictionaries/1/full
+[2025-10-10T17:36:07.668Z] POST /api/data-dictionaries/1/tables/1/columns
+[2025-10-10T17:36:09.094Z] GET /api/data-dictionaries/1/full
+[2025-10-10T17:37:49.555Z] POST /api/data-dictionaries/1/tables/1/columns
+[2025-10-10T17:37:51.737Z] GET /api/data-dictionaries/1/full
+[2025-10-10T17:48:38.398Z] PUT /api/data-dictionaries/1/tables/1/columns/22
+[EDIT COLUMN] ID: 22, Table: 1, Name: TipoConvênio, Type: VARCHAR(50), Desc length: 133
+[EDIT COLUMN] Sucesso! Coluna 22 atualizada
+[2025-10-10T17:48:39.749Z] GET /api/data-dictionaries/1/full
+[2025-10-10T17:53:55.728Z] DELETE /api/data-dictionaries/1/tables/12/columns/17
+[2025-10-10T17:53:57.028Z] GET /api/data-dictionaries/1/full
+[2025-10-10T18:08:36.636Z] POST /api/data-dictionaries/1/tables/12/columns
+[2025-10-10T18:08:37.891Z] GET /api/data-dictionaries/1/full
+[2025-10-10T18:08:57.270Z] POST /api/data-dictionaries/1/tables/12/columns
+[2025-10-10T18:08:58.515Z] GET /api/data-dictionaries/1/full
+[2025-10-10T18:09:26.811Z] POST /api/data-dictionaries/1/tables/12/columns
+[2025-10-10T18:09:27.920Z] GET /api/data-dictionaries/1/full
+[2025-10-10T18:10:01.816Z] POST /api/data-dictionaries/1/tables/12/columns
+[2025-10-10T18:10:02.945Z] GET /api/data-dictionaries/1/full
+[2025-10-10T18:10:24.737Z] POST /api/data-dictionaries/1/tables/12/columns
+[2025-10-10T18:10:25.844Z] GET /api/data-dictionaries/1/full
+[2025-10-10T18:10:47.405Z] POST /api/data-dictionaries/1/tables/12/columns
+[2025-10-10T18:10:48.520Z] GET /api/data-dictionaries/1/full
+[2025-10-10T18:11:05.508Z] POST /api/data-dictionaries/1/tables/12/columns
+[2025-10-10T18:11:06.943Z] GET /api/data-dictionaries/1/full
+[2025-10-10T18:11:24.649Z] POST /api/data-dictionaries/1/tables/12/columns
+[2025-10-10T18:11:25.686Z] GET /api/data-dictionaries/1/full
+[2025-10-10T18:12:24.412Z] POST /api/data-dictionaries/1/tables/12/columns
+[2025-10-10T18:12:26.086Z] GET /api/data-dictionaries/1/full
+[2025-10-10T18:13:25.532Z] PUT /api/data-dictionaries/1/tables/12/columns/29
+[EDIT COLUMN] ID: 29, Table: 12, Name: DS_BAIRRO, Type: VARCHAR(200), Desc length: 94
+[EDIT COLUMN] Sucesso! Coluna 29 atualizada
+[2025-10-10T18:13:26.807Z] GET /api/data-dictionaries/1/full
+[2025-10-10T18:13:38.934Z] PUT /api/data-dictionaries/1/tables/12/columns/30
+[EDIT COLUMN] ID: 30, Table: 12, Name: DS_MUNICIPIO, Type: VARCHAR(MAX), Desc length: 84
+[EDIT COLUMN] Sucesso! Coluna 30 atualizada
+[2025-10-10T18:13:40.195Z] GET /api/data-dictionaries/1/full
+[2025-10-10T18:13:46.267Z] PUT /api/data-dictionaries/1/tables/12/columns/27
+[EDIT COLUMN] ID: 27, Table: 12, Name: DS_ENDERECO, Type: VARCHAR(MAX), Desc length: 86
+[EDIT COLUMN] Sucesso! Coluna 27 atualizada
+[2025-10-10T18:13:47.350Z] GET /api/data-dictionaries/1/full
+[2025-10-10T18:13:59.355Z] PUT /api/data-dictionaries/1/tables/12/columns/32
+[EDIT COLUMN] ID: 32, Table: 12, Name: DS_MUNICIPIO_CEP, Type: VARCHAR(MAX), Desc length: 106
+[EDIT COLUMN] Sucesso! Coluna 32 atualizada
+[2025-10-10T18:14:00.390Z] GET /api/data-dictionaries/1/full
+[2025-10-10T18:14:23.457Z] GET /favicon.ico
+[2025-10-10T18:14:23.465Z] GET /api/verify-token
+[2025-10-10T18:14:23.471Z] GET /api/pages
+GET /api/pages - requester admin (id:1)
+[2025-10-10T18:14:23.482Z] GET /api/menu
+GET /api/menu - requester admin (id:1)
+[2025-10-10T18:14:23.498Z] GET /api/config?cb=1760120063456
+[2025-10-10T18:14:43.734Z] GET /api/data-dictionaries/active
+[2025-10-10T18:14:43.776Z] POST /api/chat/ai-sql
+[AI-SQL] Processando pergunta: "quantidade de pacientes SUS de Ponta Grossa, Maringa, Foz do Iguaçu e Curitiba em 2025"
+[AI-SQL] Dicionário de dados: Presente
+[AI-SQL] Prompt completo sendo enviado:
+INSTRUÇÃO ABSOLUTA: Responda APENAS com a consulta SQL. Não adicione explicações, comentários ou texto extra.
+
+        Você é um assistente especializado em gerar consultas SQL para SQL Server (T-SQL).
+
+        DICIONÁRIO DE DADOS DAS TABELAS DISPONÍVEIS:
+        {
+  "tables": [
+    {
+      "name": "Atendimentos",
+      "description": "Sempre somar a coluna qt_atendimentos para contagem de atendimentos.\nTabela de atendimentos realizados, \nCirurgias realizadas, \nProdutos entregues (Exceto TipoAtendimento = ESTATÍSTICA OFICINA), \nTerapias realizadas, \nExames realizados, \nAtendimentos Oficina (Somente TipoAtendimento = ESTATÍSTICA OFICINA)",
+      "columns": [
+        {
+          "name": "Id",
+          "type": "INT",
+          "description": "ID do atendimento"
+        },
+        {
+          "name": "DataAtendimento",
+          "type": "DATETIME",
+          "description": "Data e hora do atendimento"
+        },
+        {
+          "name": "PacienteId",
+          "type": "INT",
+          "description": "ID do paciente"
+        },
+        {
+          "name": "UnidadeNeg",
+          "type": "VARCHAR(MAX)",
+          "description": "Descrição da Unidade de Negócio (HOSPITAL,CENTRO DE REABILITAÇÃO,CENTRO MÉDICO,CENTRO DE TERAPIA,CENTRO DE DIAGNÓSTICO,OFICINA ORTOPEDICA,CÂMARA HIPERBÁRICA)"
+        },
+        {
+          "name": "TipoAtendimento",
+          "type": "INT",
+          "description": "Tipo de atendimento (Tipo da Cirurgia, Setor do Centro de Reabilitação, Produtos da Oficina e etc.)\n\nAdministrativo  = CENTRO DE REABILITAÇÃO\nAmbulatório = CENTRO DE REABILITAÇÃO\nAparelhos = OFICINA ORTOPEDICA\nAparelhos - (Imobilizadores) = OFICINA ORTOPEDICA\nAparelhos - (Ortese Craniana) = OFICINA ORTOPEDICA\nAparelhos - (Ortese de Mão) = OFICINA ORTOPEDICA\nAparelhos Serviço = OFICINA ORTOPEDICA\nArte e Reabilitação = CENTRO DE REABILITAÇÃO\nAvaliação Global = CENTRO DE REABILITAÇÃO\nCDI - Eletroneuromiografia - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Laboratório de Marcha - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Raios X - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Ressonância Magnética - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Tomografia - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Ultrassonografia - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Urodinamica - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Videodeglutograma - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCirurgia Artroplastia de Joelho = HOSPITAL\nCirurgia Artroplastia de Quadril = HOSPITAL\nCirurgia Artroplastia Diversa = HOSPITAL\nCirurgia Artroscopia de Joelho = HOSPITAL\nCirurgia Artroscopia Diversa = HOSPITAL\nCirurgia bloqueio = HOSPITAL\nCirurgia Coluna = HOSPITAL\nCirurgia Diversa = HOSPITAL\nCirurgia Escoliose = HOSPITAL\nCirurgia Neuro = HOSPITAL\nCirurgia ortopédica = HOSPITAL\nCirurgia Trauma = HOSPITAL\nColete - 3D Rigo Cheneau = OFICINA ORTOPEDICA\nColete - TLSO = OFICINA ORTOPEDICA\nColetes Serviço = OFICINA ORTOPEDICA\nCONSULTA FATURAVEL = CENTRO MÉDICO\nCONSULTA NÃO FATURAVEL = CENTRO MÉDICO\nCurativo Sem Anestesia = CÂMARA HIPERBÁRICA\nCurativos em geral sem anestesia, exceto queimados = CÂMARA HIPERBÁRICA\nESTATÍSTICA OFICINA = OFICINA ORTOPEDICA\nFisioterapia = CENTRO DE REABILITAÇÃO\nFisioterapia Adulto = CENTRO DE REABILITAÇÃO\nFisioterapia Aquática = CENTRO DE REABILITAÇÃO\nFisioterapia Infantil = CENTRO DE REABILITAÇÃO\nFonoaudiologia = CENTRO DE REABILITAÇÃO\nFonoaudiologia Adulto = CENTRO DE REABILITAÇÃO\nFonoaudiologia Infantil = CENTRO DE REABILITAÇÃO\nGoteiras = OFICINA ORTOPEDICA\nGoteiras Serviço = OFICINA ORTOPEDICA\nMúsico Terapia = CENTRO DE REABILITAÇÃO\nOdontologia = CENTRO DE REABILITAÇÃO\nPacote de Oxigenoterapia hiperbárica (10 sessões) = CÂMARA HIPERBÁRICA\nPacote de Oxigenoterapia hiperbárica (5 sessões) = CÂMARA HIPERBÁRICA\nPedagogia = CENTRO DE REABILITAÇÃO\nPedagogia Infantil = CENTRO DE REABILITAÇÃO\nPROCEDIMENTOS = CENTRO MÉDICO\nProtese = OFICINA ORTOPEDICA\nProteses Serviço = OFICINA ORTOPEDICA\nPsicologia = CENTRO DE REABILITAÇÃO\nPsicologia Adulto = CENTRO DE REABILITAÇÃO\nPsicologia Infantil = CENTRO DE REABILITAÇÃO\nRecepção Adulto = CENTRO DE REABILITAÇÃO\nRecepção Centro Diagnostico - Ibirapuera = CENTRO DE DIAGNÓSTICO\nRevenda = OFICINA ORTOPEDICA\nRevenda - Cadeira de Banho = OFICINA ORTOPEDICA\nRevenda - Cadeiras = OFICINA ORTOPEDICA\nRevenda - Cadeiras Motorizadas = OFICINA ORTOPEDICA\nRevenda - Seating = OFICINA ORTOPEDICA\nRobotica = CENTRO DE REABILITAÇÃO\nSapataria = OFICINA ORTOPEDICA\nSapataria Serviço = OFICINA ORTOPEDICA\nSeating = OFICINA ORTOPEDICA\nSeating Serviços = OFICINA ORTOPEDICA\nServiço Social = CENTRO DE REABILITAÇÃO\nSessão de OHB (2 Horas)  = CÂMARA HIPERBÁRICA\nSessão de oxigenoterapia hiperbárica (por sessão de 2 horas) = CÂMARA HIPERBÁRICA\nTerapia Ocupacional = CENTRO DE REABILITAÇÃO\nTerapia Ocupacional Adulto = CENTRO DE REABILITAÇÃO\nTerapia Ocupacional Infantil = CENTRO DE REABILITAÇÃO\nTERAPIAS = CENTRO DE TERAPIA"
+        },
+        {
+          "name": "qt_atendimento",
+          "type": "INT",
+          "description": "Quantidade de atendimentos para Camara Hiperbarica\nQuantidade de Cirurgias para o Hospital\nQuantidade de Exames para o centro de Diagnostico\nQuantidade de Terapias para o Centro de Terapia\nQuantidade de Consultas para o Centro Médico\nQuantidade de Produtos para a Oficina\nQuantidade de Atendimentos para Oficina quando a TipoAtendimento contiver ESTATÍSTICA, neste caso não considerar como Produto da Oficina"
+        },
+        {
+          "name": "Estabelecimento",
+          "type": "VARCHAR(MAX)",
+          "description": "Descrição do Estabelecimento onde o atendimento aconteceu, podendo ser (AACD Ibirapuera\nAACD Mooca,\nAACD Osasco,\nAACD Recife,\nAACD Porto Alegre,\nAACD Uberlândia,\nAACD Mogi,\nAACD Lar Escola,\nAACD Poços de Caldas,\nAACD Sambura,\n)"
+        },
+        {
+          "name": "TipoConvênio",
+          "type": "VARCHAR(50)",
+          "description": "Descrição dos tipos de convênios (Fonte Pagadora) dos atendimentos:\nConvênio\nParticular\nPrefeituras\nSem remuneração/filantrópicos\nSUS"
+        },
+        {
+          "name": "Convênio",
+          "type": "VARCHAR(MAX)",
+          "description": "Descricao dos Convenios e ou Operadoras dos atendimentos:\n\nAfresp\nAmil Grupo\nAssefaz  \nBradesco Operadora de Planos Saúde\nBradesco Saúde\nCabesp\nCare Plus\nCET\nCondemat\nConvênio Pagador\nEconomus\nEstatística Oficina\nF.427 - Condeca  - Vida é Movimento Mooca\nF.563 - Conselho Estadual do Idoso\nF.645 - TF03/2025 - Funcriança/Porto Alegre\nFASC\nFLUXO DE URGÊNCIA E EMERGÊNCIA\nFSFX - Usisaúde\nFusex\nGama\nGRATUIDADE\nHapVida Notre Dame\nHBC SAUDE LTDA\nHospital Cruz Azul\nHospital Frei Galvão\nHSPM \nIamspe - HSPE\nMediservice\nMetrus\nOmint\nParticular\nPorto Seguro\nPostal Saúde\nPrefeitura de Caraguatatuba\nPrefeitura de Itupeva\nPrefeitura de São Caetano do Sul\nPrefeitura Municipal de Caçapava\nPrevent Senior\nPRODUTO EM GARANTIA\nSaúde ABAS\nSaúde Caixa\nSaúde Caixa - Rio Grande doSul\nSaúde Petrobrás\nSeguros Unimed\nSPA\nSul América\nSul América - Uberlândia\nSUS - Sistema Unico de Saude\nTotal MedCare (Hospital Adventista)\nUnimed CNU\nUnimed Intercambio\nVIVEST/ Fundação Cesp"
+        }
+      ]
+    },
+    {
+      "name": "Pacientes",
+      "description": "Tabela de pacientes",
+      "columns": [
+        {
+          "name": "Id",
+          "type": "INT",
+          "description": "ID único do paciente"
+        },
+        {
+          "name": "DataNascimento",
+          "type": "DATE",
+          "description": "Data de nascimento"
+        },
+        {
+          "name": "CPF",
+          "type": "VARCHAR",
+          "description": "CPF do paciente"
+        },
+        {
+          "name": "Sexo",
+          "type": "VARCHAR(50)",
+          "description": "Sexo ou Gênero dos pacientes"
+        },
+        {
+          "name": "EstadoCivil",
+          "type": "VARCHAR(200)",
+          "description": "Estado Civil dos pacientes"
+        },
+        {
+          "name": "Religiao",
+          "type": "VARCHAR(200)",
+          "description": "Religião dos pacientes"
+        },
+        {
+          "name": "DS_ENDERECO",
+          "type": "VARCHAR(MAX)",
+          "description": "Descrição dos endereços dos pacientes\n(Sempre pesquisar com LIKE removendo acentuação)"
+        },
+        {
+          "name": "CD_CEP",
+          "type": "VARCHAR(50)",
+          "description": "CEP do Endereço dos pacientes"
+        },
+        {
+          "name": "DS_BAIRRO",
+          "type": "VARCHAR(200)",
+          "description": "Descrição do Bairro do Endereço dos pacientes\n(Sempre pesquisar com LIKE removendo acentuação)"
+        },
+        {
+          "name": "DS_MUNICIPIO",
+          "type": "VARCHAR(MAX)",
+          "description": "Município do Endereço dos pacientes\n(Sempre pesquisar com LIKE removendo acentuação)"
+        },
+        {
+          "name": "SG_ESTADO",
+          "type": "VARCHAR(50)",
+          "description": "Sigla do Estado do Endereço dos Pacientes"
+        },
+        {
+          "name": "DS_MUNICIPIO_CEP",
+          "type": "VARCHAR(MAX)",
+          "description": "Descrição do Município do Endereço dos pacientes pelo CEP\n(Sempre pesquisar com LIKE removendo acentuação)"
+        }
+      ]
+    }
+  ]
+}
+
+        REGRAS OBRIGATÓRIAS:
+        1. Use APENAS comandos SELECT
+        2. Para filtros de data, SEMPRE use as funções MONTH() e YEAR()
+        3. Para contagens, use COUNT(*) com alias descritivo
+        4. Use TOP 100 para limitar resultados quando necessário
+        5. Evite SELECT *, prefira colunas específicas
+        6. Se a pergunta mencionar dados que não existem no dicionário, responda: "DADOS_NAO_ENCONTRADOS"
+        7. **NOVO: Para queries "TOP N ao longo do tempo", use CTE para filtrar primeiro:**
+        Exemplo: "top 3 setores ao longo dos meses" deve gerar:
+        WITH TopN AS (SELECT TOP N coluna FROM tabela GROUP BY coluna ORDER BY SUM(valor) DESC)
+        SELECT mes, ano, coluna, SUM(valor) FROM tabela WHERE coluna IN (SELECT coluna FROM TopN) GROUP BY mes, ano, coluna ORDER BY ano, mes
+
+        MAPEAMENTO DE MESES EM PORTUGUÊS (OBRIGATÓRIO):
+        - janeiro = 1, fevereiro = 2, março = 3, abril = 4
+        - maio = 5, junho = 6, julho = 7, agosto = 8
+        - setembro = 9, outubro = 10, novembro = 11, dezembro = 12
+
+        PERGUNTA DO USUÁRIO: quantidade de pacientes SUS de Ponta Grossa, Maringa, Foz do Iguaçu e Curitiba em 2025
+
+        Gere APENAS a consulta SQL (sem explicações):
+[AI-SQL] Iniciando conversa com Direct Line...
+[AI-SQL] Conversa iniciada: 5wBHeMO22pgdc6GzOdf72-us
+[AI-SQL] Enviando pergunta para o Copilot...
+[AI-SQL] Pergunta enviada com sucesso
+[AI-SQL] Aguardando resposta do Copilot...
+[AI-SQL] Resposta recebida após 11 tentativas
+[AI-SQL] Resposta completa do Copilot: "```sql
+SELECT COUNT(*) AS quantidade_pacientes_SUS
+FROM Atendimentos A
+JOIN Pacientes P ON A.PacienteId = P.Id
+WHERE A.TipoConvênio = 'SUS'
+  AND YEAR(A.DataAtendimento) = 2025
+  AND (P.DS_MUNICIPIO LIKE '%Ponta Grossa%'
+       OR P.DS_MUNICIPIO LIKE '%Maringa%'
+       OR P.DS_MUNICIPIO LIKE '%Foz do Iguaçu%'
+       OR P.DS_MUNICIPIO LIKE '%Curitiba%')
+```
+O conteúdo gerado por IA pode estar incorreto"
+[AI-SQL] Iniciando limpeza da resposta...
+[AI-SQL] SQL extraída do bloco: "SELECT COUNT(*) AS quantidade_pacientes_SUS
+FROM Atendimentos A
+JOIN Pacientes P ON A.PacienteId = P.Id
+WHERE A.TipoConvênio = 'SUS'
+  AND YEAR(A.DataAtendimento) = 2025
+  AND (P.DS_MUNICIPIO LIKE '%Ponta Grossa%'
+       OR P.DS_MUNICIPIO LIKE '%Maringa%'
+       OR P.DS_MUNICIPIO LIKE '%Foz do Iguaçu%'
+       OR P.DS_MUNICIPIO LIKE '%Curitiba%')"
+[AI-SQL] SQL após limpeza: "SELECT COUNT(*) AS quantidade_pacientes_SUS
+FROM Atendimentos A
+JOIN Pacientes P ON A.PacienteId = P.Id
+WHERE A.TipoConvênio = 'SUS'
+  AND YEAR(A.DataAtendimento) = 2025
+  AND (P.DS_MUNICIPIO LIKE '%Ponta Grossa%'
+       OR P.DS_MUNICIPIO LIKE '%Maringa%'
+       OR P.DS_MUNICIPIO LIKE '%Foz do Iguaçu%'
+       OR P.DS_MUNICIPIO LIKE '%Curitiba%')"
+[AI-SQL] Validando sintaxe da SQL...
+[2025-10-10T18:15:03.690Z] GET /api/data-dictionaries/active
+[2025-10-10T18:15:03.705Z] POST /api/chat/ai-sql
+[AI-SQL] Processando pergunta: "quantidade de pacientes SUS de Ponta Grossa, Maringa, Foz do Iguaçu e Curitiba em 2025"
+[AI-SQL] Dicionário de dados: Presente
+[AI-SQL] Prompt completo sendo enviado:
+INSTRUÇÃO ABSOLUTA: Responda APENAS com a consulta SQL. Não adicione explicações, comentários ou texto extra.
+
+        Você é um assistente especializado em gerar consultas SQL para SQL Server (T-SQL).
+
+        DICIONÁRIO DE DADOS DAS TABELAS DISPONÍVEIS:
+        {
+  "tables": [
+    {
+      "name": "Atendimentos",
+      "description": "Sempre somar a coluna qt_atendimentos para contagem de atendimentos.\nTabela de atendimentos realizados, \nCirurgias realizadas, \nProdutos entregues (Exceto TipoAtendimento = ESTATÍSTICA OFICINA), \nTerapias realizadas, \nExames realizados, \nAtendimentos Oficina (Somente TipoAtendimento = ESTATÍSTICA OFICINA)",
+      "columns": [
+        {
+          "name": "Id",
+          "type": "INT",
+          "description": "ID do atendimento"
+        },
+        {
+          "name": "DataAtendimento",
+          "type": "DATETIME",
+          "description": "Data e hora do atendimento"
+        },
+        {
+          "name": "PacienteId",
+          "type": "INT",
+          "description": "ID do paciente"
+        },
+        {
+          "name": "UnidadeNeg",
+          "type": "VARCHAR(MAX)",
+          "description": "Descrição da Unidade de Negócio (HOSPITAL,CENTRO DE REABILITAÇÃO,CENTRO MÉDICO,CENTRO DE TERAPIA,CENTRO DE DIAGNÓSTICO,OFICINA ORTOPEDICA,CÂMARA HIPERBÁRICA)"
+        },
+        {
+          "name": "TipoAtendimento",
+          "type": "INT",
+          "description": "Tipo de atendimento (Tipo da Cirurgia, Setor do Centro de Reabilitação, Produtos da Oficina e etc.)\n\nAdministrativo  = CENTRO DE REABILITAÇÃO\nAmbulatório = CENTRO DE REABILITAÇÃO\nAparelhos = OFICINA ORTOPEDICA\nAparelhos - (Imobilizadores) = OFICINA ORTOPEDICA\nAparelhos - (Ortese Craniana) = OFICINA ORTOPEDICA\nAparelhos - (Ortese de Mão) = OFICINA ORTOPEDICA\nAparelhos Serviço = OFICINA ORTOPEDICA\nArte e Reabilitação = CENTRO DE REABILITAÇÃO\nAvaliação Global = CENTRO DE REABILITAÇÃO\nCDI - Eletroneuromiografia - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Laboratório de Marcha - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Raios X - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Ressonância Magnética - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Tomografia - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Ultrassonografia - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Urodinamica - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Videodeglutograma - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCirurgia Artroplastia de Joelho = HOSPITAL\nCirurgia Artroplastia de Quadril = HOSPITAL\nCirurgia Artroplastia Diversa = HOSPITAL\nCirurgia Artroscopia de Joelho = HOSPITAL\nCirurgia Artroscopia Diversa = HOSPITAL\nCirurgia bloqueio = HOSPITAL\nCirurgia Coluna = HOSPITAL\nCirurgia Diversa = HOSPITAL\nCirurgia Escoliose = HOSPITAL\nCirurgia Neuro = HOSPITAL\nCirurgia ortopédica = HOSPITAL\nCirurgia Trauma = HOSPITAL\nColete - 3D Rigo Cheneau = OFICINA ORTOPEDICA\nColete - TLSO = OFICINA ORTOPEDICA\nColetes Serviço = OFICINA ORTOPEDICA\nCONSULTA FATURAVEL = CENTRO MÉDICO\nCONSULTA NÃO FATURAVEL = CENTRO MÉDICO\nCurativo Sem Anestesia = CÂMARA HIPERBÁRICA\nCurativos em geral sem anestesia, exceto queimados = CÂMARA HIPERBÁRICA\nESTATÍSTICA OFICINA = OFICINA ORTOPEDICA\nFisioterapia = CENTRO DE REABILITAÇÃO\nFisioterapia Adulto = CENTRO DE REABILITAÇÃO\nFisioterapia Aquática = CENTRO DE REABILITAÇÃO\nFisioterapia Infantil = CENTRO DE REABILITAÇÃO\nFonoaudiologia = CENTRO DE REABILITAÇÃO\nFonoaudiologia Adulto = CENTRO DE REABILITAÇÃO\nFonoaudiologia Infantil = CENTRO DE REABILITAÇÃO\nGoteiras = OFICINA ORTOPEDICA\nGoteiras Serviço = OFICINA ORTOPEDICA\nMúsico Terapia = CENTRO DE REABILITAÇÃO\nOdontologia = CENTRO DE REABILITAÇÃO\nPacote de Oxigenoterapia hiperbárica (10 sessões) = CÂMARA HIPERBÁRICA\nPacote de Oxigenoterapia hiperbárica (5 sessões) = CÂMARA HIPERBÁRICA\nPedagogia = CENTRO DE REABILITAÇÃO\nPedagogia Infantil = CENTRO DE REABILITAÇÃO\nPROCEDIMENTOS = CENTRO MÉDICO\nProtese = OFICINA ORTOPEDICA\nProteses Serviço = OFICINA ORTOPEDICA\nPsicologia = CENTRO DE REABILITAÇÃO\nPsicologia Adulto = CENTRO DE REABILITAÇÃO\nPsicologia Infantil = CENTRO DE REABILITAÇÃO\nRecepção Adulto = CENTRO DE REABILITAÇÃO\nRecepção Centro Diagnostico - Ibirapuera = CENTRO DE DIAGNÓSTICO\nRevenda = OFICINA ORTOPEDICA\nRevenda - Cadeira de Banho = OFICINA ORTOPEDICA\nRevenda - Cadeiras = OFICINA ORTOPEDICA\nRevenda - Cadeiras Motorizadas = OFICINA ORTOPEDICA\nRevenda - Seating = OFICINA ORTOPEDICA\nRobotica = CENTRO DE REABILITAÇÃO\nSapataria = OFICINA ORTOPEDICA\nSapataria Serviço = OFICINA ORTOPEDICA\nSeating = OFICINA ORTOPEDICA\nSeating Serviços = OFICINA ORTOPEDICA\nServiço Social = CENTRO DE REABILITAÇÃO\nSessão de OHB (2 Horas)  = CÂMARA HIPERBÁRICA\nSessão de oxigenoterapia hiperbárica (por sessão de 2 horas) = CÂMARA HIPERBÁRICA\nTerapia Ocupacional = CENTRO DE REABILITAÇÃO\nTerapia Ocupacional Adulto = CENTRO DE REABILITAÇÃO\nTerapia Ocupacional Infantil = CENTRO DE REABILITAÇÃO\nTERAPIAS = CENTRO DE TERAPIA"
+        },
+        {
+          "name": "qt_atendimento",
+          "type": "INT",
+          "description": "Quantidade de atendimentos para Camara Hiperbarica\nQuantidade de Cirurgias para o Hospital\nQuantidade de Exames para o centro de Diagnostico\nQuantidade de Terapias para o Centro de Terapia\nQuantidade de Consultas para o Centro Médico\nQuantidade de Produtos para a Oficina\nQuantidade de Atendimentos para Oficina quando a TipoAtendimento contiver ESTATÍSTICA, neste caso não considerar como Produto da Oficina"
+        },
+        {
+          "name": "Estabelecimento",
+          "type": "VARCHAR(MAX)",
+          "description": "Descrição do Estabelecimento onde o atendimento aconteceu, podendo ser (AACD Ibirapuera\nAACD Mooca,\nAACD Osasco,\nAACD Recife,\nAACD Porto Alegre,\nAACD Uberlândia,\nAACD Mogi,\nAACD Lar Escola,\nAACD Poços de Caldas,\nAACD Sambura,\n)"
+        },
+        {
+          "name": "TipoConvênio",
+          "type": "VARCHAR(50)",
+          "description": "Descrição dos tipos de convênios (Fonte Pagadora) dos atendimentos:\nConvênio\nParticular\nPrefeituras\nSem remuneração/filantrópicos\nSUS"
+        },
+        {
+          "name": "Convênio",
+          "type": "VARCHAR(MAX)",
+          "description": "Descricao dos Convenios e ou Operadoras dos atendimentos:\n\nAfresp\nAmil Grupo\nAssefaz  \nBradesco Operadora de Planos Saúde\nBradesco Saúde\nCabesp\nCare Plus\nCET\nCondemat\nConvênio Pagador\nEconomus\nEstatística Oficina\nF.427 - Condeca  - Vida é Movimento Mooca\nF.563 - Conselho Estadual do Idoso\nF.645 - TF03/2025 - Funcriança/Porto Alegre\nFASC\nFLUXO DE URGÊNCIA E EMERGÊNCIA\nFSFX - Usisaúde\nFusex\nGama\nGRATUIDADE\nHapVida Notre Dame\nHBC SAUDE LTDA\nHospital Cruz Azul\nHospital Frei Galvão\nHSPM \nIamspe - HSPE\nMediservice\nMetrus\nOmint\nParticular\nPorto Seguro\nPostal Saúde\nPrefeitura de Caraguatatuba\nPrefeitura de Itupeva\nPrefeitura de São Caetano do Sul\nPrefeitura Municipal de Caçapava\nPrevent Senior\nPRODUTO EM GARANTIA\nSaúde ABAS\nSaúde Caixa\nSaúde Caixa - Rio Grande doSul\nSaúde Petrobrás\nSeguros Unimed\nSPA\nSul América\nSul América - Uberlândia\nSUS - Sistema Unico de Saude\nTotal MedCare (Hospital Adventista)\nUnimed CNU\nUnimed Intercambio\nVIVEST/ Fundação Cesp"
+        }
+      ]
+    },
+    {
+      "name": "Pacientes",
+      "description": "Tabela de pacientes",
+      "columns": [
+        {
+          "name": "Id",
+          "type": "INT",
+          "description": "ID único do paciente"
+        },
+        {
+          "name": "DataNascimento",
+          "type": "DATE",
+          "description": "Data de nascimento"
+        },
+        {
+          "name": "CPF",
+          "type": "VARCHAR",
+          "description": "CPF do paciente"
+        },
+        {
+          "name": "Sexo",
+          "type": "VARCHAR(50)",
+          "description": "Sexo ou Gênero dos pacientes"
+        },
+        {
+          "name": "EstadoCivil",
+          "type": "VARCHAR(200)",
+          "description": "Estado Civil dos pacientes"
+        },
+        {
+          "name": "Religiao",
+          "type": "VARCHAR(200)",
+          "description": "Religião dos pacientes"
+        },
+        {
+          "name": "DS_ENDERECO",
+          "type": "VARCHAR(MAX)",
+          "description": "Descrição dos endereços dos pacientes\n(Sempre pesquisar com LIKE removendo acentuação)"
+        },
+        {
+          "name": "CD_CEP",
+          "type": "VARCHAR(50)",
+          "description": "CEP do Endereço dos pacientes"
+        },
+        {
+          "name": "DS_BAIRRO",
+          "type": "VARCHAR(200)",
+          "description": "Descrição do Bairro do Endereço dos pacientes\n(Sempre pesquisar com LIKE removendo acentuação)"
+        },
+        {
+          "name": "DS_MUNICIPIO",
+          "type": "VARCHAR(MAX)",
+          "description": "Município do Endereço dos pacientes\n(Sempre pesquisar com LIKE removendo acentuação)"
+        },
+        {
+          "name": "SG_ESTADO",
+          "type": "VARCHAR(50)",
+          "description": "Sigla do Estado do Endereço dos Pacientes"
+        },
+        {
+          "name": "DS_MUNICIPIO_CEP",
+          "type": "VARCHAR(MAX)",
+          "description": "Descrição do Município do Endereço dos pacientes pelo CEP\n(Sempre pesquisar com LIKE removendo acentuação)"
+        }
+      ]
+    }
+  ]
+}
+
+        REGRAS OBRIGATÓRIAS:
+        1. Use APENAS comandos SELECT
+        2. Para filtros de data, SEMPRE use as funções MONTH() e YEAR()
+        3. Para contagens, use COUNT(*) com alias descritivo
+        4. Use TOP 100 para limitar resultados quando necessário
+        5. Evite SELECT *, prefira colunas específicas
+        6. Se a pergunta mencionar dados que não existem no dicionário, responda: "DADOS_NAO_ENCONTRADOS"
+        7. **NOVO: Para queries "TOP N ao longo do tempo", use CTE para filtrar primeiro:**
+        Exemplo: "top 3 setores ao longo dos meses" deve gerar:
+        WITH TopN AS (SELECT TOP N coluna FROM tabela GROUP BY coluna ORDER BY SUM(valor) DESC)
+        SELECT mes, ano, coluna, SUM(valor) FROM tabela WHERE coluna IN (SELECT coluna FROM TopN) GROUP BY mes, ano, coluna ORDER BY ano, mes
+
+        MAPEAMENTO DE MESES EM PORTUGUÊS (OBRIGATÓRIO):
+        - janeiro = 1, fevereiro = 2, março = 3, abril = 4
+        - maio = 5, junho = 6, julho = 7, agosto = 8
+        - setembro = 9, outubro = 10, novembro = 11, dezembro = 12
+
+        PERGUNTA DO USUÁRIO: quantidade de pacientes SUS de Ponta Grossa, Maringa, Foz do Iguaçu e Curitiba em 2025
+
+        Gere APENAS a consulta SQL (sem explicações):
+[AI-SQL] Iniciando conversa com Direct Line...
+[AI-SQL] Conversa iniciada: CdQQHjtmLp85K6JPFmwFOl-us
+[AI-SQL] Enviando pergunta para o Copilot...
+[AI-SQL] Pergunta enviada com sucesso
+[AI-SQL] Aguardando resposta do Copilot...
+[AI-SQL] Resposta recebida após 9 tentativas
+[AI-SQL] Resposta completa do Copilot: "```sql
+SELECT COUNT(*) AS quantidade_pacientes_SUS
+FROM Atendimentos A
+JOIN Pacientes P ON A.PacienteId = P.Id
+WHERE A.TipoConvênio = 'SUS'
+  AND YEAR(A.DataAtendimento) = 2025
+  AND (P.DS_MUNICIPIO LIKE '%Ponta Grossa%' OR P.DS_MUNICIPIO LIKE '%Maringa%' OR P.DS_MUNICIPIO LIKE '%Foz do Iguaçu%' OR P.DS_MUNICIPIO LIKE '%Curitiba%')
+```
+O conteúdo gerado por IA pode estar incorreto"
+[AI-SQL] Iniciando limpeza da resposta...
+[AI-SQL] SQL extraída do bloco: "SELECT COUNT(*) AS quantidade_pacientes_SUS
+FROM Atendimentos A
+JOIN Pacientes P ON A.PacienteId = P.Id
+WHERE A.TipoConvênio = 'SUS'
+  AND YEAR(A.DataAtendimento) = 2025
+  AND (P.DS_MUNICIPIO LIKE '%Ponta Grossa%' OR P.DS_MUNICIPIO LIKE '%Maringa%' OR P.DS_MUNICIPIO LIKE '%Foz do Iguaçu%' OR P.DS_MUNICIPIO LIKE '%Curitiba%')"
+[AI-SQL] SQL após limpeza: "SELECT COUNT(*) AS quantidade_pacientes_SUS
+FROM Atendimentos A
+JOIN Pacientes P ON A.PacienteId = P.Id
+WHERE A.TipoConvênio = 'SUS'
+  AND YEAR(A.DataAtendimento) = 2025
+  AND (P.DS_MUNICIPIO LIKE '%Ponta Grossa%' OR P.DS_MUNICIPIO LIKE '%Maringa%' OR P.DS_MUNICIPIO LIKE '%Foz do Iguaçu%' OR P.DS_MUNICIPIO LIKE '%Curitiba%')"
+[AI-SQL] Validando sintaxe da SQL...
+[2025-10-10T18:16:52.687Z] GET /api/data-dictionaries
+[2025-10-10T18:16:52.707Z] GET /api/data-dictionaries
+[2025-10-10T18:16:55.090Z] GET /api/data-dictionaries
+[2025-10-10T18:16:57.828Z] GET /api/data-dictionaries/1/full
+[2025-10-10T18:17:05.047Z] PUT /api/data-dictionaries/1/tables/12/columns/30
+[EDIT COLUMN] ID: 30, Table: 12, Name: Município, Type: VARCHAR(MAX), Desc length: 84
+[EDIT COLUMN] Sucesso! Coluna 30 atualizada
+[2025-10-10T18:17:06.146Z] GET /api/data-dictionaries/1/full
+[2025-10-10T18:24:20.611Z] GET /api/data-dictionaries/active
+[2025-10-10T18:24:20.638Z] POST /api/chat/ai-sql
+[AI-SQL] Processando pergunta: "temos pacientes SUS de Ponta Grossa, Maringa, Foz do Iguaçu e Curitiba no ano de 2025?"
+[AI-SQL] Dicionário de dados: Presente
+[AI-SQL] Prompt completo sendo enviado:
+INSTRUÇÃO ABSOLUTA: Responda APENAS com a consulta SQL. Não adicione explicações, comentários ou texto extra.
+
+        Você é um assistente especializado em gerar consultas SQL para SQL Server (T-SQL).
+
+        DICIONÁRIO DE DADOS DAS TABELAS DISPONÍVEIS:
+        {
+  "tables": [
+    {
+      "name": "Atendimentos",
+      "description": "Sempre somar a coluna qt_atendimentos para contagem de atendimentos.\nTabela de atendimentos realizados, \nCirurgias realizadas, \nProdutos entregues (Exceto TipoAtendimento = ESTATÍSTICA OFICINA), \nTerapias realizadas, \nExames realizados, \nAtendimentos Oficina (Somente TipoAtendimento = ESTATÍSTICA OFICINA)",
+      "columns": [
+        {
+          "name": "Id",
+          "type": "INT",
+          "description": "ID do atendimento"
+        },
+        {
+          "name": "DataAtendimento",
+          "type": "DATETIME",
+          "description": "Data e hora do atendimento"
+        },
+        {
+          "name": "PacienteId",
+          "type": "INT",
+          "description": "ID do paciente"
+        },
+        {
+          "name": "UnidadeNeg",
+          "type": "VARCHAR(MAX)",
+          "description": "Descrição da Unidade de Negócio (HOSPITAL,CENTRO DE REABILITAÇÃO,CENTRO MÉDICO,CENTRO DE TERAPIA,CENTRO DE DIAGNÓSTICO,OFICINA ORTOPEDICA,CÂMARA HIPERBÁRICA)"
+        },
+        {
+          "name": "TipoAtendimento",
+          "type": "INT",
+          "description": "Tipo de atendimento (Tipo da Cirurgia, Setor do Centro de Reabilitação, Produtos da Oficina e etc.)\n\nAdministrativo  = CENTRO DE REABILITAÇÃO\nAmbulatório = CENTRO DE REABILITAÇÃO\nAparelhos = OFICINA ORTOPEDICA\nAparelhos - (Imobilizadores) = OFICINA ORTOPEDICA\nAparelhos - (Ortese Craniana) = OFICINA ORTOPEDICA\nAparelhos - (Ortese de Mão) = OFICINA ORTOPEDICA\nAparelhos Serviço = OFICINA ORTOPEDICA\nArte e Reabilitação = CENTRO DE REABILITAÇÃO\nAvaliação Global = CENTRO DE REABILITAÇÃO\nCDI - Eletroneuromiografia - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Laboratório de Marcha - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Raios X - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Ressonância Magnética - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Tomografia - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Ultrassonografia - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Urodinamica - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Videodeglutograma - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCirurgia Artroplastia de Joelho = HOSPITAL\nCirurgia Artroplastia de Quadril = HOSPITAL\nCirurgia Artroplastia Diversa = HOSPITAL\nCirurgia Artroscopia de Joelho = HOSPITAL\nCirurgia Artroscopia Diversa = HOSPITAL\nCirurgia bloqueio = HOSPITAL\nCirurgia Coluna = HOSPITAL\nCirurgia Diversa = HOSPITAL\nCirurgia Escoliose = HOSPITAL\nCirurgia Neuro = HOSPITAL\nCirurgia ortopédica = HOSPITAL\nCirurgia Trauma = HOSPITAL\nColete - 3D Rigo Cheneau = OFICINA ORTOPEDICA\nColete - TLSO = OFICINA ORTOPEDICA\nColetes Serviço = OFICINA ORTOPEDICA\nCONSULTA FATURAVEL = CENTRO MÉDICO\nCONSULTA NÃO FATURAVEL = CENTRO MÉDICO\nCurativo Sem Anestesia = CÂMARA HIPERBÁRICA\nCurativos em geral sem anestesia, exceto queimados = CÂMARA HIPERBÁRICA\nESTATÍSTICA OFICINA = OFICINA ORTOPEDICA\nFisioterapia = CENTRO DE REABILITAÇÃO\nFisioterapia Adulto = CENTRO DE REABILITAÇÃO\nFisioterapia Aquática = CENTRO DE REABILITAÇÃO\nFisioterapia Infantil = CENTRO DE REABILITAÇÃO\nFonoaudiologia = CENTRO DE REABILITAÇÃO\nFonoaudiologia Adulto = CENTRO DE REABILITAÇÃO\nFonoaudiologia Infantil = CENTRO DE REABILITAÇÃO\nGoteiras = OFICINA ORTOPEDICA\nGoteiras Serviço = OFICINA ORTOPEDICA\nMúsico Terapia = CENTRO DE REABILITAÇÃO\nOdontologia = CENTRO DE REABILITAÇÃO\nPacote de Oxigenoterapia hiperbárica (10 sessões) = CÂMARA HIPERBÁRICA\nPacote de Oxigenoterapia hiperbárica (5 sessões) = CÂMARA HIPERBÁRICA\nPedagogia = CENTRO DE REABILITAÇÃO\nPedagogia Infantil = CENTRO DE REABILITAÇÃO\nPROCEDIMENTOS = CENTRO MÉDICO\nProtese = OFICINA ORTOPEDICA\nProteses Serviço = OFICINA ORTOPEDICA\nPsicologia = CENTRO DE REABILITAÇÃO\nPsicologia Adulto = CENTRO DE REABILITAÇÃO\nPsicologia Infantil = CENTRO DE REABILITAÇÃO\nRecepção Adulto = CENTRO DE REABILITAÇÃO\nRecepção Centro Diagnostico - Ibirapuera = CENTRO DE DIAGNÓSTICO\nRevenda = OFICINA ORTOPEDICA\nRevenda - Cadeira de Banho = OFICINA ORTOPEDICA\nRevenda - Cadeiras = OFICINA ORTOPEDICA\nRevenda - Cadeiras Motorizadas = OFICINA ORTOPEDICA\nRevenda - Seating = OFICINA ORTOPEDICA\nRobotica = CENTRO DE REABILITAÇÃO\nSapataria = OFICINA ORTOPEDICA\nSapataria Serviço = OFICINA ORTOPEDICA\nSeating = OFICINA ORTOPEDICA\nSeating Serviços = OFICINA ORTOPEDICA\nServiço Social = CENTRO DE REABILITAÇÃO\nSessão de OHB (2 Horas)  = CÂMARA HIPERBÁRICA\nSessão de oxigenoterapia hiperbárica (por sessão de 2 horas) = CÂMARA HIPERBÁRICA\nTerapia Ocupacional = CENTRO DE REABILITAÇÃO\nTerapia Ocupacional Adulto = CENTRO DE REABILITAÇÃO\nTerapia Ocupacional Infantil = CENTRO DE REABILITAÇÃO\nTERAPIAS = CENTRO DE TERAPIA"
+        },
+        {
+          "name": "qt_atendimento",
+          "type": "INT",
+          "description": "Quantidade de atendimentos para Camara Hiperbarica\nQuantidade de Cirurgias para o Hospital\nQuantidade de Exames para o centro de Diagnostico\nQuantidade de Terapias para o Centro de Terapia\nQuantidade de Consultas para o Centro Médico\nQuantidade de Produtos para a Oficina\nQuantidade de Atendimentos para Oficina quando a TipoAtendimento contiver ESTATÍSTICA, neste caso não considerar como Produto da Oficina"
+        },
+        {
+          "name": "Estabelecimento",
+          "type": "VARCHAR(MAX)",
+          "description": "Descrição do Estabelecimento onde o atendimento aconteceu, podendo ser (AACD Ibirapuera\nAACD Mooca,\nAACD Osasco,\nAACD Recife,\nAACD Porto Alegre,\nAACD Uberlândia,\nAACD Mogi,\nAACD Lar Escola,\nAACD Poços de Caldas,\nAACD Sambura,\n)"
+        },
+        {
+          "name": "TipoConvênio",
+          "type": "VARCHAR(50)",
+          "description": "Descrição dos tipos de convênios (Fonte Pagadora) dos atendimentos:\nConvênio\nParticular\nPrefeituras\nSem remuneração/filantrópicos\nSUS"
+        },
+        {
+          "name": "Convênio",
+          "type": "VARCHAR(MAX)",
+          "description": "Descricao dos Convenios e ou Operadoras dos atendimentos:\n\nAfresp\nAmil Grupo\nAssefaz  \nBradesco Operadora de Planos Saúde\nBradesco Saúde\nCabesp\nCare Plus\nCET\nCondemat\nConvênio Pagador\nEconomus\nEstatística Oficina\nF.427 - Condeca  - Vida é Movimento Mooca\nF.563 - Conselho Estadual do Idoso\nF.645 - TF03/2025 - Funcriança/Porto Alegre\nFASC\nFLUXO DE URGÊNCIA E EMERGÊNCIA\nFSFX - Usisaúde\nFusex\nGama\nGRATUIDADE\nHapVida Notre Dame\nHBC SAUDE LTDA\nHospital Cruz Azul\nHospital Frei Galvão\nHSPM \nIamspe - HSPE\nMediservice\nMetrus\nOmint\nParticular\nPorto Seguro\nPostal Saúde\nPrefeitura de Caraguatatuba\nPrefeitura de Itupeva\nPrefeitura de São Caetano do Sul\nPrefeitura Municipal de Caçapava\nPrevent Senior\nPRODUTO EM GARANTIA\nSaúde ABAS\nSaúde Caixa\nSaúde Caixa - Rio Grande doSul\nSaúde Petrobrás\nSeguros Unimed\nSPA\nSul América\nSul América - Uberlândia\nSUS - Sistema Unico de Saude\nTotal MedCare (Hospital Adventista)\nUnimed CNU\nUnimed Intercambio\nVIVEST/ Fundação Cesp"
+        }
+      ]
+    },
+    {
+      "name": "Pacientes",
+      "description": "Tabela de pacientes",
+      "columns": [
+        {
+          "name": "Id",
+          "type": "INT",
+          "description": "ID único do paciente"
+        },
+        {
+          "name": "DataNascimento",
+          "type": "DATE",
+          "description": "Data de nascimento"
+        },
+        {
+          "name": "CPF",
+          "type": "VARCHAR",
+          "description": "CPF do paciente"
+        },
+        {
+          "name": "Sexo",
+          "type": "VARCHAR(50)",
+          "description": "Sexo ou Gênero dos pacientes"
+        },
+        {
+          "name": "EstadoCivil",
+          "type": "VARCHAR(200)",
+          "description": "Estado Civil dos pacientes"
+        },
+        {
+          "name": "Religiao",
+          "type": "VARCHAR(200)",
+          "description": "Religião dos pacientes"
+        },
+        {
+          "name": "DS_ENDERECO",
+          "type": "VARCHAR(MAX)",
+          "description": "Descrição dos endereços dos pacientes\n* Tratar essa coluna com upper e remoção de acentuação antes de pesquisar.\n* Sempre pesquisar com LIKE e upper removendo acentuação."
+        },
+        {
+          "name": "CD_CEP",
+          "type": "VARCHAR(50)",
+          "description": "CEP do Endereço dos pacientes"
+        },
+        {
+          "name": "DS_BAIRRO",
+          "type": "VARCHAR(200)",
+          "description": "Descrição do Bairro do Endereço dos pacientes\n* Tratar essa coluna com upper e remoção de acentuação antes de pesquisar.\n* Sempre pesquisar com LIKE e upper removendo acentuação."
+        },
+        {
+          "name": "Município",
+          "type": "VARCHAR(MAX)",
+          "description": "Município do Endereço dos pacientes\n* Tratar essa coluna com upper e remoção de acentuação antes de pesquisar.\n* Sempre pesquisar com LIKE e upper removendo acentuação."
+        },
+        {
+          "name": "SG_ESTADO",
+          "type": "VARCHAR(50)",
+          "description": "Sigla do Estado do Endereço dos Pacientes"
+        },
+        {
+          "name": "DS_MUNICIPIO_CEP",
+          "type": "VARCHAR(MAX)",
+          "description": "Descrição do Município do Endereço dos pacientes pelo CEP\n* Tratar essa coluna com upper e remoção de acentuação antes de pesquisar.\n* Sempre pesquisar com LIKE e upper removendo acentuação."
+        }
+      ]
+    }
+  ]
+}
+
+        REGRAS OBRIGATÓRIAS:
+        1. Use APENAS comandos SELECT
+        2. Para filtros de data, SEMPRE use as funções MONTH() e YEAR()
+        3. Para contagens, use COUNT(*) com alias descritivo
+        4. Use TOP 100 para limitar resultados quando necessário
+        5. Evite SELECT *, prefira colunas específicas
+        6. Se a pergunta mencionar dados que não existem no dicionário, responda: "DADOS_NAO_ENCONTRADOS"
+        7. **NOVO: Para queries "TOP N ao longo do tempo", use CTE para filtrar primeiro:**
+        Exemplo: "top 3 setores ao longo dos meses" deve gerar:
+        WITH TopN AS (SELECT TOP N coluna FROM tabela GROUP BY coluna ORDER BY SUM(valor) DESC)
+        SELECT mes, ano, coluna, SUM(valor) FROM tabela WHERE coluna IN (SELECT coluna FROM TopN) GROUP BY mes, ano, coluna ORDER BY ano, mes
+
+        MAPEAMENTO DE MESES EM PORTUGUÊS (OBRIGATÓRIO):
+        - janeiro = 1, fevereiro = 2, março = 3, abril = 4
+        - maio = 5, junho = 6, julho = 7, agosto = 8
+        - setembro = 9, outubro = 10, novembro = 11, dezembro = 12
+
+        PERGUNTA DO USUÁRIO: temos pacientes SUS de Ponta Grossa, Maringa, Foz do Iguaçu e Curitiba no ano de 2025?
+
+        Gere APENAS a consulta SQL (sem explicações):
+[AI-SQL] Iniciando conversa com Direct Line...
+[AI-SQL] Conversa iniciada: KsZhqj8DHJMCyfcv3dxw3-br
+[AI-SQL] Enviando pergunta para o Copilot...
+[AI-SQL] Pergunta enviada com sucesso
+[AI-SQL] Aguardando resposta do Copilot...
+[AI-SQL] Resposta recebida após 8 tentativas
+[AI-SQL] Resposta completa do Copilot: "```sql
+SELECT COUNT(*) AS TotalPacientes
+FROM Atendimentos A
+JOIN Pacientes P ON A.PacienteId = P.Id
+WHERE A.Convênio = 'SUS - Sistema Unico de Saude'
+AND YEAR(A.DataAtendimento) = 2025
+AND P.Município IN ('PONTA GROSSA', 'MARINGA', 'FOZ DO IGUAÇU', 'CURITIBA')
+```
+O conteúdo gerado por IA pode estar incorreto"
+[AI-SQL] Iniciando limpeza da resposta...
+[AI-SQL] SQL extraída do bloco: "SELECT COUNT(*) AS TotalPacientes
+FROM Atendimentos A
+JOIN Pacientes P ON A.PacienteId = P.Id
+WHERE A.Convênio = 'SUS - Sistema Unico de Saude'
+AND YEAR(A.DataAtendimento) = 2025
+AND P.Município IN ('PONTA GROSSA', 'MARINGA', 'FOZ DO IGUAÇU', 'CURITIBA')"
+[AI-SQL] SQL após limpeza: "SELECT COUNT(*) AS TotalPacientes
+FROM Atendimentos A
+JOIN Pacientes P ON A.PacienteId = P.Id
+WHERE A.Convênio = 'SUS - Sistema Unico de Saude'
+AND YEAR(A.DataAtendimento) = 2025
+AND P.Município IN ('PONTA GROSSA', 'MARINGA', 'FOZ DO IGUAÇU', 'CURITIBA')"
+[AI-SQL] Validando sintaxe da SQL...
+[AI-SQL] ✅ SQL válida gerada: SELECT COUNT(*) AS TotalPacientes
+FROM Atendimentos A
+JOIN Pacientes P ON A.PacienteId = P.Id
+WHERE A.Convênio = 'SUS - Sistema Unico de Saude'
+AND YEAR(A.DataAtendimento) = 2025
+AND P.Município IN ('PONTA GROSSA', 'MARINGA', 'FOZ DO IGUAÇU', 'CURITIBA')
+[2025-10-10T18:24:28.914Z] POST /api/chat/query
+[2025-10-10T18:24:29.579Z] POST /api/chat/analyze
+[ANALYZE] Solicitando análise ao Copilot...
+[ANALYZE] Análise concluída com sucesso
+[2025-10-10T18:29:35.058Z] GET /api/data-dictionaries/active
+[2025-10-10T18:29:35.091Z] POST /api/chat/ai-sql
+[AI-SQL] Processando pergunta: "Certo. E quantos pacientes tivemos no ano de 2025 da fonte pagadora SUS e que são católicos?"
+[AI-SQL] Dicionário de dados: Presente
+[AI-SQL] Prompt completo sendo enviado:
+INSTRUÇÃO ABSOLUTA: Responda APENAS com a consulta SQL. Não adicione explicações, comentários ou texto extra.
+
+        Você é um assistente especializado em gerar consultas SQL para SQL Server (T-SQL).
+
+        DICIONÁRIO DE DADOS DAS TABELAS DISPONÍVEIS:
+        {
+  "tables": [
+    {
+      "name": "Atendimentos",
+      "description": "Sempre somar a coluna qt_atendimentos para contagem de atendimentos.\nTabela de atendimentos realizados, \nCirurgias realizadas, \nProdutos entregues (Exceto TipoAtendimento = ESTATÍSTICA OFICINA), \nTerapias realizadas, \nExames realizados, \nAtendimentos Oficina (Somente TipoAtendimento = ESTATÍSTICA OFICINA)",
+      "columns": [
+        {
+          "name": "Id",
+          "type": "INT",
+          "description": "ID do atendimento"
+        },
+        {
+          "name": "DataAtendimento",
+          "type": "DATETIME",
+          "description": "Data e hora do atendimento"
+        },
+        {
+          "name": "PacienteId",
+          "type": "INT",
+          "description": "ID do paciente"
+        },
+        {
+          "name": "UnidadeNeg",
+          "type": "VARCHAR(MAX)",
+          "description": "Descrição da Unidade de Negócio (HOSPITAL,CENTRO DE REABILITAÇÃO,CENTRO MÉDICO,CENTRO DE TERAPIA,CENTRO DE DIAGNÓSTICO,OFICINA ORTOPEDICA,CÂMARA HIPERBÁRICA)"
+        },
+        {
+          "name": "TipoAtendimento",
+          "type": "INT",
+          "description": "Tipo de atendimento (Tipo da Cirurgia, Setor do Centro de Reabilitação, Produtos da Oficina e etc.)\n\nAdministrativo  = CENTRO DE REABILITAÇÃO\nAmbulatório = CENTRO DE REABILITAÇÃO\nAparelhos = OFICINA ORTOPEDICA\nAparelhos - (Imobilizadores) = OFICINA ORTOPEDICA\nAparelhos - (Ortese Craniana) = OFICINA ORTOPEDICA\nAparelhos - (Ortese de Mão) = OFICINA ORTOPEDICA\nAparelhos Serviço = OFICINA ORTOPEDICA\nArte e Reabilitação = CENTRO DE REABILITAÇÃO\nAvaliação Global = CENTRO DE REABILITAÇÃO\nCDI - Eletroneuromiografia - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Laboratório de Marcha - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Raios X - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Ressonância Magnética - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Tomografia - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Ultrassonografia - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Urodinamica - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Videodeglutograma - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCirurgia Artroplastia de Joelho = HOSPITAL\nCirurgia Artroplastia de Quadril = HOSPITAL\nCirurgia Artroplastia Diversa = HOSPITAL\nCirurgia Artroscopia de Joelho = HOSPITAL\nCirurgia Artroscopia Diversa = HOSPITAL\nCirurgia bloqueio = HOSPITAL\nCirurgia Coluna = HOSPITAL\nCirurgia Diversa = HOSPITAL\nCirurgia Escoliose = HOSPITAL\nCirurgia Neuro = HOSPITAL\nCirurgia ortopédica = HOSPITAL\nCirurgia Trauma = HOSPITAL\nColete - 3D Rigo Cheneau = OFICINA ORTOPEDICA\nColete - TLSO = OFICINA ORTOPEDICA\nColetes Serviço = OFICINA ORTOPEDICA\nCONSULTA FATURAVEL = CENTRO MÉDICO\nCONSULTA NÃO FATURAVEL = CENTRO MÉDICO\nCurativo Sem Anestesia = CÂMARA HIPERBÁRICA\nCurativos em geral sem anestesia, exceto queimados = CÂMARA HIPERBÁRICA\nESTATÍSTICA OFICINA = OFICINA ORTOPEDICA\nFisioterapia = CENTRO DE REABILITAÇÃO\nFisioterapia Adulto = CENTRO DE REABILITAÇÃO\nFisioterapia Aquática = CENTRO DE REABILITAÇÃO\nFisioterapia Infantil = CENTRO DE REABILITAÇÃO\nFonoaudiologia = CENTRO DE REABILITAÇÃO\nFonoaudiologia Adulto = CENTRO DE REABILITAÇÃO\nFonoaudiologia Infantil = CENTRO DE REABILITAÇÃO\nGoteiras = OFICINA ORTOPEDICA\nGoteiras Serviço = OFICINA ORTOPEDICA\nMúsico Terapia = CENTRO DE REABILITAÇÃO\nOdontologia = CENTRO DE REABILITAÇÃO\nPacote de Oxigenoterapia hiperbárica (10 sessões) = CÂMARA HIPERBÁRICA\nPacote de Oxigenoterapia hiperbárica (5 sessões) = CÂMARA HIPERBÁRICA\nPedagogia = CENTRO DE REABILITAÇÃO\nPedagogia Infantil = CENTRO DE REABILITAÇÃO\nPROCEDIMENTOS = CENTRO MÉDICO\nProtese = OFICINA ORTOPEDICA\nProteses Serviço = OFICINA ORTOPEDICA\nPsicologia = CENTRO DE REABILITAÇÃO\nPsicologia Adulto = CENTRO DE REABILITAÇÃO\nPsicologia Infantil = CENTRO DE REABILITAÇÃO\nRecepção Adulto = CENTRO DE REABILITAÇÃO\nRecepção Centro Diagnostico - Ibirapuera = CENTRO DE DIAGNÓSTICO\nRevenda = OFICINA ORTOPEDICA\nRevenda - Cadeira de Banho = OFICINA ORTOPEDICA\nRevenda - Cadeiras = OFICINA ORTOPEDICA\nRevenda - Cadeiras Motorizadas = OFICINA ORTOPEDICA\nRevenda - Seating = OFICINA ORTOPEDICA\nRobotica = CENTRO DE REABILITAÇÃO\nSapataria = OFICINA ORTOPEDICA\nSapataria Serviço = OFICINA ORTOPEDICA\nSeating = OFICINA ORTOPEDICA\nSeating Serviços = OFICINA ORTOPEDICA\nServiço Social = CENTRO DE REABILITAÇÃO\nSessão de OHB (2 Horas)  = CÂMARA HIPERBÁRICA\nSessão de oxigenoterapia hiperbárica (por sessão de 2 horas) = CÂMARA HIPERBÁRICA\nTerapia Ocupacional = CENTRO DE REABILITAÇÃO\nTerapia Ocupacional Adulto = CENTRO DE REABILITAÇÃO\nTerapia Ocupacional Infantil = CENTRO DE REABILITAÇÃO\nTERAPIAS = CENTRO DE TERAPIA"
+        },
+        {
+          "name": "qt_atendimento",
+          "type": "INT",
+          "description": "Quantidade de atendimentos para Camara Hiperbarica\nQuantidade de Cirurgias para o Hospital\nQuantidade de Exames para o centro de Diagnostico\nQuantidade de Terapias para o Centro de Terapia\nQuantidade de Consultas para o Centro Médico\nQuantidade de Produtos para a Oficina\nQuantidade de Atendimentos para Oficina quando a TipoAtendimento contiver ESTATÍSTICA, neste caso não considerar como Produto da Oficina"
+        },
+        {
+          "name": "Estabelecimento",
+          "type": "VARCHAR(MAX)",
+          "description": "Descrição do Estabelecimento onde o atendimento aconteceu, podendo ser (AACD Ibirapuera\nAACD Mooca,\nAACD Osasco,\nAACD Recife,\nAACD Porto Alegre,\nAACD Uberlândia,\nAACD Mogi,\nAACD Lar Escola,\nAACD Poços de Caldas,\nAACD Sambura,\n)"
+        },
+        {
+          "name": "TipoConvênio",
+          "type": "VARCHAR(50)",
+          "description": "Descrição dos tipos de convênios (Fonte Pagadora) dos atendimentos:\nConvênio\nParticular\nPrefeituras\nSem remuneração/filantrópicos\nSUS"
+        },
+        {
+          "name": "Convênio",
+          "type": "VARCHAR(MAX)",
+          "description": "Descricao dos Convenios e ou Operadoras dos atendimentos:\n\nAfresp\nAmil Grupo\nAssefaz  \nBradesco Operadora de Planos Saúde\nBradesco Saúde\nCabesp\nCare Plus\nCET\nCondemat\nConvênio Pagador\nEconomus\nEstatística Oficina\nF.427 - Condeca  - Vida é Movimento Mooca\nF.563 - Conselho Estadual do Idoso\nF.645 - TF03/2025 - Funcriança/Porto Alegre\nFASC\nFLUXO DE URGÊNCIA E EMERGÊNCIA\nFSFX - Usisaúde\nFusex\nGama\nGRATUIDADE\nHapVida Notre Dame\nHBC SAUDE LTDA\nHospital Cruz Azul\nHospital Frei Galvão\nHSPM \nIamspe - HSPE\nMediservice\nMetrus\nOmint\nParticular\nPorto Seguro\nPostal Saúde\nPrefeitura de Caraguatatuba\nPrefeitura de Itupeva\nPrefeitura de São Caetano do Sul\nPrefeitura Municipal de Caçapava\nPrevent Senior\nPRODUTO EM GARANTIA\nSaúde ABAS\nSaúde Caixa\nSaúde Caixa - Rio Grande doSul\nSaúde Petrobrás\nSeguros Unimed\nSPA\nSul América\nSul América - Uberlândia\nSUS - Sistema Unico de Saude\nTotal MedCare (Hospital Adventista)\nUnimed CNU\nUnimed Intercambio\nVIVEST/ Fundação Cesp"
+        }
+      ]
+    },
+    {
+      "name": "Pacientes",
+      "description": "Tabela de pacientes",
+      "columns": [
+        {
+          "name": "Id",
+          "type": "INT",
+          "description": "ID único do paciente"
+        },
+        {
+          "name": "DataNascimento",
+          "type": "DATE",
+          "description": "Data de nascimento"
+        },
+        {
+          "name": "CPF",
+          "type": "VARCHAR",
+          "description": "CPF do paciente"
+        },
+        {
+          "name": "Sexo",
+          "type": "VARCHAR(50)",
+          "description": "Sexo ou Gênero dos pacientes"
+        },
+        {
+          "name": "EstadoCivil",
+          "type": "VARCHAR(200)",
+          "description": "Estado Civil dos pacientes"
+        },
+        {
+          "name": "Religiao",
+          "type": "VARCHAR(200)",
+          "description": "Religião dos pacientes"
+        },
+        {
+          "name": "DS_ENDERECO",
+          "type": "VARCHAR(MAX)",
+          "description": "Descrição dos endereços dos pacientes\n* Tratar essa coluna com upper e remoção de acentuação antes de pesquisar.\n* Sempre pesquisar com LIKE e upper removendo acentuação."
+        },
+        {
+          "name": "CD_CEP",
+          "type": "VARCHAR(50)",
+          "description": "CEP do Endereço dos pacientes"
+        },
+        {
+          "name": "DS_BAIRRO",
+          "type": "VARCHAR(200)",
+          "description": "Descrição do Bairro do Endereço dos pacientes\n* Tratar essa coluna com upper e remoção de acentuação antes de pesquisar.\n* Sempre pesquisar com LIKE e upper removendo acentuação."
+        },
+        {
+          "name": "Município",
+          "type": "VARCHAR(MAX)",
+          "description": "Município do Endereço dos pacientes\n* Tratar essa coluna com upper e remoção de acentuação antes de pesquisar.\n* Sempre pesquisar com LIKE e upper removendo acentuação."
+        },
+        {
+          "name": "SG_ESTADO",
+          "type": "VARCHAR(50)",
+          "description": "Sigla do Estado do Endereço dos Pacientes"
+        },
+        {
+          "name": "DS_MUNICIPIO_CEP",
+          "type": "VARCHAR(MAX)",
+          "description": "Descrição do Município do Endereço dos pacientes pelo CEP\n* Tratar essa coluna com upper e remoção de acentuação antes de pesquisar.\n* Sempre pesquisar com LIKE e upper removendo acentuação."
+        }
+      ]
+    }
+  ]
+}
+
+        REGRAS OBRIGATÓRIAS:
+        1. Use APENAS comandos SELECT
+        2. Para filtros de data, SEMPRE use as funções MONTH() e YEAR()
+        3. Para contagens, use COUNT(*) com alias descritivo
+        4. Use TOP 100 para limitar resultados quando necessário
+        5. Evite SELECT *, prefira colunas específicas
+        6. Se a pergunta mencionar dados que não existem no dicionário, responda: "DADOS_NAO_ENCONTRADOS"
+        7. **NOVO: Para queries "TOP N ao longo do tempo", use CTE para filtrar primeiro:**
+        Exemplo: "top 3 setores ao longo dos meses" deve gerar:
+        WITH TopN AS (SELECT TOP N coluna FROM tabela GROUP BY coluna ORDER BY SUM(valor) DESC)
+        SELECT mes, ano, coluna, SUM(valor) FROM tabela WHERE coluna IN (SELECT coluna FROM TopN) GROUP BY mes, ano, coluna ORDER BY ano, mes
+
+        MAPEAMENTO DE MESES EM PORTUGUÊS (OBRIGATÓRIO):
+        - janeiro = 1, fevereiro = 2, março = 3, abril = 4
+        - maio = 5, junho = 6, julho = 7, agosto = 8
+        - setembro = 9, outubro = 10, novembro = 11, dezembro = 12
+
+        PERGUNTA DO USUÁRIO: Certo. E quantos pacientes tivemos no ano de 2025 da fonte pagadora SUS e que são católicos?
+
+        Gere APENAS a consulta SQL (sem explicações):
+[AI-SQL] Iniciando conversa com Direct Line...
+[AI-SQL] Conversa iniciada: FMTO2XEd7mJKtctxyCwyqr-us
+[AI-SQL] Enviando pergunta para o Copilot...
+[AI-SQL] Pergunta enviada com sucesso
+[AI-SQL] Aguardando resposta do Copilot...
+[AI-SQL] Resposta recebida após 8 tentativas
+[AI-SQL] Resposta completa do Copilot: "```sql
+SELECT COUNT(*) AS total_pacientes
+FROM Atendimentos A
+JOIN Pacientes P ON A.PacienteId = P.Id
+WHERE YEAR(A.DataAtendimento) = 2025
+AND A.TipoConvênio = 'SUS'
+AND P.Religiao = 'Católico'
+```
+O conteúdo gerado por IA pode estar incorreto"
+[AI-SQL] Iniciando limpeza da resposta...
+[AI-SQL] SQL extraída do bloco: "SELECT COUNT(*) AS total_pacientes
+FROM Atendimentos A
+JOIN Pacientes P ON A.PacienteId = P.Id
+WHERE YEAR(A.DataAtendimento) = 2025
+AND A.TipoConvênio = 'SUS'
+AND P.Religiao = 'Católico'"
+[AI-SQL] SQL após limpeza: "SELECT COUNT(*) AS total_pacientes
+FROM Atendimentos A
+JOIN Pacientes P ON A.PacienteId = P.Id
+WHERE YEAR(A.DataAtendimento) = 2025
+AND A.TipoConvênio = 'SUS'
+AND P.Religiao = 'Católico'"
+[AI-SQL] Validando sintaxe da SQL...
+[AI-SQL] ✅ SQL válida gerada: SELECT COUNT(*) AS total_pacientes
+FROM Atendimentos A
+JOIN Pacientes P ON A.PacienteId = P.Id
+WHERE YEAR(A.DataAtendimento) = 2025
+AND A.TipoConvênio = 'SUS'
+AND P.Religiao = 'Católico'
+[2025-10-10T18:29:44.562Z] POST /api/chat/query
+[2025-10-10T18:29:54.416Z] POST /api/chat/analyze
+[ANALYZE] Solicitando análise ao Copilot...
+[ANALYZE] Análise concluída com sucesso
+[2025-10-10T18:31:16.730Z] GET /api/data-dictionaries/active
+[2025-10-10T18:31:16.760Z] POST /api/chat/ai-sql
+[AI-SQL] Processando pergunta: "Católico"
+[AI-SQL] Dicionário de dados: Presente
+[AI-SQL] Prompt completo sendo enviado:
+INSTRUÇÃO ABSOLUTA: Responda APENAS com a consulta SQL. Não adicione explicações, comentários ou texto extra.
+
+        Você é um assistente especializado em gerar consultas SQL para SQL Server (T-SQL).
+
+        DICIONÁRIO DE DADOS DAS TABELAS DISPONÍVEIS:
+        {
+  "tables": [
+    {
+      "name": "Atendimentos",
+      "description": "Sempre somar a coluna qt_atendimentos para contagem de atendimentos.\nTabela de atendimentos realizados, \nCirurgias realizadas, \nProdutos entregues (Exceto TipoAtendimento = ESTATÍSTICA OFICINA), \nTerapias realizadas, \nExames realizados, \nAtendimentos Oficina (Somente TipoAtendimento = ESTATÍSTICA OFICINA)",
+      "columns": [
+        {
+          "name": "Id",
+          "type": "INT",
+          "description": "ID do atendimento"
+        },
+        {
+          "name": "DataAtendimento",
+          "type": "DATETIME",
+          "description": "Data e hora do atendimento"
+        },
+        {
+          "name": "PacienteId",
+          "type": "INT",
+          "description": "ID do paciente"
+        },
+        {
+          "name": "UnidadeNeg",
+          "type": "VARCHAR(MAX)",
+          "description": "Descrição da Unidade de Negócio (HOSPITAL,CENTRO DE REABILITAÇÃO,CENTRO MÉDICO,CENTRO DE TERAPIA,CENTRO DE DIAGNÓSTICO,OFICINA ORTOPEDICA,CÂMARA HIPERBÁRICA)"
+        },
+        {
+          "name": "TipoAtendimento",
+          "type": "INT",
+          "description": "Tipo de atendimento (Tipo da Cirurgia, Setor do Centro de Reabilitação, Produtos da Oficina e etc.)\n\nAdministrativo  = CENTRO DE REABILITAÇÃO\nAmbulatório = CENTRO DE REABILITAÇÃO\nAparelhos = OFICINA ORTOPEDICA\nAparelhos - (Imobilizadores) = OFICINA ORTOPEDICA\nAparelhos - (Ortese Craniana) = OFICINA ORTOPEDICA\nAparelhos - (Ortese de Mão) = OFICINA ORTOPEDICA\nAparelhos Serviço = OFICINA ORTOPEDICA\nArte e Reabilitação = CENTRO DE REABILITAÇÃO\nAvaliação Global = CENTRO DE REABILITAÇÃO\nCDI - Eletroneuromiografia - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Laboratório de Marcha - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Raios X - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Ressonância Magnética - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Tomografia - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Ultrassonografia - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Urodinamica - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Videodeglutograma - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCirurgia Artroplastia de Joelho = HOSPITAL\nCirurgia Artroplastia de Quadril = HOSPITAL\nCirurgia Artroplastia Diversa = HOSPITAL\nCirurgia Artroscopia de Joelho = HOSPITAL\nCirurgia Artroscopia Diversa = HOSPITAL\nCirurgia bloqueio = HOSPITAL\nCirurgia Coluna = HOSPITAL\nCirurgia Diversa = HOSPITAL\nCirurgia Escoliose = HOSPITAL\nCirurgia Neuro = HOSPITAL\nCirurgia ortopédica = HOSPITAL\nCirurgia Trauma = HOSPITAL\nColete - 3D Rigo Cheneau = OFICINA ORTOPEDICA\nColete - TLSO = OFICINA ORTOPEDICA\nColetes Serviço = OFICINA ORTOPEDICA\nCONSULTA FATURAVEL = CENTRO MÉDICO\nCONSULTA NÃO FATURAVEL = CENTRO MÉDICO\nCurativo Sem Anestesia = CÂMARA HIPERBÁRICA\nCurativos em geral sem anestesia, exceto queimados = CÂMARA HIPERBÁRICA\nESTATÍSTICA OFICINA = OFICINA ORTOPEDICA\nFisioterapia = CENTRO DE REABILITAÇÃO\nFisioterapia Adulto = CENTRO DE REABILITAÇÃO\nFisioterapia Aquática = CENTRO DE REABILITAÇÃO\nFisioterapia Infantil = CENTRO DE REABILITAÇÃO\nFonoaudiologia = CENTRO DE REABILITAÇÃO\nFonoaudiologia Adulto = CENTRO DE REABILITAÇÃO\nFonoaudiologia Infantil = CENTRO DE REABILITAÇÃO\nGoteiras = OFICINA ORTOPEDICA\nGoteiras Serviço = OFICINA ORTOPEDICA\nMúsico Terapia = CENTRO DE REABILITAÇÃO\nOdontologia = CENTRO DE REABILITAÇÃO\nPacote de Oxigenoterapia hiperbárica (10 sessões) = CÂMARA HIPERBÁRICA\nPacote de Oxigenoterapia hiperbárica (5 sessões) = CÂMARA HIPERBÁRICA\nPedagogia = CENTRO DE REABILITAÇÃO\nPedagogia Infantil = CENTRO DE REABILITAÇÃO\nPROCEDIMENTOS = CENTRO MÉDICO\nProtese = OFICINA ORTOPEDICA\nProteses Serviço = OFICINA ORTOPEDICA\nPsicologia = CENTRO DE REABILITAÇÃO\nPsicologia Adulto = CENTRO DE REABILITAÇÃO\nPsicologia Infantil = CENTRO DE REABILITAÇÃO\nRecepção Adulto = CENTRO DE REABILITAÇÃO\nRecepção Centro Diagnostico - Ibirapuera = CENTRO DE DIAGNÓSTICO\nRevenda = OFICINA ORTOPEDICA\nRevenda - Cadeira de Banho = OFICINA ORTOPEDICA\nRevenda - Cadeiras = OFICINA ORTOPEDICA\nRevenda - Cadeiras Motorizadas = OFICINA ORTOPEDICA\nRevenda - Seating = OFICINA ORTOPEDICA\nRobotica = CENTRO DE REABILITAÇÃO\nSapataria = OFICINA ORTOPEDICA\nSapataria Serviço = OFICINA ORTOPEDICA\nSeating = OFICINA ORTOPEDICA\nSeating Serviços = OFICINA ORTOPEDICA\nServiço Social = CENTRO DE REABILITAÇÃO\nSessão de OHB (2 Horas)  = CÂMARA HIPERBÁRICA\nSessão de oxigenoterapia hiperbárica (por sessão de 2 horas) = CÂMARA HIPERBÁRICA\nTerapia Ocupacional = CENTRO DE REABILITAÇÃO\nTerapia Ocupacional Adulto = CENTRO DE REABILITAÇÃO\nTerapia Ocupacional Infantil = CENTRO DE REABILITAÇÃO\nTERAPIAS = CENTRO DE TERAPIA"
+        },
+        {
+          "name": "qt_atendimento",
+          "type": "INT",
+          "description": "Quantidade de atendimentos para Camara Hiperbarica\nQuantidade de Cirurgias para o Hospital\nQuantidade de Exames para o centro de Diagnostico\nQuantidade de Terapias para o Centro de Terapia\nQuantidade de Consultas para o Centro Médico\nQuantidade de Produtos para a Oficina\nQuantidade de Atendimentos para Oficina quando a TipoAtendimento contiver ESTATÍSTICA, neste caso não considerar como Produto da Oficina"
+        },
+        {
+          "name": "Estabelecimento",
+          "type": "VARCHAR(MAX)",
+          "description": "Descrição do Estabelecimento onde o atendimento aconteceu, podendo ser (AACD Ibirapuera\nAACD Mooca,\nAACD Osasco,\nAACD Recife,\nAACD Porto Alegre,\nAACD Uberlândia,\nAACD Mogi,\nAACD Lar Escola,\nAACD Poços de Caldas,\nAACD Sambura,\n)"
+        },
+        {
+          "name": "TipoConvênio",
+          "type": "VARCHAR(50)",
+          "description": "Descrição dos tipos de convênios (Fonte Pagadora) dos atendimentos:\nConvênio\nParticular\nPrefeituras\nSem remuneração/filantrópicos\nSUS"
+        },
+        {
+          "name": "Convênio",
+          "type": "VARCHAR(MAX)",
+          "description": "Descricao dos Convenios e ou Operadoras dos atendimentos:\n\nAfresp\nAmil Grupo\nAssefaz  \nBradesco Operadora de Planos Saúde\nBradesco Saúde\nCabesp\nCare Plus\nCET\nCondemat\nConvênio Pagador\nEconomus\nEstatística Oficina\nF.427 - Condeca  - Vida é Movimento Mooca\nF.563 - Conselho Estadual do Idoso\nF.645 - TF03/2025 - Funcriança/Porto Alegre\nFASC\nFLUXO DE URGÊNCIA E EMERGÊNCIA\nFSFX - Usisaúde\nFusex\nGama\nGRATUIDADE\nHapVida Notre Dame\nHBC SAUDE LTDA\nHospital Cruz Azul\nHospital Frei Galvão\nHSPM \nIamspe - HSPE\nMediservice\nMetrus\nOmint\nParticular\nPorto Seguro\nPostal Saúde\nPrefeitura de Caraguatatuba\nPrefeitura de Itupeva\nPrefeitura de São Caetano do Sul\nPrefeitura Municipal de Caçapava\nPrevent Senior\nPRODUTO EM GARANTIA\nSaúde ABAS\nSaúde Caixa\nSaúde Caixa - Rio Grande doSul\nSaúde Petrobrás\nSeguros Unimed\nSPA\nSul América\nSul América - Uberlândia\nSUS - Sistema Unico de Saude\nTotal MedCare (Hospital Adventista)\nUnimed CNU\nUnimed Intercambio\nVIVEST/ Fundação Cesp"
+        }
+      ]
+    },
+    {
+      "name": "Pacientes",
+      "description": "Tabela de pacientes",
+      "columns": [
+        {
+          "name": "Id",
+          "type": "INT",
+          "description": "ID único do paciente"
+        },
+        {
+          "name": "DataNascimento",
+          "type": "DATE",
+          "description": "Data de nascimento"
+        },
+        {
+          "name": "CPF",
+          "type": "VARCHAR",
+          "description": "CPF do paciente"
+        },
+        {
+          "name": "Sexo",
+          "type": "VARCHAR(50)",
+          "description": "Sexo ou Gênero dos pacientes"
+        },
+        {
+          "name": "EstadoCivil",
+          "type": "VARCHAR(200)",
+          "description": "Estado Civil dos pacientes"
+        },
+        {
+          "name": "Religiao",
+          "type": "VARCHAR(200)",
+          "description": "Religião dos pacientes"
+        },
+        {
+          "name": "DS_ENDERECO",
+          "type": "VARCHAR(MAX)",
+          "description": "Descrição dos endereços dos pacientes\n* Tratar essa coluna com upper e remoção de acentuação antes de pesquisar.\n* Sempre pesquisar com LIKE e upper removendo acentuação."
+        },
+        {
+          "name": "CD_CEP",
+          "type": "VARCHAR(50)",
+          "description": "CEP do Endereço dos pacientes"
+        },
+        {
+          "name": "DS_BAIRRO",
+          "type": "VARCHAR(200)",
+          "description": "Descrição do Bairro do Endereço dos pacientes\n* Tratar essa coluna com upper e remoção de acentuação antes de pesquisar.\n* Sempre pesquisar com LIKE e upper removendo acentuação."
+        },
+        {
+          "name": "Município",
+          "type": "VARCHAR(MAX)",
+          "description": "Município do Endereço dos pacientes\n* Tratar essa coluna com upper e remoção de acentuação antes de pesquisar.\n* Sempre pesquisar com LIKE e upper removendo acentuação."
+        },
+        {
+          "name": "SG_ESTADO",
+          "type": "VARCHAR(50)",
+          "description": "Sigla do Estado do Endereço dos Pacientes"
+        },
+        {
+          "name": "DS_MUNICIPIO_CEP",
+          "type": "VARCHAR(MAX)",
+          "description": "Descrição do Município do Endereço dos pacientes pelo CEP\n* Tratar essa coluna com upper e remoção de acentuação antes de pesquisar.\n* Sempre pesquisar com LIKE e upper removendo acentuação."
+        }
+      ]
+    }
+  ]
+}
+
+        REGRAS OBRIGATÓRIAS:
+        1. Use APENAS comandos SELECT
+        2. Para filtros de data, SEMPRE use as funções MONTH() e YEAR()
+        3. Para contagens, use COUNT(*) com alias descritivo
+        4. Use TOP 100 para limitar resultados quando necessário
+        5. Evite SELECT *, prefira colunas específicas
+        6. Se a pergunta mencionar dados que não existem no dicionário, responda: "DADOS_NAO_ENCONTRADOS"
+        7. **NOVO: Para queries "TOP N ao longo do tempo", use CTE para filtrar primeiro:**
+        Exemplo: "top 3 setores ao longo dos meses" deve gerar:
+        WITH TopN AS (SELECT TOP N coluna FROM tabela GROUP BY coluna ORDER BY SUM(valor) DESC)
+        SELECT mes, ano, coluna, SUM(valor) FROM tabela WHERE coluna IN (SELECT coluna FROM TopN) GROUP BY mes, ano, coluna ORDER BY ano, mes
+
+        MAPEAMENTO DE MESES EM PORTUGUÊS (OBRIGATÓRIO):
+        - janeiro = 1, fevereiro = 2, março = 3, abril = 4
+        - maio = 5, junho = 6, julho = 7, agosto = 8
+        - setembro = 9, outubro = 10, novembro = 11, dezembro = 12
+
+        PERGUNTA DO USUÁRIO: Católico
+
+        Gere APENAS a consulta SQL (sem explicações):
+[AI-SQL] Iniciando conversa com Direct Line...
+[AI-SQL] Conversa iniciada: 1ww5InoCbmOAy2ZIXo3Aks-us
+[AI-SQL] Enviando pergunta para o Copilot...
+[AI-SQL] Pergunta enviada com sucesso
+[AI-SQL] Aguardando resposta do Copilot...
+[2025-10-10T18:39:42.887Z] GET /favicon.ico
+[2025-10-10T18:39:42.905Z] GET /api/verify-token
+[2025-10-10T18:39:42.913Z] GET /api/pages
+GET /api/pages - requester anonymous
+[2025-10-10T18:39:42.938Z] GET /api/menu
+GET /api/menu - requester anonymous
+[2025-10-10T18:39:42.955Z] GET /api/config?cb=1760121582911
+[2025-10-10T18:39:54.442Z] GET /api/data-dictionaries/active
+[2025-10-10T18:39:54.461Z] POST /api/chat/ai-sql
+[AI-SQL] Processando pergunta: "atendimentos da oficina de 2025 por produto"
+[AI-SQL] Dicionário de dados: Presente
+[AI-SQL] Prompt completo sendo enviado:
+INSTRUÇÃO ABSOLUTA: Responda APENAS com a consulta SQL. Não adicione explicações, comentários ou texto extra.
+
+        Você é um assistente especializado em gerar consultas SQL para SQL Server (T-SQL).
+
+        DICIONÁRIO DE DADOS DAS TABELAS DISPONÍVEIS:
+        {
+  "tables": [
+    {
+      "name": "Atendimentos",
+      "description": "Sempre somar a coluna qt_atendimentos para contagem de atendimentos.\nTabela de atendimentos realizados, \nCirurgias realizadas, \nProdutos entregues (Exceto TipoAtendimento = ESTATÍSTICA OFICINA), \nTerapias realizadas, \nExames realizados, \nAtendimentos Oficina (Somente TipoAtendimento = ESTATÍSTICA OFICINA)",
+      "columns": [
+        {
+          "name": "Id",
+          "type": "INT",
+          "description": "ID do atendimento"
+        },
+        {
+          "name": "DataAtendimento",
+          "type": "DATETIME",
+          "description": "Data e hora do atendimento"
+        },
+        {
+          "name": "PacienteId",
+          "type": "INT",
+          "description": "ID do paciente"
+        },
+        {
+          "name": "UnidadeNeg",
+          "type": "VARCHAR(MAX)",
+          "description": "Descrição da Unidade de Negócio (HOSPITAL,CENTRO DE REABILITAÇÃO,CENTRO MÉDICO,CENTRO DE TERAPIA,CENTRO DE DIAGNÓSTICO,OFICINA ORTOPEDICA,CÂMARA HIPERBÁRICA)"
+        },
+        {
+          "name": "TipoAtendimento",
+          "type": "INT",
+          "description": "Tipo de atendimento (Tipo da Cirurgia, Setor do Centro de Reabilitação, Produtos da Oficina e etc.)\n\nAdministrativo  = CENTRO DE REABILITAÇÃO\nAmbulatório = CENTRO DE REABILITAÇÃO\nAparelhos = OFICINA ORTOPEDICA\nAparelhos - (Imobilizadores) = OFICINA ORTOPEDICA\nAparelhos - (Ortese Craniana) = OFICINA ORTOPEDICA\nAparelhos - (Ortese de Mão) = OFICINA ORTOPEDICA\nAparelhos Serviço = OFICINA ORTOPEDICA\nArte e Reabilitação = CENTRO DE REABILITAÇÃO\nAvaliação Global = CENTRO DE REABILITAÇÃO\nCDI - Eletroneuromiografia - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Laboratório de Marcha - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Raios X - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Ressonância Magnética - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Tomografia - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Ultrassonografia - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Urodinamica - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCDI - Videodeglutograma - Ibirapuera = CENTRO DE DIAGNÓSTICO\nCirurgia Artroplastia de Joelho = HOSPITAL\nCirurgia Artroplastia de Quadril = HOSPITAL\nCirurgia Artroplastia Diversa = HOSPITAL\nCirurgia Artroscopia de Joelho = HOSPITAL\nCirurgia Artroscopia Diversa = HOSPITAL\nCirurgia bloqueio = HOSPITAL\nCirurgia Coluna = HOSPITAL\nCirurgia Diversa = HOSPITAL\nCirurgia Escoliose = HOSPITAL\nCirurgia Neuro = HOSPITAL\nCirurgia ortopédica = HOSPITAL\nCirurgia Trauma = HOSPITAL\nColete - 3D Rigo Cheneau = OFICINA ORTOPEDICA\nColete - TLSO = OFICINA ORTOPEDICA\nColetes Serviço = OFICINA ORTOPEDICA\nCONSULTA FATURAVEL = CENTRO MÉDICO\nCONSULTA NÃO FATURAVEL = CENTRO MÉDICO\nCurativo Sem Anestesia = CÂMARA HIPERBÁRICA\nCurativos em geral sem anestesia, exceto queimados = CÂMARA HIPERBÁRICA\nESTATÍSTICA OFICINA = OFICINA ORTOPEDICA\nFisioterapia = CENTRO DE REABILITAÇÃO\nFisioterapia Adulto = CENTRO DE REABILITAÇÃO\nFisioterapia Aquática = CENTRO DE REABILITAÇÃO\nFisioterapia Infantil = CENTRO DE REABILITAÇÃO\nFonoaudiologia = CENTRO DE REABILITAÇÃO\nFonoaudiologia Adulto = CENTRO DE REABILITAÇÃO\nFonoaudiologia Infantil = CENTRO DE REABILITAÇÃO\nGoteiras = OFICINA ORTOPEDICA\nGoteiras Serviço = OFICINA ORTOPEDICA\nMúsico Terapia = CENTRO DE REABILITAÇÃO\nOdontologia = CENTRO DE REABILITAÇÃO\nPacote de Oxigenoterapia hiperbárica (10 sessões) = CÂMARA HIPERBÁRICA\nPacote de Oxigenoterapia hiperbárica (5 sessões) = CÂMARA HIPERBÁRICA\nPedagogia = CENTRO DE REABILITAÇÃO\nPedagogia Infantil = CENTRO DE REABILITAÇÃO\nPROCEDIMENTOS = CENTRO MÉDICO\nProtese = OFICINA ORTOPEDICA\nProteses Serviço = OFICINA ORTOPEDICA\nPsicologia = CENTRO DE REABILITAÇÃO\nPsicologia Adulto = CENTRO DE REABILITAÇÃO\nPsicologia Infantil = CENTRO DE REABILITAÇÃO\nRecepção Adulto = CENTRO DE REABILITAÇÃO\nRecepção Centro Diagnostico - Ibirapuera = CENTRO DE DIAGNÓSTICO\nRevenda = OFICINA ORTOPEDICA\nRevenda - Cadeira de Banho = OFICINA ORTOPEDICA\nRevenda - Cadeiras = OFICINA ORTOPEDICA\nRevenda - Cadeiras Motorizadas = OFICINA ORTOPEDICA\nRevenda - Seating = OFICINA ORTOPEDICA\nRobotica = CENTRO DE REABILITAÇÃO\nSapataria = OFICINA ORTOPEDICA\nSapataria Serviço = OFICINA ORTOPEDICA\nSeating = OFICINA ORTOPEDICA\nSeating Serviços = OFICINA ORTOPEDICA\nServiço Social = CENTRO DE REABILITAÇÃO\nSessão de OHB (2 Horas)  = CÂMARA HIPERBÁRICA\nSessão de oxigenoterapia hiperbárica (por sessão de 2 horas) = CÂMARA HIPERBÁRICA\nTerapia Ocupacional = CENTRO DE REABILITAÇÃO\nTerapia Ocupacional Adulto = CENTRO DE REABILITAÇÃO\nTerapia Ocupacional Infantil = CENTRO DE REABILITAÇÃO\nTERAPIAS = CENTRO DE TERAPIA"
+        },
+        {
+          "name": "qt_atendimento",
+          "type": "INT",
+          "description": "Quantidade de atendimentos para Camara Hiperbarica\nQuantidade de Cirurgias para o Hospital\nQuantidade de Exames para o centro de Diagnostico\nQuantidade de Terapias para o Centro de Terapia\nQuantidade de Consultas para o Centro Médico\nQuantidade de Produtos para a Oficina\nQuantidade de Atendimentos para Oficina quando a TipoAtendimento contiver ESTATÍSTICA, neste caso não considerar como Produto da Oficina"
+        },
+        {
+          "name": "Estabelecimento",
+          "type": "VARCHAR(MAX)",
+          "description": "Descrição do Estabelecimento onde o atendimento aconteceu, podendo ser (AACD Ibirapuera\nAACD Mooca,\nAACD Osasco,\nAACD Recife,\nAACD Porto Alegre,\nAACD Uberlândia,\nAACD Mogi,\nAACD Lar Escola,\nAACD Poços de Caldas,\nAACD Sambura,\n)"
+        },
+        {
+          "name": "TipoConvênio",
+          "type": "VARCHAR(50)",
+          "description": "Descrição dos tipos de convênios (Fonte Pagadora) dos atendimentos:\nConvênio\nParticular\nPrefeituras\nSem remuneração/filantrópicos\nSUS"
+        },
+        {
+          "name": "Convênio",
+          "type": "VARCHAR(MAX)",
+          "description": "Descricao dos Convenios e ou Operadoras dos atendimentos:\n\nAfresp\nAmil Grupo\nAssefaz  \nBradesco Operadora de Planos Saúde\nBradesco Saúde\nCabesp\nCare Plus\nCET\nCondemat\nConvênio Pagador\nEconomus\nEstatística Oficina\nF.427 - Condeca  - Vida é Movimento Mooca\nF.563 - Conselho Estadual do Idoso\nF.645 - TF03/2025 - Funcriança/Porto Alegre\nFASC\nFLUXO DE URGÊNCIA E EMERGÊNCIA\nFSFX - Usisaúde\nFusex\nGama\nGRATUIDADE\nHapVida Notre Dame\nHBC SAUDE LTDA\nHospital Cruz Azul\nHospital Frei Galvão\nHSPM \nIamspe - HSPE\nMediservice\nMetrus\nOmint\nParticular\nPorto Seguro\nPostal Saúde\nPrefeitura de Caraguatatuba\nPrefeitura de Itupeva\nPrefeitura de São Caetano do Sul\nPrefeitura Municipal de Caçapava\nPrevent Senior\nPRODUTO EM GARANTIA\nSaúde ABAS\nSaúde Caixa\nSaúde Caixa - Rio Grande doSul\nSaúde Petrobrás\nSeguros Unimed\nSPA\nSul América\nSul América - Uberlândia\nSUS - Sistema Unico de Saude\nTotal MedCare (Hospital Adventista)\nUnimed CNU\nUnimed Intercambio\nVIVEST/ Fundação Cesp"
+        }
+      ]
+    },
+    {
+      "name": "Pacientes",
+      "description": "Tabela de pacientes",
+      "columns": [
+        {
+          "name": "Id",
+          "type": "INT",
+          "description": "ID único do paciente"
+        },
+        {
+          "name": "DataNascimento",
+          "type": "DATE",
+          "description": "Data de nascimento"
+        },
+        {
+          "name": "CPF",
+          "type": "VARCHAR",
+          "description": "CPF do paciente"
+        },
+        {
+          "name": "Sexo",
+          "type": "VARCHAR(50)",
+          "description": "Sexo ou Gênero dos pacientes"
+        },
+        {
+          "name": "EstadoCivil",
+          "type": "VARCHAR(200)",
+          "description": "Estado Civil dos pacientes"
+        },
+        {
+          "name": "Religiao",
+          "type": "VARCHAR(200)",
+          "description": "Religião dos pacientes"
+        },
+        {
+          "name": "DS_ENDERECO",
+          "type": "VARCHAR(MAX)",
+          "description": "Descrição dos endereços dos pacientes\n* Tratar essa coluna com upper e remoção de acentuação antes de pesquisar.\n* Sempre pesquisar com LIKE e upper removendo acentuação."
+        },
+        {
+          "name": "CD_CEP",
+          "type": "VARCHAR(50)",
+          "description": "CEP do Endereço dos pacientes"
+        },
+        {
+          "name": "DS_BAIRRO",
+          "type": "VARCHAR(200)",
+          "description": "Descrição do Bairro do Endereço dos pacientes\n* Tratar essa coluna com upper e remoção de acentuação antes de pesquisar.\n* Sempre pesquisar com LIKE e upper removendo acentuação."
+        },
+        {
+          "name": "Município",
+          "type": "VARCHAR(MAX)",
+          "description": "Município do Endereço dos pacientes\n* Tratar essa coluna com upper e remoção de acentuação antes de pesquisar.\n* Sempre pesquisar com LIKE e upper removendo acentuação."
+        },
+        {
+          "name": "SG_ESTADO",
+          "type": "VARCHAR(50)",
+          "description": "Sigla do Estado do Endereço dos Pacientes"
+        },
+        {
+          "name": "DS_MUNICIPIO_CEP",
+          "type": "VARCHAR(MAX)",
+          "description": "Descrição do Município do Endereço dos pacientes pelo CEP\n* Tratar essa coluna com upper e remoção de acentuação antes de pesquisar.\n* Sempre pesquisar com LIKE e upper removendo acentuação."
+        }
+      ]
+    }
+  ]
+}
+
+        REGRAS OBRIGATÓRIAS:
+        1. Use APENAS comandos SELECT
+        2. Para filtros de data, SEMPRE use as funções MONTH() e YEAR()
+        3. Para contagens, use COUNT(*) com alias descritivo
+        4. Use TOP 100 para limitar resultados quando necessário
+        5. Evite SELECT *, prefira colunas específicas
+        6. Se a pergunta mencionar dados que não existem no dicionário, responda: "DADOS_NAO_ENCONTRADOS"
+        7. **NOVO: Para queries "TOP N ao longo do tempo", use CTE para filtrar primeiro:**
+        Exemplo: "top 3 setores ao longo dos meses" deve gerar:
+        WITH TopN AS (SELECT TOP N coluna FROM tabela GROUP BY coluna ORDER BY SUM(valor) DESC)
+        SELECT mes, ano, coluna, SUM(valor) FROM tabela WHERE coluna IN (SELECT coluna FROM TopN) GROUP BY mes, ano, coluna ORDER BY ano, mes
+
+        MAPEAMENTO DE MESES EM PORTUGUÊS (OBRIGATÓRIO):
+        - janeiro = 1, fevereiro = 2, março = 3, abril = 4
+        - maio = 5, junho = 6, julho = 7, agosto = 8
+        - setembro = 9, outubro = 10, novembro = 11, dezembro = 12
+
+        PERGUNTA DO USUÁRIO: atendimentos da oficina de 2025 por produto
+
+        Gere APENAS a consulta SQL (sem explicações):
+[AI-SQL] Iniciando conversa com Direct Line...
+[AI-SQL] Conversa iniciada: IpzaQ88EA4E8it5ObDHwbt-br
+[AI-SQL] Enviando pergunta para o Copilot...
+[AI-SQL] Pergunta enviada com sucesso
+[AI-SQL] Aguardando resposta do Copilot...
+[AI-SQL] Resposta recebida após 9 tentativas
+[AI-SQL] Resposta completa do Copilot: "```sql
+SELECT TipoAtendimento, SUM(qt_atendimento) AS TotalAtendimentos
+FROM Atendimentos
+WHERE UnidadeNeg = 'OFICINA ORTOPEDICA' AND YEAR(DataAtendimento) = 2025 AND TipoAtendimento != 'ESTATÍSTICA OFICINA'
+GROUP BY TipoAtendimento
+ORDER BY TotalAtendimentos DESC
+```
+O conteúdo gerado por IA pode estar incorreto"
+[AI-SQL] Iniciando limpeza da resposta...
+[AI-SQL] SQL extraída do bloco: "SELECT TipoAtendimento, SUM(qt_atendimento) AS TotalAtendimentos
+FROM Atendimentos
+WHERE UnidadeNeg = 'OFICINA ORTOPEDICA' AND YEAR(DataAtendimento) = 2025 AND TipoAtendimento != 'ESTATÍSTICA OFICINA'
+GROUP BY TipoAtendimento
+ORDER BY TotalAtendimentos DESC"
+[AI-SQL] SQL após limpeza: "SELECT TipoAtendimento, SUM(qt_atendimento) AS TotalAtendimentos
+FROM Atendimentos
+WHERE UnidadeNeg = 'OFICINA ORTOPEDICA' AND YEAR(DataAtendimento) = 2025 AND TipoAtendimento != 'ESTATÍSTICA OFICINA'
+GROUP BY TipoAtendimento
+ORDER BY TotalAtendimentos DESC"
+[AI-SQL] Validando sintaxe da SQL...
+[AI-SQL] ✅ SQL válida gerada: SELECT TipoAtendimento, SUM(qt_atendimento) AS TotalAtendimentos
+FROM Atendimentos
+WHERE UnidadeNeg = 'OFICINA ORTOPEDICA' AND YEAR(DataAtendimento) = 2025 AND TipoAtendimento != 'ESTATÍSTICA OFICINA'
+GROUP BY TipoAtendimento
+ORDER BY TotalAtendimentos DESC
+[2025-10-10T18:40:03.533Z] POST /api/chat/query
+[2025-10-10T18:40:05.165Z] POST /api/chat/analyze
+[ANALYZE] Solicitando análise ao Copilot...
+[ANALYZE] Análise concluída com sucesso
+[2025-10-10T18:41:10.446Z] POST /api/chat/generate-chart
+[CHART-INTELLIGENT] Solicitando análise inteligente ao Copilot...
+[CHART-INTELLIGENT] Resposta recebida: {
+    "dataAnalysis": {
+        "hasTemporalData": false,
+        "temporalColumns": {
+            "year": null,
+            "month": null,
+            "date": null
+        },
+        "hasCategoricalData": true,
+        "categoricalColumn": "TipoAtendimento",
+        "uniqueCategories": [
+            "Goteiras",
+            "Goteiras Serviço",
+            "Revenda - Cadeiras",
+            "Proteses Serviço",
+            "Sapataria",
+            "Revenda",
+            "Aparelhos - (Imobilizadores
+[CHART-INTELLIGENT] Análise recebida: {
+  "dataAnalysis": {
+    "hasTemporalData": false,
+    "temporalColumns": {
+      "year": null,
+      "month": null,
+      "date": null
+    },
+    "hasCategoricalData": true,
+    "categoricalColumn": "TipoAtendimento",
+    "uniqueCategories": [
+      "Goteiras",
+      "Goteiras Serviço",
+      "Revenda - Cadeiras",
+      "Proteses Serviço",
+      "Sapataria",
+      "Revenda",
+      "Aparelhos - (Imobilizadores)",
+      "Revenda - Cadeira de Banho",
+      "Protese",
+      "Sapataria Serviço",
+      "Aparelhos - (Ortese de Mão)",
+      "Seating Serviços",
+      "Aparelhos Serviço",
+      "Aparelhos",
+      "Seating"
+    ],
+    "valueColumns": [
+      "TotalAtendimentos"
+    ],
+    "dataFormat": "long",
+    "needsPivot": false,
+    "pivotReason": "Os dados já estão em formato adequado para análise de uma única série."
+  },
+  "chartConfig": {
+    "suitable": true,
+    "chartType": "bar",
+    "xColumn": "TipoAtendimento",
+    "yColumn": "TotalAtendimentos",
+    "title": "Atendimentos da Oficina Ortopédica por Tipo de Atendimento em 2025",
+    "reasoning": "O gráfico de barras é adequado para comparar a quantidade de atendimentos entre diferentes tipos de atendimento.",
+    "showVariation": false
+  }
+}
+[CHART-INTELLIGENT] ✅ Gráfico configurado: {
+  type: 'bar',
+  xColumn: 'TipoAtendimento',
+  yColumn: 'TotalAtendimentos',
+  isMultiSeries: false,
+  dataPoints: 26
+}
+[2025-10-10T18:42:18.910Z] GET /api/pages
+GET /api/pages - requester anonymous
+[2025-10-10T18:42:18.938Z] GET /api/menu
+GET /api/menu - requester anonymous
+[2025-10-10T18:42:18.951Z] GET /api/config?cb=1760121738901
+[2025-10-10T18:52:24.924Z] GET /api/pages
+GET /api/pages - requester anonymous
+[2025-10-10T18:52:24.951Z] GET /api/menu
+GET /api/menu - requester anonymous
+[2025-10-10T18:52:24.963Z] GET /api/config?cb=1760122344933
+[2025-10-10T18:57:05.050Z] GET /favicon.ico
+[2025-10-10T18:57:05.119Z] GET /api/pages
+GET /api/pages - requester anonymous
+[2025-10-10T18:57:05.141Z] GET /api/menu
+GET /api/menu - requester anonymous
+[2025-10-10T18:57:05.164Z] GET /api/config?cb=1760122625184
