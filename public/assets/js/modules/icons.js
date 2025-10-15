@@ -340,11 +340,211 @@ window.PortalIcons = {
     },
 
     buildPageIconPalette() {
-        // ...existing buildPageIconPalette logic...
+        document.querySelectorAll('#pageIconDropdown').forEach(container => {
+            const menu = container.querySelector('#pageIconDropdownMenu');
+            const toggle = container.querySelector('#pageIconDropdownToggle');
+            const selected = container.querySelector('#pageIconDropdownSelected');
+            if (!menu || !toggle || !selected) return;
+
+            menu.innerHTML = '';
+
+            const createItemNode = (labelHtml, labelText, iconValue) => {
+                const item = document.createElement('div');
+                item.style.cssText = 'padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;border-bottom:1px solid #f0f0f0;';
+                const iconPreview = document.createElement('span');
+                iconPreview.style.cssText = 'width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;';
+                iconPreview.innerHTML = labelHtml;
+                const labelSpan = document.createElement('span');
+                labelSpan.style.color = '#333';
+                labelSpan.textContent = labelText;
+                item.appendChild(iconPreview);
+                item.appendChild(labelSpan);
+                item.addEventListener('mouseover', () => item.style.backgroundColor = '#f5f5f5');
+                item.addEventListener('mouseout', () => item.style.backgroundColor = '#fff');
+                return { item, iconPreview, labelText, iconValue };
+            };
+
+            const emptyItem = createItemNode('<span style="color:#999;">∅</span>', '(Nenhum / Personalizar)', '');
+            emptyItem.item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const input = document.getElementById('pageIconInput');
+                if (input) {
+                    input.value = '';
+                    this.updatePageIconPreview('');
+                    input.dispatchEvent(new Event('input'));
+                }
+                selected.innerHTML = '<span style="color:#999;">Selecione um ícone...</span>';
+                menu.style.display = 'none';
+            });
+            menu.appendChild(emptyItem.item);
+
+            this.ICON_PALETTE.forEach((ic, idx) => {
+                let html = '';
+                let label = '';
+                if (window.PortalUtils && window.PortalUtils.isSvgString(ic)) {
+                    const key = `svg-${idx}`;
+                    this.ICON_MAP[key] = ic;
+                    html = ic;
+                    label = `Ícone SVG ${idx + 1}`;
+                } else if (window.PortalUtils && window.PortalUtils.isIconClass(ic)) {
+                    html = `<i class="${ic}" style="font-size:18px;"></i>`;
+                    label = ic;
+                } else {
+                    const escapeHtml = window.PortalUtils ? window.PortalUtils.escapeHtml : (text => text);
+                    html = `<span style="font-size:18px;">${escapeHtml(ic)}</span>`;
+                    label = ic;
+                }
+                const { item, iconPreview } = createItemNode(html, label, ic);
+                item.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const input = document.getElementById('pageIconInput');
+                    if (input) {
+                        input.value = ic;
+                        this.updatePageIconPreview(ic);
+                        input.dispatchEvent(new Event('input'));
+                    }
+                    selected.innerHTML = '';
+                    selected.appendChild(iconPreview.cloneNode(true));
+                    const lbl = document.createElement('span');
+                    lbl.textContent = label;
+                    selected.appendChild(lbl);
+                    menu.style.display = 'none';
+                });
+                menu.appendChild(item);
+            });
+
+            toggle.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const isOpen = menu.style.display === 'block';
+                
+                document.querySelectorAll('#iconDropdownMenu, #homeIconDropdownMenu, #pageIconDropdownMenu').forEach(m => {
+                    if (m !== menu) m.style.display = 'none';
+                });
+                
+                if (isOpen) {
+                    menu.style.display = 'none';
+                } else {
+                    menu.style.display = 'block';
+                    
+                    const closeHandler = (event) => {
+                        if (!container.contains(event.target)) {
+                            menu.style.display = 'none';
+                            document.removeEventListener('click', closeHandler);
+                        }
+                    };
+                    
+                    requestAnimationFrame(() => {
+                        document.addEventListener('click', closeHandler);
+                    });
+                }
+            });
+        });
     },
 
     buildHomeIconPalette() {
-        // ...existing buildHomeIconPalette logic...
+        document.querySelectorAll('#homeIconDropdown').forEach(container => {
+            const menu = container.querySelector('#homeIconDropdownMenu');
+            const toggle = container.querySelector('#homeIconDropdownToggle');
+            const selected = container.querySelector('#homeIconDropdownSelected');
+            if (!menu || !toggle || !selected) return;
+
+            menu.innerHTML = '';
+
+            const createItemNode = (labelHtml, labelText, iconValue) => {
+                const item = document.createElement('div');
+                item.style.cssText = 'padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;border-bottom:1px solid #f0f0f0;';
+                const iconPreview = document.createElement('span');
+                iconPreview.style.cssText = 'width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;';
+                iconPreview.innerHTML = labelHtml;
+                const labelSpan = document.createElement('span');
+                labelSpan.style.color = '#333';
+                labelSpan.textContent = labelText;
+                item.appendChild(iconPreview);
+                item.appendChild(labelSpan);
+                item.addEventListener('mouseover', () => item.style.backgroundColor = '#f5f5f5');
+                item.addEventListener('mouseout', () => item.style.backgroundColor = '#fff');
+                return { item, iconPreview, labelText, iconValue };
+            };
+
+            const emptyItem = createItemNode('<span style="color:#999;">∅</span>', '(Nenhum)', '');
+            emptyItem.item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const input = document.getElementById('homeIconInput');
+                if (input) {
+                    input.value = '';
+                    this.updateHomeIconPreview('');
+                    input.dispatchEvent(new Event('input'));
+                }
+                selected.innerHTML = '<span style="color:#999;">Selecione um ícone para Home...</span>';
+                menu.style.display = 'none';
+            });
+            menu.appendChild(emptyItem.item);
+
+            this.ICON_PALETTE.forEach((ic, idx) => {
+                let html = '';
+                let label = '';
+                if (window.PortalUtils && window.PortalUtils.isSvgString(ic)) {
+                    const key = `svg-${idx}`;
+                    this.ICON_MAP[key] = ic;
+                    html = ic;
+                    label = `Ícone SVG ${idx + 1}`;
+                } else if (window.PortalUtils && window.PortalUtils.isIconClass(ic)) {
+                    html = `<i class="${ic}" style="font-size:18px;"></i>`;
+                    label = ic;
+                } else {
+                    const escapeHtml = window.PortalUtils ? window.PortalUtils.escapeHtml : (text => text);
+                    html = `<span style="font-size:18px;">${escapeHtml(ic)}</span>`;
+                    label = ic;
+                }
+                const { item, iconPreview } = createItemNode(html, label, ic);
+                item.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const input = document.getElementById('homeIconInput');
+                    if (input) {
+                        input.value = ic;
+                        this.updateHomeIconPreview(ic);
+                        input.dispatchEvent(new Event('input'));
+                    }
+                    selected.innerHTML = '';
+                    selected.appendChild(iconPreview.cloneNode(true));
+                    const lbl = document.createElement('span');
+                    lbl.textContent = label;
+                    selected.appendChild(lbl);
+                    menu.style.display = 'none';
+                });
+                menu.appendChild(item);
+            });
+
+            toggle.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const isOpen = menu.style.display === 'block';
+                
+                document.querySelectorAll('#iconDropdownMenu, #homeIconDropdownMenu, #pageIconDropdownMenu').forEach(m => {
+                    if (m !== menu) m.style.display = 'none';
+                });
+                
+                if (isOpen) {
+                    menu.style.display = 'none';
+                } else {
+                    menu.style.display = 'block';
+                    
+                    const closeHandler = (event) => {
+                        if (!container.contains(event.target)) {
+                            menu.style.display = 'none';
+                            document.removeEventListener('click', closeHandler);
+                        }
+                    };
+                    
+                    requestAnimationFrame(() => {
+                        document.addEventListener('click', closeHandler);
+                    });
+                }
+            });
+        });
     }
 };
 

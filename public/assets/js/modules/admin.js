@@ -17,8 +17,7 @@ window.PortalAdmin = {
         
         const savedWidth = localStorage.getItem('adminPanelWidth');
         if (savedWidth) {
-            // Aceita valores salvos como "300" ou "300px"
-            panel.style.width = String(savedWidth).trim().endsWith('px') ? String(savedWidth).trim() : String(savedWidth).trim() + 'px';
+            panel.style.width = savedWidth + 'px';
         }
         
         this.loadPagesList();
@@ -26,21 +25,22 @@ window.PortalAdmin = {
         this.updatePageSelect();
         this.loadDataDictionaries();
         
+        // Inicializar dropdowns de ícones
+        if (window.PortalIcons) {
+            setTimeout(() => {
+                window.PortalIcons.buildAllPalettes();
+            }, 100);
+        }
+        
         const sidebarLogo = document.getElementById('sidebarLogo');
         if (sidebarLogo && sidebarLogo.src && sidebarLogo.style.display !== 'none' && window.PortalConfig) {
             window.PortalConfig.updateLogoPreview(sidebarLogo.src);
         }
         
         document.getElementById('overlay').onclick = () => this.closeAdminPanel();
-
-        // Habilitar redimensionamento por arrastar
-        try { this.enablePanelDragResize(panel); } catch (e) { console.warn('enablePanelDragResize error', e); }
     },
 
     closeAdminPanel() {
-        // Desabilitar redimensionamento e limpar listeners/elementos
-        try { this.disablePanelDragResize(); } catch (e) { console.warn('disablePanelDragResize error', e); }
-
         document.getElementById('adminPanel').classList.remove('show');
         document.getElementById('overlay').classList.remove('show');
     },
@@ -1124,38 +1124,107 @@ window.PortalAdmin = {
                 }
                 #dictionaryStructureModal.show { display: flex; }
                 #dictionaryStructureModal .modal-content {
-                    background: white; border-radius: 8px; width: 90%;
+                    background: white !important; 
+                    color: #333 !important;
+                    border-radius: 8px; width: 90%;
                     max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.2);
                 }
                 #dictionaryStructureModal .modal-header {
                     padding: 20px; border-bottom: 1px solid #eee;
                     display: flex; justify-content: space-between; align-items: center;
-                    background-color: #f8f9fa;
+                    background-color: #f8f9fa !important;
                 }
-                #dictionaryStructureModal .modal-header h3 { margin: 0; color: #333; }
+                #dictionaryStructureModal .modal-header h3 { 
+                    margin: 0; 
+                    color: #333 !important; 
+                }
+                #dictionaryStructureModal .modal-header p {
+                    color: #666 !important;
+                }
                 #dictionaryStructureModal .modal-close {
                     background: none; border: none; font-size: 24px; cursor: pointer;
-                    color: #999; padding: 0; width: 30px; height: 30px;
+                    color: #999 !important; padding: 0; width: 30px; height: 30px;
                     display: flex; align-items: center; justify-content: center;
                     border-radius: 50%;
                 }
-                #dictionaryStructureModal .modal-close:hover { background: #f5f5f5; color: #333; }
-                #dictionaryStructureModal .modal-body { padding: 20px; }
+                #dictionaryStructureModal .modal-close:hover { 
+                    background: #f5f5f5 !important; 
+                    color: #333 !important; 
+                }
+                #dictionaryStructureModal .modal-body { 
+                    padding: 20px; 
+                    background: white !important;
+                }
                 #dictionaryStructureModal .modal-footer {
                     padding: 20px; border-top: 1px solid #eee;
                     display: flex; justify-content: flex-end; gap: 10px;
-                    background-color: #f8f9fa;
+                    background-color: #f8f9fa !important;
                 }
                 #dictionaryStructureModal .btn-primary {
-                    background: #0066cc; color: white; border: none;
+                    background: #0066cc !important; color: white !important; border: none;
                     padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 14px;
                 }
-                #dictionaryStructureModal .btn-primary:hover { background: #0052a3; }
+                #dictionaryStructureModal .btn-primary:hover { background: #0052a3 !important; }
                 #dictionaryStructureModal .btn-secondary {
-                    background: #6c757d; color: white; border: none;
+                    background: #6c757d !important; color: white !important; border: none;
                     padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 14px;
                 }
-                #dictionaryStructureModal .btn-secondary:hover { background: #545b62; }
+                #dictionaryStructureModal .btn-secondary:hover { background: #545b62 !important; }
+                #dictionaryStructureModal .table-card {
+                    background: white !important;
+                    border: 1px solid #ddd !important;
+                }
+                #dictionaryStructureModal .table-header {
+                    background: #f8f9fa !important;
+                    border-bottom: 1px solid #ddd !important;
+                }
+                #dictionaryStructureModal .table-header h4 {
+                    color: #333 !important;
+                }
+                #dictionaryStructureModal .table-header p {
+                    color: #666 !important;
+                }
+                #dictionaryStructureModal .table-header small {
+                    color: #999 !important;
+                }
+                #dictionaryStructureModal .table-columns {
+                    background: white !important;
+                }
+                #dictionaryStructureModal table {
+                    background: white !important;
+                }
+                #dictionaryStructureModal thead {
+                    background: #f1f3f4 !important;
+                }
+                #dictionaryStructureModal th {
+                    color: #333 !important;
+                    background: #f1f3f4 !important;
+                    border: 1px solid #ddd !important;
+                }
+                #dictionaryStructureModal td {
+                    color: #333 !important;
+                    background: white !important;
+                    border: 1px solid #ddd !important;
+                }
+                #dictionaryStructureModal tr:hover td {
+                    background: #f8f9fa !important;
+                }
+                #dictionaryStructureModal .btn-small {
+                    background: white !important;
+                    color: #333 !important;
+                    border: 1px solid #ddd !important;
+                }
+                #dictionaryStructureModal .btn-small:hover {
+                    background: #f5f5f5 !important;
+                }
+                #dictionaryStructureModal .btn-edit {
+                    background: #2196F3 !important;
+                    color: white !important;
+                }
+                #dictionaryStructureModal .btn-delete {
+                    background: #f44336 !important;
+                    color: white !important;
+                }
             </style>
         `;
         
@@ -2249,109 +2318,9 @@ window.PortalAdmin = {
             console.error('Erro:', error);
             alert(error.message || 'Erro');
         }
-    },
-
-    // Novo: Habilita redimensionamento do painel admin via drag (mouse / touch / pointer)
-    enablePanelDragResize(panel) {
-        if (!panel) return;
-        // evita duplicar handle
-        if (document.getElementById('adminPanelResizeHandle')) return;
-
-        // assegura que o painel esteja posicionado para colocar o handle absoluto
-        const computedPos = window.getComputedStyle(panel).position;
-        if (!computedPos || computedPos === 'static') {
-            panel.style.position = 'fixed';
-        }
-
-        const handle = document.createElement('div');
-        handle.id = 'adminPanelResizeHandle';
-        handle.style.cssText = `
-            position: absolute;
-            top: 0;
-            right: 0;
-            width: 10px;
-            height: 100%;
-            cursor: ew-resize;
-            z-index: 2000;
-            background: transparent;
-        `;
-        panel.appendChild(handle);
-
-        const state = {
-            dragging: false,
-            startX: 0,
-            startWidth: 0,
-            handle
-        };
-        this._panelResizeState = state;
-
-        const onPointerDown = (ev) => {
-            ev.preventDefault();
-            const clientX = ev.clientX ?? (ev.touches && ev.touches[0] && ev.touches[0].clientX);
-            if (clientX === undefined) return;
-            state.dragging = true;
-            state.startX = clientX;
-            state.startWidth = panel.getBoundingClientRect().width;
-            // evita seleção de texto indesejada
-            document.body.style.userSelect = 'none';
-            if (ev.pointerId && handle.setPointerCapture) {
-                try { handle.setPointerCapture(ev.pointerId); } catch(e) {}
-            }
-        };
-
-        const onPointerMove = (ev) => {
-            if (!state.dragging) return;
-            const clientX = ev.clientX ?? (ev.touches && ev.touches[0] && ev.touches[0].clientX);
-            if (clientX === undefined) return;
-            let newWidth = state.startWidth + (clientX - state.startX);
-            const min = 320;
-            const max = Math.max(360, window.innerWidth - 80);
-            newWidth = Math.max(min, Math.min(max, Math.round(newWidth)));
-            panel.style.width = newWidth + 'px';
-        };
-
-        const onPointerUp = (ev) => {
-            if (!state.dragging) return;
-            state.dragging = false;
-            document.body.style.userSelect = '';
-            // salva a largura (somente número) no localStorage
-            try {
-                const finalW = Math.round(panel.getBoundingClientRect().width);
-                localStorage.setItem('adminPanelWidth', String(finalW));
-            } catch (e) {}
-            if (ev.pointerId && handle.releasePointerCapture) {
-                try { handle.releasePointerCapture(ev.pointerId); } catch(e) {}
-            }
-        };
-
-        // Usar pointer events quando possível (inclui mouse e touch)
-        handle.addEventListener('pointerdown', onPointerDown);
-        // document listeners para cobrir movimentos fora do handle
-        document.addEventListener('pointermove', onPointerMove);
-        document.addEventListener('pointerup', onPointerUp);
-
-        // guardar refs para limpeza
-        state._cleanup = () => {
-            try { handle.removeEventListener('pointerdown', onPointerDown); } catch(e){}
-            try { document.removeEventListener('pointermove', onPointerMove); } catch(e){}
-            try { document.removeEventListener('pointerup', onPointerUp); } catch(e){}
-            if (handle && handle.parentNode) handle.parentNode.removeChild(handle);
-            delete this._panelResizeState;
-        };
-    },
-
-    // Novo: Desabilita e limpa listeners/elemento de resize
-    disablePanelDragResize() {
-        if (this._panelResizeState && this._panelResizeState._cleanup) {
-            try { this._panelResizeState._cleanup(); } catch (e) { console.warn('cleanup resize error', e); }
-        } else {
-            const existing = document.getElementById('adminPanelResizeHandle');
-            if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
-        }
-    },
-
+    }
+    
 };
-
 
 // Expor funções globais para compatibilidade com HTML
 window.toggleAdmin = () => window.PortalAdmin.toggleAdmin();
@@ -2407,3 +2376,86 @@ window.switchTab = (tab, event) => {
         window.PortalAdmin.loadDataDictionaries();
     }
 };
+
+// Redimensionamento do painel admin
+(function() {
+    let isResizing = false;
+    let startX = 0;
+    let startWidth = 0;
+    const MIN_WIDTH = 400;
+    const MAX_WIDTH = 1200;
+
+    function initResize() {
+        const panel = document.getElementById('adminPanel');
+        if (!panel) return;
+
+        // Criar handle de redimensionamento se não existir
+        let handle = panel.querySelector('.resize-handle');
+        if (!handle) {
+            handle = document.createElement('div');
+            handle.className = 'resize-handle';
+            handle.style.cssText = `
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 5px;
+                height: 100%;
+                cursor: ew-resize;
+                background: transparent;
+                z-index: 10;
+            `;
+            panel.insertBefore(handle, panel.firstChild);
+
+            // Indicador visual ao hover
+            handle.addEventListener('mouseenter', () => {
+                handle.style.background = 'rgba(0, 102, 204, 0.3)';
+            });
+            handle.addEventListener('mouseleave', () => {
+                if (!isResizing) handle.style.background = 'transparent';
+            });
+        }
+
+        handle.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            startX = e.clientX;
+            startWidth = panel.offsetWidth;
+            document.body.style.userSelect = 'none';
+            document.body.style.cursor = 'ew-resize';
+            e.preventDefault();
+        });
+    }
+
+    document.addEventListener('mousemove', (e) => {
+        if (!isResizing) return;
+        
+        const panel = document.getElementById('adminPanel');
+        if (!panel) return;
+
+        const delta = startX - e.clientX;
+        const newWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth + delta));
+        
+        panel.style.width = newWidth + 'px';
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (!isResizing) return;
+        
+        isResizing = false;
+        document.body.style.userSelect = '';
+        document.body.style.cursor = '';
+        
+        const panel = document.getElementById('adminPanel');
+        if (panel) {
+            localStorage.setItem('adminPanelWidth', panel.offsetWidth);
+            const handle = panel.querySelector('.resize-handle');
+            if (handle) handle.style.background = 'transparent';
+        }
+    });
+
+    // Inicializar quando o painel abrir
+    const originalOpenPanel = window.PortalAdmin.openAdminPanel;
+    window.PortalAdmin.openAdminPanel = function() {
+        originalOpenPanel.call(this);
+        setTimeout(initResize, 100);
+    };
+})();
