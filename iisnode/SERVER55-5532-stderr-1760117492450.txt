@@ -1,0 +1,8 @@
+(node:5532) [DEP0005] DeprecationWarning: Buffer() is deprecated due to security and usability issues. Please use the Buffer.alloc(), Buffer.allocUnsafe(), or Buffer.from() methods instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[SQL-VALIDATION] Erro na validação: Invalid column name 'DS_MUNICIPIO'.
+[AI-SQL] SQL com erro de sintaxe: Invalid column name 'DS_MUNICIPIO'.
+[SQL-VALIDATION] Erro na validação: Invalid column name 'DS_MUNICIPIO'.
+[AI-SQL] SQL com erro de sintaxe: Invalid column name 'DS_MUNICIPIO'.
+[AI-SQL] Timeout após 30 tentativas
+Token verification failed: jwt expired

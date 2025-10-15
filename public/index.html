@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal Power BI</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="assets/css/portal.css">
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <img id="sidebarLogo" class="logo-image" style="display: none;" alt="Logo">
+                    <div class="sidebar-title">Power BI Dashboard</div>
+                </div>
+                <span class="close-btn" id="sidebarCloseBtn" title="Alternar menu"></span>
+            </div>
+            <div id="menuContainer"></div>
+            <div class="sidebar-footer">
+                <button class="btn btn-admin" id="adminButton" onclick="toggleAdmin()">Configurações</button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="header">
+                <div>
+                    <div class="page-title" id="pageTitle">Power BI Dashboard</div>
+                    <div class="page-subtitle" id="pageSubtitle">Visão geral do portal de relatórios</div>
+                </div>
+                <!-- Search UI with Dark Mode Toggle -->
+                <div class="search-container">
+                    <input id="searchInput" 
+                           name="q_search_portal_2025" 
+                           class="search-input" 
+                           type="text" 
+                           placeholder="Buscar páginas..." 
+                           autocomplete="off"
+                           autocorrect="off" 
+                           autocapitalize="off" 
+                           spellcheck="false"
+                           aria-label="Buscar páginas"
+                           role="searchbox"
+                           data-lpignore="true"
+                           data-form-type="other" />
+                    <button id="themeToggle" 
+                            class="theme-toggle" 
+                            title="Alternar tema claro/escuro"
+                            aria-label="Alternar entre modo claro e escuro">
+                        <span class="icon sun-icon">☀️</span>
+                        <span class="icon moon-icon">🌙</span>
+                    </button>
+                    <div id="searchResults" class="search-results"></div>
+                </div>
+            </div>
+            <div class="content" id="mainContent">
+                <!-- Home view (padrão) -->
+                <div id="homeView">
+                    <div class="info-card" style="margin-bottom:20px;">
+                        <h3>Bem-vindo ao Portal</h3>
+                        <p id="homeSubtitle">Navegue pelos painéis e dashboards disponíveis. Selecione um card abaixo ou use o menu lateral.</p>
+                    </div>
+
+                    <div class="cards-section">
+                        <h2 style="color: var(--text-color); margin-bottom: 20px; font-size: 20px;">Acesso Rápido aos Painéis</h2>
+                        <div id="quickAccessCards" class="cards-grid">
+                            <!-- Cards serão inseridos aqui dinamicamente -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Page view (quando uma página for selecionada) -->
+                <div id="pageView" style="display:none;">
+                    <div class="info-card">
+                        <p id="pageDescription">Este painel oferece uma visão abrangente das métricas...</p>
+                    </div>
+                    <div style="position:relative;">
+                        <button id="refreshIframeBtn" class="btn-refresh-iframe" style="display:none;" title="Atualizar painel">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                        <div class="powerbi-container" id="powerbiContainer">
+                            <div class="placeholder">
+                                <div class="powerbi-icon">📊</div>
+                                <h3 style="color: #666; margin-bottom:10px;">Power BI</h3>
+                                <p style="color: #999; margin-bottom:20px;">Entre para ver este relatório</p>
+                                <button class="btn">Entrar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="overlay" id="overlay"></div>
+
+            <div class="login-modal" id="loginModal">
+        <div class="login-header">
+            <h2>Login Administrativo</h2>
+        </div>
+        <div class="error-message" id="loginError"></div>
+        <input type="text" name="username_fake" style="position:absolute;left:-9999px;" tabindex="-1" autocomplete="username">
+        <div class="form-group">
+            <label>Usuário</label>
+            <input type="text" id="loginUsername" name="admin_username" placeholder="Digite seu usuário" autocomplete="username">
+        </div>
+        <div class="form-group">
+            <label>Senha</label>
+            <input type="password" id="loginPassword" name="admin_password" placeholder="Digite sua senha" autocomplete="current-password">
+        </div>
+        <button class="btn btn-admin" style="width: 100%;" id="loginButton">Entrar</button>
+    </div>
+
+    <div class="admin-panel" id="adminPanel">
+        <div class="resize-handle" id="resizeHandle"></div>
+        <div class="admin-header">
+            <h2>Painel Administrativo</h2>
+            <span class="close-btn" onclick="closeAdminPanel()">×</span>
+        </div>
+        <div class="admin-content">
+            <div style="margin-bottom: 20px;">
+                <button class="btn btn-logout" onclick="logout()">Sair do Admin</button>
+            </div>
+            
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('pages', event)">Páginas</button>
+                <button class="tab" onclick="switchTab('menu', event)">Menu</button>
+                <button class="tab" onclick="switchTab('dictionary', event)">Dicionário IA</button>
+                <button class="tab" onclick="switchTab('config', event)">Configurações</button>
+            </div>
+
+            <div class="tab-content active" id="pagesTab">
+                <h3>Gerenciar Páginas</h3>
+                <div class="form-group">
+                    <label>Título da Página</label>
+                    <input type="text" id="pageNameInput" placeholder="Ex: Dashboard de Vendas">
+                </div>
+                <div class="form-group">
+                    <label>Subtítulo</label>
+                    <input type="text" id="pageSubtitleInput" placeholder="Ex: Análise detalhada de vendas">
+                </div>
+                <div class="form-group">
+                    <label>Descrição</label>
+                    <textarea id="pageDescInput" placeholder="Descrição detalhada da página..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>URL do Power BI Embed</label>
+                    <input type="text" id="powerbiUrlInput" placeholder="https://app.powerbi.com/view?r=...">
+                </div>
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="showInHomeCheckbox" checked style="width: auto;">
+                        <span>Mostrar na tela inicial (Acesso Rápido)</span>
+                    </label>
+                    <small style="color: #666; display: block; margin-top: 4px;">
+                        Marque para exibir esta página nos cards de acesso rápido da tela inicial
+                    </small>
+                </div>
+                <div class="form-group">
+                    <label>Ícone do Card (opcional)</label>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <input type="text" id="pageIconInput" placeholder="Ex: 📊 ou escolha abaixo" style="flex:1;">
+                        <div id="pageIconPreview" class="icon-preview" title="Preview do ícone"></div>
+                    </div>
+                    <div id="pageIconDropdown" style="position:relative;margin-top:8px;">
+                        <div id="pageIconDropdownToggle" style="width:100%;padding:8px;border-radius:4px;border:1px solid #ddd;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
+                            <span id="pageIconDropdownSelected" style="display:flex;align-items:center;gap:8px;">
+                                <span style="color:#999;">Selecione um ícone...</span>
+                            </span>
+                            <span style="transform:rotate(90deg);color:#666;">›</span>
+                        </div>
+                        <div id="pageIconDropdownMenu" style="display:none;position:absolute;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ddd;border-radius:4px;margin-top:4px;z-index:1000;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                        </div>
+                    </div>
+                    <small style="color: #666; display: block; margin-top: 8px;">
+                        Este ícone aparecerá no card de acesso rápido na tela inicial
+                    </small>
+                </div> 
+                <div style="display:flex;gap:10px;">
+                    <button class="btn btn-admin" id="savePageBtn" onclick="savePage()">Salvar Página</button>
+                    <button class="btn" id="cancelPageEditBtn" style="display:none;background:#ccc;color:#000;" onclick="cancelPageEdit()">Cancelar</button>
+                </div>
+                
+                <h4 style="margin-top: 30px;">Páginas Existentes</h4>
+                <div style="margin-bottom: 10px; padding: 8px; background: #e8f5e8; border-radius: 4px; font-size: 12px; color: #2e7d32;">
+                    💡 <strong>Ordenação dos Cards:</strong> Use as setas ↑↓ para alterar a ordem dos cards na tela inicial. A ordenação afeta apenas páginas marcadas como "Mostrar na tela inicial".
+                </div>
+                <div class="menu-list" id="pagesList"></div>
+            </div>
+
+            <div class="tab-content" id="menuTab">
+                <h3>Gerenciar Menu</h3>
+                <div class="form-group">
+                    <label>Nome do Item</label>
+                    <input type="text" id="menuItemInput" placeholder="Ex: Financeiro">
+                </div>
+                <div class="form-group">
+                    <label>Tipo</label>
+                    <select id="menuTypeSelect">
+                        <option value="item">Item Simples</option>
+                        <option value="category">Categoria (com subitens)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Ícone (emoji ou classe)</label>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <input type="text" id="menuIconInput" placeholder="Ex: 📊 ou fas fa-chart" style="flex:1;">
+                        <div id="menuIconPreview" class="icon-preview" title="Preview do ícone"></div>
+                    </div>
+                    <div id="iconDropdown" style="position:relative;margin-top:8px;">
+                        <div id="iconDropdownToggle" style="width:100%;padding:8px;border-radius:4px;border:1px solid #ddd;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
+                            <span id="iconDropdownSelected" style="display:flex;align-items:center;gap:8px;">
+                                <span style="color:#999;">Selecione um ícone...</span>
+                            </span>
+                            <span style="transform:rotate(90deg);color:#666;">›</span>
+                        </div>
+                        <div id="iconDropdownMenu" style="display:none;position:absolute;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ddd;border-radius:4px;margin-top:4px;z-index:1000;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group" id="parentSelectGroup" style="display: none;">
+                    <label>Item Pai (Categoria)</label>
+                    <select id="parentSelect">
+                        <option value="">Nenhum (Nível Principal)</option>
+                    </select>
+                    <small style="color: #666; display: block; margin-top: 4px;">
+                        💡 Selecione uma categoria existente para criar subitens. Você pode criar múltiplos níveis de hierarquia (nível 2, 3, etc.)
+                    </small>
+                </div>
+                <div class="form-group" id="pageSelectGroup">
+                    <label>Página Associada</label>
+                    <select id="pageSelect">
+                        <option value="">Selecione uma página (apenas para itens simples)</option>
+                    </select>
+                    <small style="color: #666; display: block; margin-top: 4px;">
+                        💡 Apenas itens simples podem ter páginas associadas. Categorias servem apenas para organizar outros itens.
+                    </small>
+                </div>
+                <div style="display:flex;gap:10px;">
+                    <button class="btn btn-admin" id="saveMenuBtn" onclick="saveMenuItem()">Adicionar ao Menu</button>
+                    <button class="btn" id="cancelMenuEditBtn" style="display:none;background:#ccc;color:#000;" onclick="cancelMenuEdit()">Cancelar</button>
+                </div>
+                
+                <h4 style="margin-top: 30px;">Estrutura do Menu</h4>
+                <div style="margin-bottom: 10px; padding: 8px; background: #e3f2fd; border-radius: 4px; font-size: 12px; color: #1565c0;">
+                    💡 <strong>Hierarquia Multinível:</strong> Você pode criar subitens dentro de subitens sem limite de profundidade. Categorias podem conter outras categorias e itens.
+                </div>
+                <div class="menu-list" id="menuStructure"></div>
+            </div>
+
+            <div class="tab-content" id="configTab">
+                <h3>Configurações do Portal</h3>
+                <!-- Logo Upload Section (primeiro campo) -->
+                <div class="form-group">
+                    <label>Logo do Portal</label>
+                    <div class="logo-upload-section">
+                        <div class="logo-preview">
+                            <div id="logoPreviewContainer">
+                                <div class="logo-placeholder">Logo</div>
+                            </div>
+                            <div>
+                                <strong>Logo atual</strong>
+                                <br>
+                                <small style="color: #666;">Recomendado: PNG transparente, 32x32px a 64x32px</small>
+                            </div>
+                        </div>
+                        <div class="upload-controls">
+                            <div class="file-input-wrapper">
+                                <input type="file" id="logoUpload" accept="image/png,image/jpeg,image/jpg,image/gif,image/svg+xml">
+                                <button class="btn-upload" onclick="document.getElementById('logoUpload').click()">
+                                    Selecionar Logo
+                                </button>
+                            </div>
+                            <button class="btn-remove-logo" id="removeLogo" onclick="removeLogo()" style="display: none;">
+                                Remover Logo
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Tamanho do Logo (px)</label>
+                    <input type="number" id="logoSizeInput" min="16" max="128" value="48" style="width:100%;margin-top:6px;">
+                </div>
+                <div class="form-group">
+                    <label>Nome do Portal</label>
+                    <input type="text" id="portalName" value="Power BI Dashboard">
+                </div>
+                <div class="form-group">
+                    <label>Nome do item "Home" no Menu</label>
+                    <input type="text" id="homeMenuName" placeholder="Ex: Início" value="Home">
+                </div>
+                <div class="form-group">
+                    <label>Ícone do item "Home" (emoji ou classe)</label>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <input type="text" id="homeIconInput" placeholder="Ex: 🏠 ou fas fa-home" style="flex:1;">
+                        <div id="homeIconPreview" class="icon-preview" title="Preview do ícone Home"></div>
+                    </div>
+                    <div id="homeIconDropdown" style="position:relative;margin-top:8px;">
+                        <div id="homeIconDropdownToggle" style="width:100%;padding:8px;border-radius:4px;border:1px solid #ddd;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
+                            <span id="homeIconDropdownSelected" style="display:flex;align-items:center;gap:8px;">
+                                <span style="color:#999;">Selecione um ícone...</span>
+                            </span>
+                            <span style="transform:rotate(90deg);color:#666;">›</span>
+                        </div>
+                        <div id="homeIconDropdownMenu" style="display:none;position:absolute;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ddd;border-radius:4px;margin-top:4px;z-index:1000;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                        </div>
+                    </div>
+                </div>
+				<div class="form-group">
+					<label>Fonte - Nome do Portal</label>
+					<select id="portalFontSelect">
+						<option value="'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif">Segoe UI (padrão)</option>
+						<option value="Arial, Helvetica, sans-serif">Arial</option>
+						<option value="'Helvetica Neue', Helvetica, Arial, sans-serif">Helvetica Neue</option>
+						<option value="'Roboto', sans-serif">Roboto</option>
+						<option value="'Open Sans', sans-serif">Open Sans</option>
+						<option value="'Lato', sans-serif">Lato</option>
+						<option value="'Poppins', sans-serif">Poppins</option>
+						<option value="'Montserrat', sans-serif">Montserrat</option>
+						<option value="'Inter', sans-serif">Inter</option>
+						<option value="'Nunito', sans-serif">Nunito</option>
+						<option value="Georgia, serif">Georgia</option>
+						<option value="'Times New Roman', Times, serif">Times New Roman</option>
+						<option value="'Courier New', Courier, monospace">Courier New</option>
+						<option value="'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif">SF Pro Display</option>
+						<option value="Verdana, Geneva, sans-serif">Verdana</option>
+						<option value="Tahoma, Geneva, sans-serif">Tahoma</option>
+					</select>
+					<div style="margin-top:8px;">
+						<label style="font-weight:500;font-size:12px;">Tamanho (px)</label>
+						<input type="number" id="portalFontSize" min="10" max="48" value="16" style="width:100%;margin-top:6px;">
+						<label style="margin-top:8px;display:flex;align-items:center;gap:8px;">
+							<input type="checkbox" id="portalFontBold" style="width:auto;">
+							<span style="font-weight:500;font-size:12px;">Negrito</span>
+						</label>
+					</div>
+				</div>
+				<div class="form-group">
+					<label>Fonte - Itens do Menu</label>
+					<select id="menuFontSelect">
+						<option value="'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif">Segoe UI (padrão)</option>
+						<option value="Arial, Helvetica, sans-serif">Arial</option>
+						<option value="'Helvetica Neue', Helvetica, Arial, sans-serif">Helvetica Neue</option>
+						<option value="'Roboto', sans-serif">Roboto</option>
+						<option value="'Open Sans', sans-serif">Open Sans</option>
+						<option value="'Lato', sans-serif">Lato</option>
+						<option value="'Poppins', sans-serif">Poppins</option>
+						<option value="'Montserrat', sans-serif">Montserrat</option>
+						<option value="'Inter', sans-serif">Inter</option>
+						<option value="'Nunito', sans-serif">Nunito</option>
+						<option value="Georgia, serif">Georgia</option>
+						<option value="'Times New Roman', Times, serif">Times New Roman</option>
+						<option value="'Courier New', Courier, monospace">Courier New</option>
+						<option value="'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif">SF Pro Display</option>
+						<option value="Verdana, Geneva, sans-serif">Verdana</option>
+						<option value="Tahoma, Geneva, sans-serif">Tahoma</option>
+					</select>
+					<div style="margin-top:8px;">
+						<label style="font-weight:500;font-size:12px;">Tamanho (px)</label>
+						<input type="number" id="menuFontSize" min="10" max="32" value="14" style="width:100%;margin-top:6px;">
+						<label style="margin-top:8px;display:flex;align-items:center;gap:8px;">
+							<input type="checkbox" id="menuFontBold" style="width:auto;">
+							<span style="font-weight:500;font-size:12px;">Negrito</span>
+						</label>
+						
+						<label style="font-weight:500;font-size:12px;margin-top:12px;display:block;">Tamanho dos Ícones (px)</label>
+						<input type="number" id="menuIconSize" min="12" max="32" value="18" style="width:100%;margin-top:6px;">
+					</div>
+				</div>
+				<div class="form-group">
+					<label>Fonte - Páginas (título/subtítulo/descrição)</label>
+					<select id="pageFontSelect">
+						<option value="'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif">Segoe UI (padrão)</option>
+						<option value="Arial, Helvetica, sans-serif">Arial</option>
+						<option value="'Helvetica Neue', Helvetica, Arial, sans-serif">Helvetica Neue</option>
+						<option value="'Roboto', sans-serif">Roboto</option>
+						<option value="'Open Sans', sans-serif">Open Sans</option>
+						<option value="'Lato', sans-serif">Lato</option>
+						<option value="'Poppins', sans-serif">Poppins</option>
+						<option value="'Montserrat', sans-serif">Montserrat</option>
+						<option value="'Inter', sans-serif">Inter</option>
+						<option value="'Nunito', sans-serif">Nunito</option>
+						<option value="Georgia, serif">Georgia</option>
+						<option value="'Times New Roman', Times, serif">Times New Roman</option>
+						<option value="'Courier New', Courier, monospace">Courier New</option>
+						<option value="'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif">SF Pro Display</option>
+						<option value="Verdana, Geneva, sans-serif">Verdana</option>
+						<option value="Tahoma, Geneva, sans-serif">Tahoma</option>
+					</select>
+					<div style="margin-top:8px;">
+						<label style="font-weight:500;font-size:12px;">Tamanho Título (px)</label>
+						<input type="number" id="pageTitleSize" min="12" max="64" value="24" style="width:100%;margin-top:6px;">
+						<label style="margin-top:8px;display:flex;align-items:center;gap:8px;">
+							<input type="checkbox" id="pageTitleBold" checked style="width:auto;">
+							<span style="font-weight:500;font-size:12px;">Título em Negrito</span>
+						</label>
+						
+						<label style="font-weight:500;font-size:12px;margin-top:12px;display:block;">Tamanho Subtítulo (px)</label>
+						<input type="number" id="pageSubtitleSize" min="10" max="36" value="14" style="width:100%;margin-top:6px;">
+						<label style="margin-top:8px;display:flex;align-items:center;gap:8px;">
+							<input type="checkbox" id="pageSubtitleBold" style="width:auto;">
+							<span style="font-weight:500;font-size:12px;">Subtítulo em Negrito</span>
+						</label>
+						
+						<label style="font-weight:500;font-size:12px;margin-top:12px;display:block;">Tamanho Descrição (px)</label>
+						<input type="number" id="pageDescSize" min="10" max="24" value="14" style="width:100%;margin-top:6px;">
+						<label style="margin-top:8px;display:flex;align-items:center;gap:8px;">
+							<input type="checkbox" id="pageDescBold" style="width:auto;">
+							<span style="font-weight:500;font-size:12px;">Descrição em Negrito</span>
+						</label>
+					</div>
+				</div>
+                <div class="form-group">
+                    <label>Cor Primária</label>
+                    <input type="color" id="primaryColor" value="#0066cc">
+                </div>
+                <div class="form-group">
+                    <label>Cor do Menu</label>
+                    <input type="color" id="menuBgColor" value="#4A4A4A">
+                </div>
+                <div class="form-group">
+                    <label>Cor do Menu Colapsado</label>
+                    <input type="color" id="menuCollapsedBgColor" value="#4A4A4A">
+                </div>
+                <div class="form-group">
+                    <label>Cor de realce do botão do Menu (hover)</label>
+                    <input type="color" id="menuHoverColor" value="#2a2d4a">
+                </div>
+                <button class="btn btn-admin" onclick="saveConfig()">Salvar Configurações</button>
+                
+                <div style="margin-top: 30px; padding: 15px; background: #fff3cd; border-radius: 4px;">
+                    <h4 style="color: #856404; margin-bottom: 10px;">Informações do Sistema</h4>
+                    <p style="color: #856404; font-size: 14px;">
+                        ✅ Portal conectado ao SQL Server<br>
+                        ✅ Usuário admin autenticado<br>
+                        ✅ Modo de edição ativado
+                    </p>
+                </div>
+            </div>
+
+            <!-- Nova aba para Dicionário de Dados -->
+            <div class="tab-content" id="dictionaryTab">
+                <h3>Gerenciar Dicionários de Dados (IA)</h3>
+                <p style="color: #666; font-size: 14px; margin-bottom: 20px;">
+                    Configure os dicionários de dados que o chatbot IA usará para gerar consultas SQL. 
+                    O dicionário padrão será usado automaticamente pelo assistente.
+                </p>
+
+                <div style="margin-bottom: 20px;">
+                    <button class="btn btn-admin" onclick="window.PortalAdmin.showCreateDictionaryForm()">
+                        ➕ Novo Dicionário
+                    </button>
+                </div>
+
+                <!-- Lista de dicionários existentes -->
+                <h4>Dicionários Existentes</h4>
+                <div class="menu-list" id="dictionariesList">
+                    <div style="text-align: center; color: #666; padding: 20px;">
+                        Carregando dicionários...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script defer src="assets/js/app.js"></script>
+    <!-- NOVO: carrega o módulo Admin com as funções de dicionários -->
+    <script defer src="assets/js/modules/admin.js"></script>
+    <script defer src="assets/js/chatbot.js"></script>
+
+    <!-- Patch savePage: avoid misleading error if only the reload fails -->
+    <script>
+    (function() {
+        function getVal(id) { const el = document.getElementById(id); return el ? el.value : ''; }
+        function isChecked(id) { const el = document.getElementById(id); return el ? !!el.checked : false; }
+        function prep(val, max) {
+            try { return (window.prepareStringForDb ? window.prepareStringForDb(val, max).value : (val || '')); }
+            catch(_) { return val || ''; }
+        }
+        async function reloadSafely() {
+            try { if (typeof window.loadDataFromAPI === 'function') await window.loadDataFromAPI(); }
+            catch (e) { console.warn('[savePage] reload warning:', e); }
+            try {
+                if (window.selectedPageId === null && typeof window.loadQuickAccessCards === 'function') {
+                    window.loadQuickAccessCards();
+                }
+            } catch (_) {}
+        }
+
+        // Override global savePage to improve UX/errors after save
+        window.savePage = async function() {
+            const title = getVal('pageNameInput').trim();
+            if (!title) { alert('Por favor, preencha o título da página'); return; }
+
+            const token = localStorage.getItem('authToken');
+            if (!token) { alert('Faça login como administrador para salvar páginas'); return; }
+
+            const MAX = (window.MAX_LENGTHS || {});
+            const payload = {
+                title:       prep(title,                           MAX.pageTitle     || 200),
+                subtitle:    prep(getVal('pageSubtitleInput'),     MAX.pageSubtitle  || 500),
+                description: prep(getVal('pageDescInput'),         MAX.pageDescription || 4000),
+                powerBIUrl:  prep(getVal('powerbiUrlInput'),       MAX.powerBIUrl    || 2000),
+                showInHome:  isChecked('showInHomeCheckbox'),
+                icon:        prep(getVal('pageIconInput'),         MAX.pageIcon      || 500) || null
+            };
+
+            const editingId = (typeof window.editingPageId !== 'undefined' && window.editingPageId) ? window.editingPageId : null;
+            const url = editingId ? `${location.origin}/api/pages/${editingId}` : `${location.origin}/api/pages`;
+            const method = editingId ? 'PUT' : 'POST';
+
+            try {
+                const resp = await fetch(url, {
+                    method,
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!resp.ok) {
+                    const body = await resp.text().catch(() => resp.statusText);
+                    alert(`Erro ao salvar página: ${body || resp.statusText} (status ${resp.status})`);
+                    return;
+                }
+
+                // Sucesso: limpar formulário e estado de edição
+                try { if (typeof window.clearPageForm === 'function') window.clearPageForm(); } catch (_) {}
+                window.editingPageId = null;
+                const btn = document.getElementById('savePageBtn'); if (btn) btn.textContent = 'Salvar Página';
+                const cancel = document.getElementById('cancelPageEditBtn'); if (cancel) cancel.style.display = 'none';
+
+                // Recarregar dados sem falhar a operação de salvar
+                await reloadSafely();
+                alert(editingId ? 'Página atualizada com sucesso!' : 'Página salva com sucesso!');
+            } catch (err) {
+                console.error('[savePage] erro:', err);
+                // Evitar mensagem enganosa: o erro pode ser apenas ao recarregar a UI
+                alert(`Não foi possível atualizar a interface após salvar. Detalhes: ${err.message || err}`);
+            }
+        };
+    })();
+    </script>
+</body>
+</html>
