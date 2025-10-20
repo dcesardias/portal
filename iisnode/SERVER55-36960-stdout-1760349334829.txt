@@ -1,9 +1,0 @@
-Conectado ao SQL Server
-Servidor rodando em http://undefined:\\.\pipe\1beab511-9f1d-4253-bebd-5acb486fe276
-Acesse: http://localhost:\\.\pipe\1beab511-9f1d-4253-bebd-5acb486fe276
-[2025-10-13T09:55:36.370Z] GET /favicon.ico
-[2025-10-13T09:55:36.426Z] GET /api/pages
-GET /api/pages - requester anonymous
-[2025-10-13T09:55:36.443Z] GET /api/menu
-GET /api/menu - requester anonymous
-[2025-10-13T09:55:36.475Z] GET /api/config?cb=1760349336207
