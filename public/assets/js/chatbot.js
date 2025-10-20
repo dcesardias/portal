@@ -1,4 +1,4 @@
-// chatbot.js - DESIGN MELHORADO COM JANELA MAIOR
+// chatbot.js - DESIGN MELHORADO COM JANELA MAIOR + GRÁFICOS VIA COPILOT
 
 (function() {
     'use strict';
@@ -6,14 +6,14 @@
     // Configurações do chatbot - TAMANHOS AUMENTADOS
     const CHATBOT_CONFIG = {
         width: {
-            default: 720,  // Aumentado de 480
-            min: 480,      // Aumentado de 320
-            max: 1200      // Aumentado de 800
+            default: 720,
+            min: 480,
+            max: 1200
         },
         height: {
-            default: 700,  // Aumentado de 600
-            min: 500,      // Aumentado de 400
-            max: 900       // Aumentado de 800
+            default: 700,
+            min: 500,
+            max: 900
         },
         position: {
             bottom: 20,
@@ -639,7 +639,6 @@
             }
         });
         
-        // Botão fullscreen
         fullscreenBtn.addEventListener('click', () => {
             toggleFullscreen();
         });
@@ -677,7 +676,6 @@
             showSizeIndicator();
         });
         
-        // Redimensionamento
         let isDragging = false;
         let startX, startY, startWidth, startHeight;
         
@@ -753,7 +751,6 @@
             sizeIndicator.classList.remove('show');
         }
         
-        // Observer para mudança de telas
         const observer = new MutationObserver((mutations) => {
             mutations.forEach((mutation) => {
                 if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
@@ -782,8 +779,6 @@
         
         setTimeout(toggleChatbotVisibility, 500);
     }
-
-    // [RESTO DO CÓDIGO PERMANECE IGUAL - funções isGreeting, getGreetingResponse, sendMessage, etc.]
     
     function isGreeting(message) {
         const normalized = message.toLowerCase().trim();
@@ -877,7 +872,7 @@
             addMessage('bot', response);
             
         } catch (error) {
-            console.error('Erro no chatbot:', error);
+            console.error('[CHATBOT] Erro:', error);
             removeTypingIndicator();
 
             const notUnderstood =
@@ -962,7 +957,7 @@
             return DATA_DICTIONARY;
             
         } catch (error) {
-            console.error('[Chatbot] Erro ao carregar dicionário:', error);
+            console.error('[CHATBOT] Erro ao carregar dicionário:', error);
             return DATA_DICTIONARY;
         }
     }
@@ -1015,7 +1010,6 @@
                 throw new Error('SQL vazia retornada');
             }
             
-            // Aceitar SELECT ou CTEs (WITH)
             if (!/^(select|with)/i.test(sql)) {
                 throw new Error(`Consulta inválida: "${sql}"`);
             }
@@ -1171,19 +1165,16 @@
             response += `</div></details>`;
         }
         
-        // CORREÇÃO: Armazenar dados em estrutura global ao invés de no HTML
         if (results && results.length > 0) {
             const chartId = `chart-${Date.now()}`;
             
-            // Armazenar dados globalmente
             if (!window.chartDataStore) {
                 window.chartDataStore = {};
             }
             window.chartDataStore[chartId] = {
                 question: question,
                 sqlQuery: sqlQuery,
-                results: results,
-                analysis: analysis
+                results: results.slice(0, 50)
             };
             
             response += `<div style="margin-top: 16px; text-align: center;">
@@ -1268,80 +1259,85 @@
         if (indicator) indicator.remove();
     }
 
+    // ============================================
+    // NOVA IMPLEMENTAÇÃO: GRÁFICOS VIA COPILOT
+    // ============================================
+    
     window.generateChartVisualization = async function(chartId) {
+        console.log('[COPILOT-CHART] Iniciando geração de gráfico:', chartId);
+        
         const button = document.getElementById(chartId);
         const container = document.getElementById(`${chartId}-container`);
         
-        if (!button || !container) return;
+        if (!button || !container) {
+            console.error('[COPILOT-CHART] Elementos não encontrados');
+            return;
+        }
         
-        // Recuperar dados da estrutura global
         const payload = window.chartDataStore?.[chartId];
         if (!payload) {
+            console.error('[COPILOT-CHART] Dados não encontrados no store');
             container.innerHTML = `<div style="background: #ffebee; padding: 16px; border-radius: 8px; color: #c62828; border: 1px solid #ef5350; margin-top: 12px;">
                 <strong>❌ Erro</strong><br>
-                <span style="font-size: 14px;">Dados não encontrados. Por favor, tente novamente.</span>
+                <span style="font-size: 14px;">Dados não encontrados. Tente novamente.</span>
             </div>`;
             return;
         }
         
         const originalText = button.innerHTML;
         button.disabled = true;
-        button.innerHTML = '⏳ Analisando dados...';
+        button.innerHTML = '🤖 Consultando Copilot...';
         
         try {
-            const response = await fetch('/api/chat/generate-chart', {
+            console.log('[COPILOT-CHART] Enviando para Copilot:', {
+                query: payload.question,
+                sqlLength: payload.sqlQuery.length,
+                resultsCount: payload.results.length
+            });
+            
+            const response = await fetch('/api/chat/copilot-chart', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     userQuery: payload.question,
                     sqlQuery: payload.sqlQuery,
-                    results: payload.results,
-                    analysis: payload.analysis
+                    results: payload.results
                 })
             });
             
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || `Erro HTTP: ${response.status}`);
+                throw new Error(errorData.error || `HTTP ${response.status}`);
             }
             
             const data = await response.json();
+            console.log('[COPILOT-CHART] Resposta do Copilot:', data);
             
-            if (!data.suitable) {
-                container.innerHTML = `<div style="background: #fff3cd; padding: 16px; border-radius: 8px; color: #856404; border: 1px solid #ffeaa7; margin-top: 12px;">
-                    <strong>📊 Visualização não recomendada</strong><br>
-                    <span style="font-size: 14px;">${data.reasoning}</span>
-                </div>`;
-                button.style.display = 'none';
-                return;
+            if (!data.chartCode) {
+                throw new Error('Código do gráfico não retornado');
             }
             
             const canvasId = `canvas-${chartId}`;
             container.innerHTML = `
                 <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 12px;">
-                    <h4 style="margin: 0 0 16px 0; color: #333; font-size: 16px;">${data.title}</h4>
-                    <canvas id="${canvasId}" style="max-height: 400px;"></canvas>
-                    <div style="margin-top: 12px; padding: 10px; background: #f8f9fa; border-radius: 6px; font-size: 13px; color: #666; font-style: italic; border-left: 3px solid #667eea;">
-                        <strong>💡 Interpretação:</strong> ${data.reasoning}
-                    </div>
+                    <canvas id="${canvasId}" style="max-height: 500px;"></canvas>
                 </div>`;
             
             if (typeof Chart === 'undefined') {
-                const script = document.createElement('script');
-                script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
-                script.onload = () => renderChart(canvasId, data);
-                document.head.appendChild(script);
-            } else {
-                renderChart(canvasId, data);
+                console.log('[COPILOT-CHART] Carregando Chart.js...');
+                await loadChartJS();
             }
             
-            button.style.display = 'none';
+            console.log('[COPILOT-CHART] Executando código do gráfico...');
+            executeChartCode(canvasId, data.chartCode);
             
-            // Limpar dados após uso
+            button.style.display = 'none';
             delete window.chartDataStore[chartId];
             
+            console.log('[COPILOT-CHART] Gráfico renderizado com sucesso');
+            
         } catch (error) {
-            console.error('[CHART] Erro:', error);
+            console.error('[COPILOT-CHART] Erro:', error);
             container.innerHTML = `<div style="background: #ffebee; padding: 16px; border-radius: 8px; color: #c62828; border: 1px solid #ef5350; margin-top: 12px;">
                 <strong>❌ Erro ao gerar visualização</strong><br>
                 <span style="font-size: 14px;">${error.message}</span>
@@ -1350,523 +1346,255 @@
             button.innerHTML = originalText;
         }
     };
-
-    function renderChart(canvasId, chartData) {
-        const ctx = document.getElementById(canvasId);
-        if (!ctx) return;
-        
-        console.log('[CHART] ========== INÍCIO RENDERIZAÇÃO ==========');
-        console.log('[CHART] chartData completo:', chartData);
-        console.log('[CHART] xColumn:', chartData.xColumn);
-        console.log('[CHART] yColumn:', chartData.yColumn);
-        console.log('[CHART] Primeiros 3 registros de data:', chartData.data.slice(0, 3));
-        
-        const useHorizontalBar = chartData.type === 'bar' && chartData.data.length > 8;
-        const actualChartType = useHorizontalBar ? 'bar' : chartData.type;
-        
-        console.log('[CHART] Renderizando gráfico:', {
-            type: actualChartType,
-            horizontal: useHorizontalBar,
-            xColumn: chartData.xColumn,
-            yColumn: chartData.yColumn,
-            dataCount: chartData.data.length,
-            showVariation: chartData.showVariation
-        });
-        
-        function formatIfDate(value) {
-            if (!value) return 'N/A';
-            
-            const str = String(value).trim();
-            
-            if (/^\d{4}-\d{2}$/.test(str)) {
-                const [year, month] = str.split('-');
-                const date = new Date(parseInt(year), parseInt(month) - 1, 1);
-                return date.toLocaleDateString('pt-BR', { 
-                    month: 'short', 
-                    year: '2-digit' 
-                }).replace('.', '');
-            }
-            
-            if (/^\d{6}$/.test(str)) {
-                const year = str.substring(0, 4);
-                const month = str.substring(4, 6);
-                const date = new Date(parseInt(year), parseInt(month) - 1, 1);
-                return date.toLocaleDateString('pt-BR', { 
-                    month: 'short', 
-                    year: '2-digit' 
-                }).replace('.', '');
-            }
-            
-            if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
-                try {
-                    const date = new Date(str);
-                    if (!isNaN(date.getTime())) {
-                        if (date.getDate() === 1) {
-                            return date.toLocaleDateString('pt-BR', { 
-                                month: 'short', 
-                                year: '2-digit' 
-                            }).replace('.', '');
-                        }
-                        return date.toLocaleDateString('pt-BR', { 
-                            day: '2-digit',
-                            month: 'short',
-                            year: '2-digit'
-                        }).replace(/\./g, '');
-                    }
-                } catch (e) {}
-            }
-            
-            return str;
-        }
-        
-        const rawLabels = chartData.data.map(row => {
-            const value = row[chartData.xColumn];
-            console.log('[CHART] Processando label:', { xColumn: chartData.xColumn, value: value, row: row });
-            return value;
-        });
-        
-        console.log('[CHART] ===== RAW LABELS =====');
-        console.log('[CHART] Total de labels:', rawLabels.length);
-        console.log('[CHART] Labels brutos completos:', rawLabels);
-        console.log('[CHART] Tipos dos labels:', rawLabels.map(l => typeof l));
-        
-        const allAreDates = rawLabels.every(val => {
-            const str = String(val);
-            return /^\d{4}-\d{2}(-\d{2})?$/.test(str) || /^\d{6}$/.test(str);
-        });
-        
-        console.log('[CHART] Todos são datas?', allAreDates);
-        
-        const labels = rawLabels.map(value => {
-            if (allAreDates) {
-                return formatIfDate(value);
-            }
-            
-            const str = value !== null && value !== undefined ? String(value) : 'N/A';
-            
-            if (useHorizontalBar) {
-                return str.length > 50 ? str.substring(0, 47) + '...' : str;
-            } else {
-                return str.length > 30 ? str.substring(0, 27) + '...' : str;
-            }
-        });
-        
-        console.log('[CHART] ===== LABELS FINAIS =====');
-        console.log('[CHART] Labels formatados completos:', labels);
-        
-        const isPieType = ['pie', 'doughnut'].includes(chartData.type);
-        const isLineChart = chartData.type === 'line';
-        const isBarChart = chartData.type === 'bar';
-        
-        const isMultiSeries = chartData.isMultiSeries && Array.isArray(chartData.yColumn);
-        let datasets = [];
-        
-        if (isMultiSeries) {
-            console.log('[CHART] Criando múltiplos datasets para:', chartData.yColumn);
-            
-            const seriesColors = [
-                { bg: 'rgba(102, 126, 234, 0.2)', border: 'rgba(102, 126, 234, 1)' },
-                { bg: 'rgba(244, 67, 54, 0.2)', border: 'rgba(244, 67, 54, 1)' },
-                { bg: 'rgba(76, 175, 80, 0.2)', border: 'rgba(76, 175, 80, 1)' },
-                { bg: 'rgba(255, 152, 0, 0.2)', border: 'rgba(255, 152, 0, 1)' }
-            ];
-            
-            chartData.yColumn.forEach((col, idx) => {
-                const values = chartData.data.map(row => formatChartValue(row[col]));
-                const color = seriesColors[idx % seriesColors.length];
-                
-                datasets.push({
-                    label: col,
-                    data: values,
-                    backgroundColor: color.bg,
-                    borderColor: color.border,
-                    borderWidth: 3,
-                    tension: isLineChart ? 0.4 : 0,
-                    fill: isLineChart,
-                    pointBackgroundColor: color.border,
-                    pointBorderColor: '#fff',
-                    pointHoverRadius: 6,
-                    pointRadius: 4
-                });
-            });
-        } else {
-            const values = chartData.data.map(row => formatChartValue(row[chartData.yColumn]));
-            
-            const gradientColors = {
-                bar: (ctx) => {
-                    const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-                    gradient.addColorStop(0, 'rgba(102, 126, 234, 0.9)');
-                    gradient.addColorStop(1, 'rgba(118, 75, 162, 0.7)');
-                    return gradient;
-                },
-                line: 'rgba(118, 75, 162, 0.2)'
-            };
-            
-            datasets = [{
-                label: chartData.yColumn,
-                data: values,
-                backgroundColor: isPieType 
-                    ? generateColorArray(values.length)
-                    : (isBarChart ? gradientColors.bar(ctx.getContext('2d')) : gradientColors.line),
-                borderColor: isLineChart 
-                    ? 'rgba(118, 75, 162, 1)' 
-                    : (isPieType ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.8)'),
-                borderWidth: isLineChart ? 3 : 2,
-                tension: isLineChart ? 0.4 : 0,
-                fill: isLineChart,
-                pointBackgroundColor: isLineChart ? 'rgba(118, 75, 162, 1)' : undefined,
-                pointBorderColor: isLineChart ? '#fff' : undefined,
-                pointHoverRadius: isLineChart ? 6 : undefined,
-                pointRadius: isLineChart ? 4 : undefined
-            }];
-        }
-        
-        console.log('[CHART] ===== DATASETS =====');
-        console.log('[CHART] Número de séries:', datasets.length);
-        datasets.forEach((ds, i) => console.log(`[CHART] Série ${i}: ${ds.label}, ${ds.data.length} pontos`));
-        
-        const values = datasets[0].data;
-        
-        let variations = [];
-        if (isBarChart && chartData.showVariation && values.length >= 2 && !isMultiSeries) {
-            for (let i = 1; i < values.length; i++) {
-                const diff = values[i] - values[i-1];
-                const percent = values[i-1] !== 0 ? ((diff / values[i-1]) * 100) : 0;
-                variations.push({ diff, percent });
-            }
-        }
-        
-        let minIndex = -1, maxIndex = -1, minValue = Infinity, maxValue = -Infinity;
-        if (isLineChart && values.length > 0 && !isMultiSeries) {
-            values.forEach((val, idx) => {
-                if (val < minValue) { minValue = val; minIndex = idx; }
-                if (val > maxValue) { maxValue = val; maxIndex = idx; }
-            });
-        }
-        
-        const minMaxPlugin = {
-            id: 'minMaxIndicator',
-            afterDatasetsDraw: (chart) => {
-                if (!isLineChart || minIndex === -1 || maxIndex === -1) return;
-                
-                const ctx = chart.ctx;
-                const meta = chart.getDatasetMeta(0);
-                
-                const drawIndicator = (index, value, label, color) => {
-                    const point = meta.data[index];
-                    if (!point) return;
-                    
-                    const x = point.x;
-                    const y = point.y;
-                    
-                    ctx.save();
-                    ctx.strokeStyle = color;
-                    ctx.lineWidth = 3;
-                    ctx.beginPath();
-                    ctx.arc(x, y, 8, 0, 2 * Math.PI);
-                    ctx.stroke();
-                    
-                    const labelY = label === 'MIN' ? y + 25 : y - 25;
-                    ctx.beginPath();
-                    ctx.moveTo(x, y);
-                    ctx.lineTo(x, labelY);
-                    ctx.stroke();
-                    
-                    const text = `${label}: ${value.toLocaleString('pt-BR')}`;
-                    ctx.font = 'bold 11px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.fillStyle = color;
-                    
-                    const textWidth = ctx.measureText(text).width;
-                    const padding = 6;
-                    const boxY = label === 'MIN' ? labelY : labelY - 16;
-                    
-                    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-                    ctx.fillRect(x - textWidth/2 - padding, boxY, textWidth + padding*2, 18);
-                    
-                    ctx.strokeStyle = color;
-                    ctx.lineWidth = 2;
-                    ctx.strokeRect(x - textWidth/2 - padding, boxY, textWidth + padding*2, 18);
-                    
-                    ctx.fillStyle = color;
-                    ctx.fillText(text, x, boxY + 13);
-                    ctx.restore();
-                };
-                
-                drawIndicator(minIndex, minValue, 'MIN', '#e74c3c');
-                drawIndicator(maxIndex, maxValue, 'MAX', '#27ae60');
-            }
-        };
-        
-        const variationPlugin = {
-            id: 'variationIndicator',
-            afterDatasetsDraw: (chart) => {
-                if (!isBarChart || !chartData.showVariation || variations.length === 0) return;
-                
-                const ctx = chart.ctx;
-                const meta = chart.getDatasetMeta(0);
-                
-                variations.forEach((variation, idx) => {
-                    const bar1 = meta.data[idx];
-                    const bar2 = meta.data[idx + 1];
-                    
-                    if (!bar1 || !bar2) return;
-                    
-                    const x1 = bar1.x;
-                    const y1 = bar1.y;
-                    const x2 = bar2.x;
-                    const y2 = bar2.y;
-                    
-                    const midX = (x1 + x2) / 2;
-                    const topY = Math.min(y1, y2) - 30;
-                    
-                    const isPositive = variation.diff > 0;
-                    const color = isPositive ? '#27ae60' : '#e74c3c';
-                    const arrow = isPositive ? '▲' : '▼';
-                    
-                    ctx.save();
-                    
-                    ctx.strokeStyle = color;
-                    ctx.lineWidth = 2;
-                    ctx.setLineDash([5, 3]);
-                    ctx.beginPath();
-                    ctx.moveTo(x1, y1);
-                    ctx.lineTo(midX, topY + 10);
-                    ctx.lineTo(x2, y2);
-                    ctx.stroke();
-                    ctx.setLineDash([]);
-                    
-                    const diffText = `${arrow} ${Math.abs(variation.diff).toLocaleString('pt-BR')}`;
-                    const percentText = `(${variation.percent >= 0 ? '+' : ''}${variation.percent.toFixed(1)}%)`;
-                    
-                    ctx.font = 'bold 12px Arial';
-                    ctx.textAlign = 'center';
-                    
-                    const diffWidth = ctx.measureText(diffText).width;
-                    const percentWidth = ctx.measureText(percentText).width;
-                    const maxWidth = Math.max(diffWidth, percentWidth);
-                    const padding = 8;
-                    
-                    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-                    ctx.fillRect(midX - maxWidth/2 - padding, topY - 10, maxWidth + padding*2, 30);
-                    
-                    ctx.strokeStyle = color;
-                    ctx.lineWidth = 2;
-                    ctx.strokeRect(midX - maxWidth/2 - padding, topY - 10, maxWidth + padding*2, 30);
-                    
-                    ctx.fillStyle = color;
-                    ctx.fillText(diffText, midX, topY + 3);
-                    ctx.font = '10px Arial';
-                    ctx.fillText(percentText, midX, topY + 15);
-                    
-                    ctx.restore();
-                });
-            }
-        };
-        
-        const total = isPieType ? values.reduce((a, b) => a + b, 0) : 0;
-        
-        const config = {
-            type: actualChartType,
-            data: {
-                labels: labels,
-                datasets: datasets
-            },
-            options: {
-                indexAxis: useHorizontalBar ? 'y' : 'x',
-                responsive: true,
-                maintainAspectRatio: true,
-                layout: {
-                    padding: {
-                        top: (isLineChart || (isBarChart && chartData.showVariation)) ? 50 : 10,
-                        bottom: isLineChart ? 40 : 10,
-                        left: 10,
-                        right: 10
-                    }
-                },
-                plugins: {
-                    legend: {
-                        display: isPieType || isMultiSeries,
-                        position: 'bottom',
-                        labels: {
-                            padding: 15,
-                            font: { size: 12 },
-                            usePointStyle: true,
-                            generateLabels: isPieType ? (chart) => {
-                                const data = chart.data;
-                                return data.labels.map((label, i) => {
-                                    const value = data.datasets[0].data[i];
-                                    const percent = ((value / total) * 100).toFixed(1);
-                                    return {
-                                        text: `${label}: ${value.toLocaleString('pt-BR')} (${percent}%)`,
-                                        fillStyle: data.datasets[0].backgroundColor[i],
-                                        hidden: false,
-                                        index: i
-                                    };
-                                });
-                            } : undefined
-                        }
-                    },
-                    tooltip: {
-                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                        padding: 12,
-                        titleFont: { size: 14, weight: 'bold' },
-                        bodyFont: { size: 13 },
-                        callbacks: {
-                            title: function(context) {
-                                return context[0].label;
-                            },
-                            label: function(context) {
-                                const label = context.dataset.label || '';
-                                const value = context.parsed.y !== undefined ? context.parsed.y : context.parsed;
-                                
-                                if (isPieType) {
-                                    const percentage = ((value / total) * 100).toFixed(1);
-                                    return `${label}: ${value.toLocaleString('pt-BR')} (${percentage}%)`;
-                                }
-                                
-                                return `${label}: ${value.toLocaleString('pt-BR')}`;
-                            }
-                        }
-                    },
-                    datalabels: isPieType ? {
-                        color: '#fff',
-                        font: {
-                            weight: 'bold',
-                            size: 14
-                        },
-                        formatter: (value, context) => {
-                            const percent = ((value / total) * 100).toFixed(1);
-                            return percent > 5 ? `${percent}%` : '';
-                        }
-                    } : undefined
-                },
-                scales: !isPieType ? (useHorizontalBar ? {
-                    x: {
-                        beginAtZero: true,
-                        grid: { color: 'rgba(0, 0, 0, 0.05)' },
-                        ticks: {
-                            font: { size: 11 },
-                            callback: function(value) {
-                                if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M';
-                                if (value >= 1000) return (value / 1000).toFixed(1) + 'K';
-                                return Number.isInteger(value) ? value : value.toFixed(1);
-                            }
-                        }
-                    },
-                    y: {
-                        grid: { display: false },
-                        ticks: {
-                            font: { size: 10 },
-                            autoSkip: false
-                        }
-                    }
-                } : {
-                    x: {
-                        grid: { display: false },
-                        ticks: {
-                            maxRotation: 45,
-                            minRotation: 45,
-                            font: { size: 10 },
-                            autoSkip: true,
-                            maxTicksLimit: 30
-                        }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: 'rgba(0, 0, 0, 0.05)' },
-                        ticks: {
-                            font: { size: 11 },
-                            callback: function(value) {
-                                if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M';
-                                if (value >= 1000) return (value / 1000).toFixed(1) + 'K';
-                                return Number.isInteger(value) ? value : value.toFixed(1);
-                            }
-                        }
-                    }
-                }) : {}
-            },
-            plugins: [
-                ...(isLineChart && !isMultiSeries ? [minMaxPlugin] : []),
-                ...(isBarChart && chartData.showVariation ? [variationPlugin] : [])
-            ]
-        };
-        
-        new Chart(ctx, config);
-    }
-
-    function generateColorArray(count) {
-        const baseColors = [
-            'rgba(102, 126, 234, 0.8)',
-            'rgba(118, 75, 162, 0.8)',
-            'rgba(76, 175, 80, 0.8)',
-            'rgba(255, 152, 0, 0.8)',
-            'rgba(244, 67, 54, 0.8)',
-            'rgba(33, 150, 243, 0.8)',
-            'rgba(156, 39, 176, 0.8)',
-            'rgba(0, 188, 212, 0.8)',
-            'rgba(255, 235, 59, 0.8)',
-            'rgba(121, 85, 72, 0.8)'
-        ];
-        
-        const colors = [];
-        for (let i = 0; i < count; i++) {
-            colors.push(baseColors[i % baseColors.length]);
-        }
-        return colors;
-    }
     
-    // Carregar Chart.js com plugin de labels
-    function preloadChartJS() {
-        if (typeof Chart === 'undefined') {
-            // Chart.js principal
-            const chartScript = document.createElement('script');
-            chartScript.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
-            chartScript.async = true;
+    function loadChartJS() {
+        return new Promise((resolve, reject) => {
+            if (typeof Chart !== 'undefined') {
+                resolve();
+                return;
+            }
             
-            // Plugin de datalabels para pizza/rosca
-            chartScript.onload = () => {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+            script.onload = () => {
+                console.log('[COPILOT-CHART] Chart.js carregado');
+                
                 const pluginScript = document.createElement('script');
                 pluginScript.src = 'https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js';
-                pluginScript.async = true;
+                pluginScript.onload = () => {
+                    console.log('[COPILOT-CHART] Plugin datalabels carregado');
+                    resolve();
+                };
+                pluginScript.onerror = () => {
+                    console.warn('[COPILOT-CHART] Falha ao carregar plugin, continuando sem ele');
+                    resolve();
+                };
                 document.head.appendChild(pluginScript);
             };
-            
-            document.head.appendChild(chartScript);
-        }
+            script.onerror = () => reject(new Error('Falha ao carregar Chart.js'));
+            document.head.appendChild(script);
+        });
     }
-
-    // Formatar valores para exibição no gráfico
-    function formatChartValue(value) {
-        if (value === null || value === undefined) return 0;
-        if (typeof value === 'number') {
-            return value;
-        }
-        if (typeof value === 'string') {
-            const parsed = parseFloat(value.replace(/[^\d.-]/g, ''));
-            return isNaN(parsed) ? 0 : parsed;
-        }
-        return 0;
-    }
-
-    // Formatar labels para melhor legibilidade
     
-    // Melhorar função renderChart com formatação
+    function executeChartCode(canvasId, chartCode) {
+        console.log('[COPILOT-CHART] Código recebido:', chartCode.substring(0, 200) + '...');
         
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) {
+            throw new Error('Canvas não encontrado');
+        }
+        
+        // ADICIONAR BOTÃO DE EXPANSÃO
+        const container = canvas.closest('div[style*="background: white"]');
+        if (container && !container.querySelector('.chart-expand-btn')) {
+            const expandBtn = document.createElement('button');
+            expandBtn.className = 'chart-expand-btn';
+            expandBtn.innerHTML = '⛶';
+            expandBtn.title = 'Expandir gráfico';
+            expandBtn.style.cssText = `
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                border: none;
+                width: 36px;
+                height: 36px;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 18px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+                transition: all 0.2s;
+            `;
+            
+            expandBtn.onmouseover = () => {
+                expandBtn.style.transform = 'scale(1.1)';
+                expandBtn.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+            };
+            
+            expandBtn.onmouseout = () => {
+                expandBtn.style.transform = 'scale(1)';
+                expandBtn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+            };
+            
+            expandBtn.onclick = () => {
+                const modal = document.createElement('div');
+                modal.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(0,0,0,0.9);
+                    z-index: 2147483647;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 40px;
+                    animation: fadeIn 0.3s;
+                `;
+                
+                const modalContent = document.createElement('div');
+                modalContent.style.cssText = `
+                    background: white;
+                    border-radius: 16px;
+                    width: 90vw;
+                    height: 85vh;
+                    max-width: 1400px;
+                    position: relative;
+                    padding: 30px;
+                    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+                    display: flex;
+                    flex-direction: column;
+                `;
+                
+                const closeBtn = document.createElement('button');
+                closeBtn.innerHTML = '×';
+                closeBtn.title = 'Fechar';
+                closeBtn.style.cssText = `
+                    position: absolute;
+                    top: 15px;
+                    right: 15px;
+                    background: #e74c3c;
+                    color: white;
+                    border: none;
+                    width: 40px;
+                    height: 40px;
+                    border-radius: 50%;
+                    cursor: pointer;
+                    font-size: 28px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 10;
+                    transition: all 0.2s;
+                    line-height: 1;
+                `;
+                
+                closeBtn.onmouseover = () => {
+                    closeBtn.style.transform = 'scale(1.1)';
+                    closeBtn.style.background = '#c0392b';
+                };
+                
+                closeBtn.onmouseout = () => {
+                    closeBtn.style.transform = 'scale(1)';
+                    closeBtn.style.background = '#e74c3c';
+                };
+                
+                closeBtn.onclick = () => modal.remove();
+                
+                const expandedCanvas = document.createElement('canvas');
+                expandedCanvas.id = `expanded-${canvasId}`;
+                expandedCanvas.style.cssText = `
+                    flex: 1;
+                    max-height: calc(85vh - 80px);
+                `;
+                
+                modalContent.appendChild(closeBtn);
+                modalContent.appendChild(expandedCanvas);
+                modal.appendChild(modalContent);
+                document.body.appendChild(modal);
+                
+                // Recriar gráfico no canvas expandido
+                const expandedCtx = expandedCanvas.getContext('2d');
+                const sandbox = {
+                    Chart: window.Chart,
+                    ctx: expandedCtx,
+                    canvas: expandedCanvas,
+                    console: {
+                        log: (...args) => console.log('[CHART-EXPANDED]', ...args),
+                        error: (...args) => console.error('[CHART-EXPANDED]', ...args),
+                        warn: (...args) => console.warn('[CHART-EXPANDED]', ...args)
+                    }
+                };
+                
+                try {
+                    const executor = new Function(
+                        'Chart', 'ctx', 'canvas', 'console',
+                        `"use strict"; ${chartCode}`
+                    );
+                    executor(sandbox.Chart, sandbox.ctx, sandbox.canvas, sandbox.console);
+                } catch (error) {
+                    console.error('[CHART-EXPANDED] Erro ao renderizar:', error);
+                    modal.remove();
+                }
+                
+                // Fechar com ESC
+                const escHandler = (e) => {
+                    if (e.key === 'Escape') {
+                        modal.remove();
+                        document.removeEventListener('keydown', escHandler);
+                    }
+                };
+                document.addEventListener('keydown', escHandler);
+                
+                // Fechar clicando fora
+                modal.onclick = (e) => {
+                    if (e.target === modal) {
+                        modal.remove();
+                    }
+                };
+            };
+            
+            container.style.position = 'relative';
+            container.insertBefore(expandBtn, container.firstChild);
+        }
+        
+        const ctx = canvas.getContext('2d');
+        
+        const sandbox = {
+            Chart: window.Chart,
+            ctx: ctx,
+            canvas: canvas,
+            console: {
+                log: (...args) => console.log('[CHART-SANDBOX]', ...args),
+                error: (...args) => console.error('[CHART-SANDBOX]', ...args),
+                warn: (...args) => console.warn('[CHART-SANDBOX]', ...args)
+            }
+        };
+        
+        try {
+            const executor = new Function(
+                'Chart', 'ctx', 'canvas', 'console',
+                `"use strict"; ${chartCode}`
+            );
+            
+            const timeout = setTimeout(() => {
+                throw new Error('Timeout: código levou mais de 5s');
+            }, 5000);
+            
+            executor(sandbox.Chart, sandbox.ctx, sandbox.canvas, sandbox.console);
+            
+            clearTimeout(timeout);
+            console.log('[COPILOT-CHART] Código executado com sucesso');
+            
+        } catch (error) {
+            console.error('[COPILOT-CHART] Erro na execução:', error);
+            throw new Error(`Erro ao renderizar: ${error.message}`);
+        }
+    }
+    
+    // ============================================
+    // FIM DA IMPLEMENTAÇÃO DE GRÁFICOS VIA COPILOT
+    // ============================================
+    
     function initChatbot() {
         try {
             if (!document.getElementById('ai-chatbot-container')) {
                 createChatbotHTML();
             }
             initializeEvents();
-            preloadChartJS();
             
             setTimeout(() => {
                 toggleChatbotVisibility();
             }, 1000);
             
         } catch (e) {
-            console.error('Erro ao inicializar chatbot:', e);
+            console.error('[CHATBOT] Erro ao inicializar:', e);
         }
     }
     
@@ -1885,4 +1613,3 @@
     });
 
 })();
-//TESTE
