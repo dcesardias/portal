@@ -1677,6 +1677,208 @@ app.post('/api/chat/generate-chart', optionalAuthenticate, async (req, res) => {
     }
 });
 
+// Adicione esta rota APÓS a rota /api/chat/generate-chart (por volta da linha 1460)
+
+app.post('/api/chat/copilot-chart', optionalAuthenticate, async (req, res) => {
+    try {
+        const { userQuery, sqlQuery, results } = req.body;
+        
+        if (!results || results.length === 0) {
+            return res.status(400).json({ 
+                error: 'Sem dados para visualização',
+                stage: 'validation' 
+            });
+        }
+
+        if (!DIRECT_LINE_SECRET) {
+            return res.status(500).json({ 
+                error: 'Direct Line não configurado',
+                stage: 'configuration' 
+            });
+        }
+
+        const columns = Object.keys(results[0]);
+        const sampleData = results.slice(0, 50);
+        
+        const chartPrompt = `Você é um especialista em Chart.js. Analise os dados e gere código Chart.js COMPLETO e FUNCIONAL.
+
+CONTEXTO:
+Pergunta: ${userQuery}
+SQL: ${sqlQuery}
+
+ESTRUTURA:
+Colunas: ${columns.join(', ')}
+Registros: ${results.length}
+
+AMOSTRA (${sampleData.length} linhas):
+${JSON.stringify(sampleData, null, 2)}
+
+TAREFA:
+Gere código JavaScript EXECUTÁVEL que crie um gráfico Chart.js. O código será executado em sandbox com acesso a:
+- Chart (Chart.js v4)
+- ctx (canvas context)
+- canvas (elemento canvas)
+
+REQUISITOS OBRIGATÓRIOS:
+1. Escolha o tipo mais adequado: line, bar, pie, doughnut
+2. Para séries temporais: ordene por data/período
+3. Detecte colunas temporais (ano, mes, data) e categóricas
+4. Para múltiplas séries: crie datasets separados
+5. Adicione plugins personalizados se útil (min/max em linhas, variações em barras)
+6. Use cores gradientes profissionais
+7. Configure tooltips informativos
+8. Adicione título descritivo
+
+FORMATO DE SAÍDA:
+Retorne APENAS código JavaScript válido que instancia Chart. Exemplo:
+
+new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: [/* extrair dos dados */],
+        datasets: [{
+            label: 'Série 1',
+            data: [/* valores */],
+            borderColor: 'rgb(102, 126, 234)',
+            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+            tension: 0.4
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            title: {
+                display: true,
+                text: 'Título Descritivo'
+            },
+            legend: {
+                display: true
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        }
+    }
+});
+
+IMPORTANTE:
+- NÃO use markdown ou backticks
+- NÃO adicione comentários
+- Código deve ser executável diretamente
+- Use apenas dados fornecidos em "AMOSTRA"
+- Retorne APENAS o código JavaScript`;
+
+        console.log('[COPILOT-CHART] Solicitando código ao Copilot...');
+
+        const convResp = await fetchFn(`${DIRECT_LINE_ENDPOINT}/conversations`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${DIRECT_LINE_SECRET}` }
+        });
+        
+        if (!convResp.ok) {
+            return res.status(502).json({ 
+                error: 'Falha ao conectar',
+                stage: 'conversation_start' 
+            });
+        }
+        
+        const conv = await convResp.json();
+        const conversationId = conv.conversationId;
+
+        const activity = { type: 'message', from: { id: 'user' }, text: chartPrompt };
+        const postResp = await fetchFn(`${DIRECT_LINE_ENDPOINT}/conversations/${conversationId}/activities`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${DIRECT_LINE_SECRET}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(activity)
+        });
+        
+        if (!postResp.ok) {
+            return res.status(502).json({ 
+                error: 'Falha ao enviar',
+                stage: 'message_send' 
+            });
+        }
+
+        let watermark;
+        let replyText = '';
+        
+        for (let i = 0; i < 30; i++) {
+            const url = `${DIRECT_LINE_ENDPOINT}/conversations/${conversationId}/activities${watermark ? `?watermark=${watermark}` : ''}`;
+            const actResp = await fetchFn(url, {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${DIRECT_LINE_SECRET}` }
+            });
+            
+            if (!actResp.ok) {
+                return res.status(502).json({ 
+                    error: 'Falha polling',
+                    stage: 'response_polling' 
+                });
+            }
+            
+            const payload = await actResp.json();
+            watermark = payload.watermark;
+            const activities = (payload.activities || []).filter(a => 
+                a.type === 'message' && a.from && a.from.id && a.from.id !== 'user'
+            );
+            const last = activities.length ? activities[activities.length - 1] : null;
+            
+            if (last && last.text) {
+                replyText = last.text;
+                break;
+            }
+            
+            await sleep(1000);
+        }
+
+        if (!replyText) {
+            return res.status(504).json({ 
+                error: 'Timeout',
+                stage: 'timeout' 
+            });
+        }
+
+        // Limpar resposta
+        let chartCode = replyText
+            .replace(/O conteúdo gerado por IA pode estar incorreto.*$/gi, '')
+            .replace(/\s*AI-generated content may be incorrect.*$/gi, '')
+            .replace(/```javascript\n?/gi, '')
+            .replace(/```js\n?/gi, '')
+            .replace(/```\n?/gi, '')
+            .trim();
+
+        // Validação básica
+        if (!chartCode.includes('new Chart')) {
+            console.error('[COPILOT-CHART] Código inválido:', chartCode.substring(0, 200));
+            return res.status(400).json({
+                error: 'Código Chart.js inválido gerado',
+                details: chartCode.substring(0, 300),
+                stage: 'validation'
+            });
+        }
+
+        console.log('[COPILOT-CHART] ✅ Código gerado:', chartCode.substring(0, 200) + '...');
+        
+        return res.json({ 
+            chartCode: chartCode,
+            conversationId: conversationId
+        });
+        
+    } catch (err) {
+        console.error('[COPILOT-CHART] Erro:', err);
+        return res.status(500).json({ 
+            error: 'Erro interno',
+            details: err.message,
+            stage: 'internal_error'
+        });
+    }
+});
+
 app.post('/api/chat/query', optionalAuthenticate, async (req, res) => {
     try {
         const { query } = req.body || {};
