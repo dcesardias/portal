@@ -1,8 +1,0 @@
-Conectado ao SQL Server
-Servidor rodando em http://undefined:\\.\pipe\9d9a55c7-9ac1-45e2-8d11-9cd8999aff20
-Acesse: http://localhost:\\.\pipe\9d9a55c7-9ac1-45e2-8d11-9cd8999aff20
-[2025-10-13T16:23:42.380Z] GET /api/pages
-GET /api/pages - requester anonymous
-[2025-10-13T16:23:42.405Z] GET /api/menu
-GET /api/menu - requester anonymous
-[2025-10-13T16:23:42.440Z] GET /api/config?cb=1760372622169
