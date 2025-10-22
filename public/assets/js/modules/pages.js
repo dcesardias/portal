@@ -12,7 +12,7 @@ window.PortalPages = {
         }));
     },
 
-    loadPage(pageId, clickedElement) {
+    async loadPage(pageId, clickedElement) {
         const page = window.PortalApp.pagesData.find(p => p.id === pageId);
         if (!page) return;
         
@@ -89,6 +89,58 @@ window.PortalPages = {
                 
                 if (refreshBtn) refreshBtn.style.display = 'none';
             }
+        }
+
+        // NOVO: Verificar tutorial após carregar a página
+        console.log('[PAGES] Verificando tutorial para página:', pageId);
+        await this.checkTutorial(pageId);
+    },
+
+    // NOVA FUNÇÃO: Verificar disponibilidade de tutorial
+    async checkTutorial(pageId) {
+        const tutorialBtn = document.getElementById('startTutorialBtn');
+        
+        if (!tutorialBtn) {
+            console.warn('[TUTORIAL] ⚠️ Botão startTutorialBtn não encontrado no DOM');
+            return;
+        }
+
+        console.log('[TUTORIAL] Botão encontrado, fazendo fetch...');
+
+        try {
+            const response = await fetch(`${window.PortalApp.API_URL}/tutorials/page/${pageId}`);
+            
+            console.log('[TUTORIAL] Status da resposta:', response.status);
+            
+            if (response.ok) {
+                const tutorial = await response.json();
+                console.log('[TUTORIAL] ✅ Tutorial encontrado:', tutorial);
+                console.log('[TUTORIAL] Número de passos:', tutorial.steps ? tutorial.steps.length : 0);
+                
+                // Mostrar botão
+                tutorialBtn.style.display = 'flex';
+                
+                // Configurar evento de clique
+                tutorialBtn.onclick = () => {
+                    console.log('[TUTORIAL] 🎯 Botão clicado!');
+                    
+                    if (window.PortalTutorial) {
+                        console.log('[TUTORIAL] Iniciando tutorial...');
+                        window.PortalTutorial.startTutorial(pageId);
+                    } else {
+                        console.error('[TUTORIAL] ❌ PortalTutorial não está disponível');
+                        alert('Erro: módulo de tutorial não carregado');
+                    }
+                };
+                
+                console.log('[TUTORIAL] ✅ Botão configurado e visível');
+            } else {
+                console.log('[TUTORIAL] ❌ Página sem tutorial (status ' + response.status + ')');
+                tutorialBtn.style.display = 'none';
+            }
+        } catch (error) {
+            console.error('[TUTORIAL] ❌ Erro ao verificar tutorial:', error);
+            tutorialBtn.style.display = 'none';
         }
     },
 

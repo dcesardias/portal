@@ -76,6 +76,12 @@
                         <p id="pageDescription">Este painel oferece uma visão abrangente das métricas...</p>
                     </div>
                     <div style="position:relative;">
+                        <!-- NOVO: Botão para iniciar tutorial -->
+                        <button id="startTutorialBtn" class="btn-start-tutorial" style="display:none;" title="Iniciar tutorial desta página">
+                            <i class="fas fa-graduation-cap"></i>
+                            Tutorial
+                        </button>
+                        
                         <button id="refreshIframeBtn" class="btn-refresh-iframe" style="display:none;" title="Atualizar painel">
                             <i class="fas fa-sync-alt"></i>
                         </button>
@@ -464,10 +470,40 @@
         </div>
     </div>
 
+    <!-- Modal: Tutorial Builder (abre dentro do portal) -->
+    <div id="tutorialBuilderModal" style="display:none;position:fixed;inset:0;z-index:10050;backdrop-filter:blur(2px);background:rgba(0,0,0,0.55);">
+        <div style="position:absolute;inset:30px;display:flex;flex-direction:column;">
+            <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+                <button id="closeTutorialBuilderBtn" aria-label="Fechar" style="background:#fff;border:1px solid #ddd;border-radius:8px;padding:8px 12px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,0.2);">
+                    ×
+                </button>
+            </div>
+            <div style="flex:1;min-height:0;background:#1f1f1f;border-radius:10px;overflow:hidden;border:1px solid #333;">
+                <iframe id="tutorialBuilderIframe" src="" title="Tutorial Builder" style="width:100%;height:100%;border:0;display:block;"></iframe>
+            </div>
+        </div>
+    </div>
+
     <script defer src="assets/js/app.js"></script>
-    <!-- NOVO: carrega o módulo Admin com as funções de dicionários -->
     <script defer src="assets/js/modules/admin.js"></script>
+    <script defer src="assets/js/modules/tutorial.js"></script>
     <script defer src="assets/js/chatbot.js"></script>
+    
+    <!-- Debug: Verificar se módulos carregaram -->
+    <script>
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                console.log('[DEBUG] Módulos carregados:');
+                console.log('  PortalApp:', !!window.PortalApp);
+                console.log('  PortalAdmin:', !!window.PortalAdmin);
+                console.log('  PortalTutorial:', !!window.PortalTutorial);
+                
+                if (!window.PortalTutorial) {
+                    console.error('[DEBUG] ⚠️ PortalTutorial NÃO foi carregado!');
+                }
+            }, 1000);
+        });
+    </script>
 
     <!-- Patch savePage: avoid misleading error if only the reload fails -->
     <script>
@@ -541,6 +577,222 @@
                 alert(`Não foi possível atualizar a interface após salvar. Detalhes: ${err.message || err}`);
             }
         };
+    })();
+    </script>
+
+    <!-- Patch: garantir que o tutorial use o iframe como referência para posicionamento -->
+    <script>
+    (function () {
+        function toPx(raw, total) {
+            if (raw === undefined || raw === null) return 0;
+            const s = String(raw).trim();
+            if (s.endsWith('%')) {
+                const p = parseFloat(s);
+                return isNaN(p) ? 0 : (p / 100) * total;
+            }
+            if (s.endsWith('px')) {
+                const n = parseFloat(s);
+                return isNaN(n) ? 0 : n;
+            }
+            const n = parseFloat(s);
+            if (isNaN(n)) return 0;
+            if (n >= 0 && n <= 100) return (n / 100) * total;
+            return n;
+        }
+
+        // Usar floats sem arredondar para manter sub-pixels e evitar drift
+        function computeLocalRect(highlight, iw, ih) {
+            let topPx = toPx(highlight.top, ih);
+            let leftPx = toPx(highlight.left, iw);
+            let widthPx = toPx(highlight.width, iw);
+            let heightPx = toPx(highlight.height, ih);
+
+            widthPx = Math.max(1, Math.min(widthPx, iw));
+            heightPx = Math.max(1, Math.min(heightPx, ih));
+            topPx = Math.max(0, Math.min(topPx, ih - heightPx));
+            leftPx = Math.max(0, Math.min(leftPx, iw - widthPx));
+
+            return { top: topPx, left: leftPx, width: widthPx, height: heightPx };
+        }
+
+        function makeOverlay() {
+            const overlay = document.createElement('div');
+            overlay.className = 'tutorial-overlay';
+            overlay.style.pointerEvents = 'none';
+
+            const frameBox = document.createElement('div');
+            frameBox.className = 'tutorial-framebox';
+            frameBox.style.pointerEvents = 'none';
+
+            const highlight = document.createElement('div');
+            highlight.className = 'tutorial-highlight';
+
+            const tooltip = document.createElement('div');
+            tooltip.className = 'tutorial-tooltip';
+            tooltip.innerHTML = [
+                '<div class="tutorial-tooltip-content">',
+                '<button class="btn-tutorial-close" aria-label="Fechar">×</button>',
+                '<h3></h3>',
+                '<p></p>',
+                '<div class="tutorial-footer">',
+                '<span class="tutorial-progress"></span>',
+                '<div class="tutorial-buttons">',
+                '<button class="btn-tutorial btn-tutorial-prev">Anterior</button>',
+                '<button class="btn-tutorial btn-tutorial-next">Próximo</button>',
+                '</div>',
+                '</div>',
+                '</div>'
+            ].join('');
+
+            frameBox.appendChild(highlight);
+            overlay.appendChild(frameBox);
+            overlay.appendChild(tooltip);
+            document.body.appendChild(overlay);
+
+            overlay._frameBox = frameBox;
+            overlay._highlight = highlight;
+            overlay._tooltip = tooltip;
+            overlay._controls = {
+                prev: tooltip.querySelector('.btn-tutorial-prev'),
+                next: tooltip.querySelector('.btn-tutorial-next'),
+                close: tooltip.querySelector('.btn-tutorial-close'),
+                title: tooltip.querySelector('h3'),
+                desc: tooltip.querySelector('p'),
+                progress: tooltip.querySelector('.tutorial-progress')
+            };
+            return overlay;
+        }
+
+        function placeHighlight(iframeRect, localRect, step, idx, total) {
+            const overlay = document.querySelector('.tutorial-overlay');
+            if (!overlay) return;
+            const box = overlay._frameBox;
+            const hl = overlay._highlight;
+            const tt = overlay._tooltip;
+            const c = overlay._controls;
+
+            // Caixa exatamente sobre o iframe (usar floats, sem arredondar)
+            box.style.position = 'fixed';
+            box.style.top = iframeRect.top + 'px';
+            box.style.left = iframeRect.left + 'px';
+            box.style.width = iframeRect.width + 'px';
+            box.style.height = iframeRect.height + 'px';
+            box.style.zIndex = 10000;
+
+            // Highlight absoluto dentro do frameBox
+            hl.style.top = localRect.top + 'px';
+            hl.style.left = localRect.left + 'px';
+            hl.style.width = localRect.width + 'px';
+            hl.style.height = localRect.height + 'px';
+
+            c.title.textContent = step.title || ('Passo ' + (idx + 1));
+            c.desc.textContent = step.description || '';
+            c.progress.textContent = (idx + 1) + ' / ' + total;
+            c.prev.disabled = idx === 0;
+            c.next.textContent = idx === total - 1 ? 'Concluir' : 'Próximo';
+
+            const margin = 12;
+            let hvLeft = iframeRect.left + localRect.left;
+            let hvTop = iframeRect.top + localRect.top;
+            let hvWidth = localRect.width;
+            let hvHeight = localRect.height;
+
+            let ttLeft = hvLeft + hvWidth + margin;
+            let ttTop = hvTop;
+
+            tt.style.visibility = 'hidden';
+            tt.style.left = '0px';
+            tt.style.top = '0px';
+
+            requestAnimationFrame(() => {
+                const ttRect = tt.getBoundingClientRect();
+                if (ttLeft + ttRect.width > window.innerWidth - 10) {
+                    ttLeft = hvLeft;
+                    ttTop = hvTop + hvHeight + margin;
+                }
+                if (ttTop + ttRect.height > window.innerHeight - 10) {
+                    ttTop = hvTop - ttRect.height - margin;
+                }
+                tt.style.left = ttLeft + 'px';
+                tt.style.top = ttTop + 'px';
+                tt.style.visibility = 'visible';
+            });
+        }
+
+        function patchTutorial() {
+            if (window.__TutorialPatched) return;
+            window.__TutorialPatched = true;
+
+            const original = window.PortalTutorial;
+
+            window.PortalTutorial = {
+                startTutorial: async function(pageId) {
+                    try {
+                        const resp = await fetch(`/api/tutorials/page/${pageId}`);
+                        if (!resp.ok) { alert('Nenhum tutorial disponível para esta página'); return; }
+                        const tutorial = await resp.json();
+                        const steps = Array.isArray(tutorial.steps) ? tutorial.steps : [];
+                        if (!steps.length) { alert('Tutorial sem passos'); return; }
+
+                        const powerIframe = document.querySelector('#powerbiContainer iframe');
+                        if (!powerIframe) { alert('Painel não está carregado'); return; }
+
+                        const overlay = makeOverlay();
+                        let currentIndex = 0;
+                        let ro = null;
+
+                        const reposition = () => {
+                            if (!document.body.contains(overlay)) return;
+                            const iframeRect = powerIframe.getBoundingClientRect();
+                            const iw = Math.max(1, iframeRect.width);
+                            const ih = Math.max(1, iframeRect.height);
+                            const hl = steps[currentIndex]?.highlight || {};
+                            const localRect = computeLocalRect(hl, iw, ih);
+                            placeHighlight(iframeRect, localRect, steps[currentIndex], currentIndex, steps.length);
+                        };
+
+                        const go = (delta) => {
+                            currentIndex += delta;
+                            if (currentIndex < 0) currentIndex = 0;
+                            if (currentIndex >= steps.length) { close(); return; }
+                            reposition();
+                        };
+
+                        const close = () => {
+                            try {
+                                window.removeEventListener('resize', reposition);
+                                window.removeEventListener('scroll', reposition, true);
+                                if (ro) ro.disconnect();
+                                powerIframe.removeEventListener('load', reposition);
+                            } catch (_) {}
+                            if (document.body.contains(overlay)) document.body.removeChild(overlay);
+                        };
+
+                        overlay._controls.prev.onclick = () => go(-1);
+                        overlay._controls.next.onclick = () => go(1);
+                        overlay._controls.close.onclick = close;
+
+                        window.addEventListener('resize', reposition);
+                        window.addEventListener('scroll', reposition, true);
+                        powerIframe.addEventListener('load', reposition);
+                        if ('ResizeObserver' in window) {
+                            ro = new ResizeObserver(() => reposition());
+                            ro.observe(powerIframe);
+                            if (powerIframe.parentElement) ro.observe(powerIframe.parentElement);
+                        }
+
+                        reposition();
+                    } catch (e) {
+                        console.error('[Tutorial] Erro ao iniciar:', e);
+                        alert('Erro ao iniciar tutorial');
+                    }
+                }
+            };
+
+            window._OriginalPortalTutorial = original;
+        }
+
+        window.addEventListener('load', () => setTimeout(patchTutorial, 0));
     })();
     </script>
 </body>
