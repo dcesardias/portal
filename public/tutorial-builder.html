@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Criar Tutorial - Power BI Portal</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 400px;
+            background: white;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            z-index: 100;
+        }
+
+        .sidebar-header {
+            padding: 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .sidebar-header h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .sidebar-header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .sidebar-section {
+            padding: 24px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .sidebar-section h2 {
+            font-size: 18px;
+            margin-bottom: 16px;
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 8px;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #45a049;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .steps-list {
+            margin-top: 20px;
+        }
+
+        .step-item {
+            background: #f8f9fa;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            transition: all 0.2s;
+        }
+
+        .step-item:hover {
+            border-color: #667eea;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .step-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .step-number {
+            font-size: 12px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .step-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .step-description {
+            font-size: 13px;
+            color: #666;
+            line-height: 1.5;
+        }
+
+        .step-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-small {
+            padding: 4px 8px;
+            font-size: 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-edit {
+            background: #2196F3;
+            color: white;
+        }
+
+        .btn-delete {
+            background: #f44336;
+            color: white;
+        }
+
+        .main-canvas {
+            flex: 1;
+            position: relative;
+            background: #2d2d2d;
+            overflow: hidden;
+        }
+
+        #canvas {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        /* NOVO: container do Power BI no builder com o MESMO comportamento do portal (16:9) */
+        .builder-powerbi-container {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            height: auto;
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Ajustes: iframe absoluto dentro do container (igual ao portal) */
+        #powerbiFrame {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        /* Overlay deve cobrir SOMENTE o container acima (não a tela toda) */
+        .canvas-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .canvas-overlay.selecting { pointer-events: all; cursor: crosshair; }
+
+        .selection-box {
+            position: absolute;
+            border: 3px dashed #667eea;
+            background: rgba(102, 126, 234, 0.1);
+            pointer-events: none;
+            z-index: 20;
+        }
+
+        .highlight-area {
+            position: absolute;
+            border: 3px solid #667eea;
+            background: rgba(102, 126, 234, 0.15);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            z-index: 15;
+        }
+
+        .highlight-area.active {
+            border-color: #4CAF50;
+            background: rgba(76, 175, 80, 0.2);
+        }
+
+        .highlight-area:hover {
+            background: rgba(102, 126, 234, 0.25);
+            box-shadow: 0 0 20px rgba(102, 126, 234, 0.5);
+        }
+
+        .highlight-label {
+            position: absolute;
+            top: -30px;
+            left: 0;
+            background: #667eea;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .status-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 12px 20px;
+            font-size: 13px;
+            z-index: 50;
+            display: none;
+        }
+
+        .status-bar.show {
+            display: block;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #999;
+            padding: 40px 20px;
+        }
+
+        .empty-state i {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .page-info {
+            background: #e3f2fd;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: #1565c0;
+        }
+
+        .page-info strong {
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .fs-tip {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #666;
+            display: none;
+        }
+        .fs-tip.show { display: block; }
+        .btn-fullscreen {
+            background: #1565c0;
+            color: #fff;
+        }
+        .btn-fullscreen:hover {
+            background: #0d47a1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar de Edição -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h1><i class="fas fa-graduation-cap"></i> Tutorial Builder</h1>
+                <p>Crie tutoriais interativos sem código</p>
+            </div>
+
+            <!-- Informações da Página -->
+            <div class="sidebar-section">
+                <div class="page-info" id="pageInfo">
+                    <strong>Carregando informações...</strong>
+                </div>
+            </div>
+
+            <!-- Formulário de Novo Passo -->
+            <div class="sidebar-section" style="background: #f8f9fa;">
+                <h2>📝 Novo Passo</h2>
+                
+                <div class="form-group">
+                    <label for="stepTitle">Título do Passo</label>
+                    <input type="text" id="stepTitle" placeholder="Ex: Filtros de Data">
+                </div>
+
+                <div class="form-group">
+                    <label for="stepDescription">Descrição</label>
+                    <textarea id="stepDescription" placeholder="Explique o que o usuário deve fazer..."></textarea>
+                </div>
+
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button class="btn btn-primary" id="selectAreaBtn" style="flex:1;" disabled>
+                        <i class="fas fa-mouse-pointer"></i>
+                        <span id="selectBtnText">Selecionar Área no Canvas</span>
+                    </button>
+                </div>
+
+                <button class="btn btn-success" id="saveStepBtn" style="width: 100%; margin-top: 10px; display: none;">
+                    <i class="fas fa-save"></i>
+                    Salvar Passo
+                </button>
+
+                <div id="selectionStatus" style="margin-top: 12px; font-size: 13px; color: #666; text-align: center;"></div>
+                <div id="fsNotice" class="fs-tip">Dica: use Tela Cheia para manter a proporção do Power BI idêntica ao portal.</div>
+            </div>
+
+            <!-- Lista de Passos -->
+            <div class="sidebar-section">
+                <h2>📋 Passos Criados (<span id="stepCount">0</span>)</h2>
+                <div class="steps-list" id="stepsList">
+                    <div class="empty-state">
+                        <i class="fas fa-clipboard-list"></i>
+                        <p>Nenhum passo criado ainda</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ações -->
+            <div class="sidebar-section">
+                <button class="btn btn-secondary" id="previewBtn" style="width: 100%; margin-bottom: 10px;" disabled>
+                    <i class="fas fa-play"></i>
+                    Visualizar Tutorial
+                </button>
+                
+                <button class="btn btn-success" id="saveBtn" style="width: 100%;" disabled>
+                    <i class="fas fa-cloud-upload"></i>
+                    Salvar no Banco de Dados
+                </button>
+            </div>
+        </div>
+
+        <!-- Canvas Principal -->
+        <div class="main-canvas">
+            <div id="canvas">
+                <!-- Garantir wrapper com iframe e overlay -->
+                <div id="frameWrapper" class="builder-powerbi-container">
+                    <iframe id="powerbiFrame" src="" title="Dashboard Preview"></iframe>
+                    <div class="canvas-overlay" id="canvasOverlay"></div>
+                </div>
+            </div>
+
+            <div class="status-bar" id="statusBar"></div>
+        </div>
+    </div>
+
+    <!-- Preview Overlay -->
+    <div id="previewOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 40px; border-radius: 12px; max-width: 500px; width: 90%;">
+            <h2 style="margin-bottom: 20px;">🎉 Preview não disponível aqui</h2>
+            <p style="margin-bottom: 20px; color: #666;">O preview do tutorial será exibido na página real do portal após salvar.</p>
+            <button class="btn btn-primary" onclick="closePreview()" style="width: 100%;">
+                <i class="fas fa-times"></i>
+                Fechar
+            </button>
+        </div>
+    </div>
+
+    <script src="assets/js/tutorial-builder.js"></script>
+</body>
+</html>
