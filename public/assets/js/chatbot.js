@@ -1347,6 +1347,8 @@
         }
     };
     
+    // Substitua a função loadChartJS() (linha ~1493) por esta versão:
+
     function loadChartJS() {
         return new Promise((resolve, reject) => {
             if (typeof Chart !== 'undefined') {
@@ -1354,25 +1356,68 @@
                 return;
             }
             
-            const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
-            script.onload = () => {
-                console.log('[COPILOT-CHART] Chart.js carregado');
+            console.log('[COPILOT-CHART] Carregando Chart.js...');
+            
+            // 1. Carregar Chart.js
+            const chartScript = document.createElement('script');
+            chartScript.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+            
+            chartScript.onload = () => {
+                console.log('[COPILOT-CHART] ✅ Chart.js carregado');
                 
-                const pluginScript = document.createElement('script');
-                pluginScript.src = 'https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js';
-                pluginScript.onload = () => {
-                    console.log('[COPILOT-CHART] Plugin datalabels carregado');
-                    resolve();
+                // 2. Carregar date-fns (necessário para o adaptador)
+                const dateFnsScript = document.createElement('script');
+                dateFnsScript.src = 'https://cdn.jsdelivr.net/npm/date-fns@3.0.0/index.min.js';
+                
+                dateFnsScript.onload = () => {
+                    console.log('[COPILOT-CHART] ✅ date-fns carregado');
+                    
+                    // 3. Carregar adaptador de datas para Chart.js
+                    const adapterScript = document.createElement('script');
+                    adapterScript.src = 'https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js';
+                    
+                    adapterScript.onload = () => {
+                        console.log('[COPILOT-CHART] ✅ Adaptador de datas carregado');
+                        
+                        // 4. Carregar plugin datalabels (opcional)
+                        const pluginScript = document.createElement('script');
+                        pluginScript.src = 'https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js';
+                        
+                        pluginScript.onload = () => {
+                            console.log('[COPILOT-CHART] ✅ Plugin datalabels carregado');
+                            resolve();
+                        };
+                        
+                        pluginScript.onerror = () => {
+                            console.warn('[COPILOT-CHART] ⚠️ Falha ao carregar plugin, continuando sem ele');
+                            resolve(); // Continua mesmo sem o plugin
+                        };
+                        
+                        document.head.appendChild(pluginScript);
+                    };
+                    
+                    adapterScript.onerror = () => {
+                        console.error('[COPILOT-CHART] ❌ Falha ao carregar adaptador de datas');
+                        reject(new Error('Falha ao carregar adaptador de datas'));
+                    };
+                    
+                    document.head.appendChild(adapterScript);
                 };
-                pluginScript.onerror = () => {
-                    console.warn('[COPILOT-CHART] Falha ao carregar plugin, continuando sem ele');
-                    resolve();
+                
+                dateFnsScript.onerror = () => {
+                    console.error('[COPILOT-CHART] ❌ Falha ao carregar date-fns');
+                    reject(new Error('Falha ao carregar date-fns'));
                 };
-                document.head.appendChild(pluginScript);
+                
+                document.head.appendChild(dateFnsScript);
             };
-            script.onerror = () => reject(new Error('Falha ao carregar Chart.js'));
-            document.head.appendChild(script);
+            
+            chartScript.onerror = () => {
+                console.error('[COPILOT-CHART] ❌ Falha ao carregar Chart.js');
+                reject(new Error('Falha ao carregar Chart.js'));
+            };
+            
+            document.head.appendChild(chartScript);
         });
     }
     

@@ -1507,183 +1507,7 @@ body {
     to { transform: rotate(360deg); }
 }
 
-/* Tutorial System Styles */
-.tutorial-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.5);
-    z-index: 9999;
-    pointer-events: none;
-    transition: opacity 0.3s ease;
-}
-
-/* NOVO: caixa fixa que cobre exatamente o iframe */
-.tutorial-framebox {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 0;
-    height: 0;
-    pointer-events: none;
-    z-index: 10000;
-}
-
-/* Altere para absolute para ficar relativo à framebox */
-.tutorial-highlight {
-    position: absolute;
-    border: 3px solid #0066cc;
-    border-radius: 8px;
-    box-shadow: 0 0 0 9999px rgba(0,0,0,0.5);
-    z-index: 10000;
-    pointer-events: none;
-    transition: all 0.3s ease;
-    animation: pulse-border 2s infinite;
-}
-
-@keyframes pulse-border {
-    0%, 100% { 
-        border-color: #0066cc;
-        box-shadow: 0 0 0 9999px rgba(0,0,0,0.5), 0 0 20px rgba(0,102,204,0.5);
-    }
-    50% { 
-        border-color: #4CAF50;
-        box-shadow: 0 0 0 9999px rgba(0,0,0,0.5), 0 0 30px rgba(76,175,80,0.8);
-    }
-}
-
-.tutorial-tooltip {
-    position: fixed;
-    z-index: 10001;
-    pointer-events: all;
-    animation: fadeInScale 0.3s ease;
-}
-
-@keyframes fadeInScale {
-    from {
-        opacity: 0;
-        transform: scale(0.9);
-    }
-    to {
-        opacity: 1;
-        transform: scale(1);
-    }
-}
-
-.tutorial-tooltip-content {
-    background: white;
-    padding: 20px;
-    border-radius: 12px;
-    max-width: 350px;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.3);
-    position: relative;
-}
-
-[data-theme="dark"] .tutorial-tooltip-content {
-    background: #2d2d2d;
-    color: #e0e0e0;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.6);
-}
-
-.tutorial-tooltip h3 {
-    margin: 0 0 10px 0;
-    color: var(--text-color);
-    font-size: 18px;
-    font-weight: 600;
-}
-
-.tutorial-tooltip p {
-    margin: 0 0 15px 0;
-    color: var(--text-secondary);
-    line-height: 1.6;
-}
-
-.tutorial-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 15px;
-    padding-top: 15px;
-    border-top: 1px solid var(--border-color);
-}
-
-.tutorial-progress {
-    color: var(--text-muted);
-    font-size: 12px;
-}
-
-.tutorial-buttons {
-    display: flex;
-    gap: 10px;
-}
-
-.btn-tutorial {
-    padding: 8px 16px;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-    transition: all 0.2s ease;
-}
-
-.btn-tutorial-prev {
-    background: var(--border-color);
-    color: var(--text-color);
-}
-
-.btn-tutorial-prev:hover {
-    background: var(--text-secondary);
-    color: white;
-}
-
-.btn-tutorial-next {
-    background: var(--primary-color);
-    color: white;
-}
-
-.btn-tutorial-next:hover {
-    background: #0052a3;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0,102,204,0.3);
-}
-
-.btn-tutorial-finish {
-    background: #4CAF50;
-    color: white;
-}
-
-.btn-tutorial-finish:hover {
-    background: #45a049;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(76,175,80,0.3);
-}
-
-.btn-tutorial-close {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    background: none;
-    border: none;
-    font-size: 24px;
-    cursor: pointer;
-    color: var(--text-muted);
-    width: 30px;
-    height: 30px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    transition: all 0.2s ease;
-}
-
-.btn-tutorial-close:hover {
-    background: var(--border-color);
-    color: var(--text-color);
-}
-
+/* Botão de Tutorial - VERSÃO MENOR */
 .btn-start-tutorial {
     position: absolute;
     top: 10px;
@@ -1692,26 +1516,209 @@ body {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     border: none;
-    padding: 6px 12px;
+    padding: 6px 14px;
     border-radius: 6px;
     cursor: pointer;
     font-size: 12px;
-    font-weight: 500;
+    font-weight: 600;
     display: flex;
     align-items: center;
     gap: 6px;
     z-index: 100;
     box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
     transition: all 0.3s ease;
+    font-family: var(--base-font-family);
 }
 
 .btn-start-tutorial:hover {
     transform: translateX(-50%) translateY(-2px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.6);
+    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+}
+
+.btn-start-tutorial:active {
+    transform: translateX(-50%) translateY(0px);
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
 }
 
 .btn-start-tutorial i {
+    font-size: 13px;
+}
+
+/* Garantir que o container do Power BI tenha position relative */
+.powerbi-container {
+    position: relative !important;
+}
+
+/* Botão de Refazer Seleção (Tutorial Builder) */
+.btn-redo {
+    background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
     font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(255, 152, 0, 0.4);
+}
+
+.btn-redo:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 152, 0, 0.6);
+}
+
+/* Botão de Cancelar Edição (Tutorial Builder) */
+.btn-cancel {
+    background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(244, 67, 54, 0.4);
+}
+
+.btn-cancel:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(244, 67, 54, 0.6);
+}
+
+/* Dark mode para botões de tutorial */
+[data-theme="dark"] .btn-start-tutorial {
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.6);
+}
+
+[data-theme="dark"] .btn-start-tutorial:hover {
+    box-shadow: 0 6px 16px rgba(102, 126, 234, 0.8);
+}
+
+/* Botões de Ação - Tutorial Builder */
+.btn-redo {
+    background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(255, 152, 0, 0.4);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-redo:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 152, 0, 0.6);
+    background: linear-gradient(135deg, #F57C00 0%, #E65100 100%);
+}
+
+.btn-redo:active {
+    transform: translateY(0px);
+    box-shadow: 0 2px 6px rgba(255, 152, 0, 0.4);
+}
+
+.btn-cancel {
+    background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(244, 67, 54, 0.4);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-cancel:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(244, 67, 54, 0.6);
+    background: linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%);
+}
+
+.btn-cancel:active {
+    transform: translateY(0px);
+    box-shadow: 0 2px 6px rgba(244, 67, 54, 0.4);
+}
+
+/* Estilização dos Range Inputs */
+input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(to right, #e0e0e0 0%, #667eea 100%);
+    outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #667eea;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(102, 126, 234, 0.4);
+    transition: all 0.2s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+    background: #764ba2;
+    box-shadow: 0 3px 10px rgba(102, 126, 234, 0.6);
+    transform: scale(1.1);
+}
+
+input[type="range"]::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #667eea;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 2px 6px rgba(102, 126, 234, 0.4);
+    transition: all 0.2s ease;
+}
+
+input[type="range"]::-moz-range-thumb:hover {
+    background: #764ba2;
+    box-shadow: 0 3px 10px rgba(102, 126, 234, 0.6);
+    transform: scale(1.1);
+}
+
+input[type="range"]#highlightOpacity {
+    background: linear-gradient(to right, #e0e0e0 0%, #4CAF50 100%);
+}
+
+input[type="range"]#highlightOpacity::-webkit-slider-thumb {
+    background: #4CAF50;
+    box-shadow: 0 2px 6px rgba(76, 175, 80, 0.4);
+}
+
+input[type="range"]#highlightOpacity::-webkit-slider-thumb:hover {
+    background: #45a049;
+    box-shadow: 0 3px 10px rgba(76, 175, 80, 0.6);
+}
+
+input[type="range"]#highlightOpacity::-moz-range-thumb {
+    background: #4CAF50;
+    box-shadow: 0 2px 6px rgba(76, 175, 80, 0.4);
+}
+
+input[type="range"]#highlightOpacity::-moz-range-thumb:hover {
+    background: #45a049;
+    box-shadow: 0 3px 10px rgba(76, 175, 80, 0.6);
 }
 
 /* Tutorial Builder Modal */
