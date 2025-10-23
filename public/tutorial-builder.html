@@ -401,6 +401,55 @@
                     Salvar Passo
                 </button>
 
+                <!-- Adicione isso no tutorial-builder.html, acima dos botões de salvar -->
+                <div class="form-group" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                    <h4 style="margin: 0 0 15px 0; font-size: 14px; color: #333;">🎨 Ajustes Visuais do Highlight</h4>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: 600; font-size: 13px;">
+                            Escurecimento Fora do Highlight
+                        </label>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <input type="range" id="overlayOpacity" min="0" max="100" value="75" 
+                                style="flex: 1;" oninput="app.updateOverlayOpacity(this.value)">
+                            <span id="overlayOpacityValue" style="min-width: 40px; font-weight: 600; color: #667eea;">75%</span>
+                        </div>
+                        <small style="color: #666; display: block; margin-top: 4px;">
+                            Controla o quão escuro fica a área fora do highlight (0% = transparente, 100% = muito escuro)
+                        </small>
+                    </div>
+                    
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; font-weight: 600; font-size: 13px;">
+                            Claridade Dentro do Highlight
+                        </label>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <input type="range" id="highlightOpacity" min="0" max="100" value="20" 
+                                style="flex: 1;" oninput="app.updateHighlightOpacity(this.value)">
+                            <span id="highlightOpacityValue" style="min-width: 40px; font-weight: 600; color: #4CAF50;">20%</span>
+                        </div>
+                        <small style="color: #666; display: block; margin-top: 4px;">
+                            Controla a transparência do fundo verde do highlight (0% = totalmente transparente, 100% = opaco)
+                        </small>
+                    </div>
+                </div>
+
+                <div style="display:flex;gap:10px;margin-top:20px;">
+                    <button class="btn btn-admin" id="saveStepBtn" onclick="app.saveCurrentStep()" style="display:none;">
+                        Salvar Passo
+                    </button>
+                    <button class="btn-redo" id="redoSelectionBtn" onclick="app.redoSelection()" style="display:none;">
+                        🔄 Refazer Seleção
+                    </button>
+                    <button class="btn-cancel" id="cancelEditBtn" onclick="app.cancelEdit()" style="display:none;">
+                        ❌ Cancelar Edição
+                    </button>
+                    <button class="btn btn-admin" id="selectAreaBtn" onclick="app.startSelection()">
+                        <span id="selectBtnText">Selecionar Área no Canvas</span>
+                    </button>
+                </div>
+                <div id="selectionStatus" style="margin-top: 10px; color: #666; font-size: 12px; min-height: 20px;"></div>
+
                 <div id="selectionStatus" style="margin-top: 12px; font-size: 13px; color: #666; text-align: center;"></div>
                 <div id="fsNotice" class="fs-tip">Dica: use Tela Cheia para manter a proporção do Power BI idêntica ao portal.</div>
             </div>

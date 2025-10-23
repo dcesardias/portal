@@ -7,7 +7,14 @@ class TutorialBuilderApp {
         this.selectionStart = null;
         this.selectionCurrent = null;
         this.tempHighlight = null;
-        // removido: this._onFsChange e fullscreen
+        this.isEditing = false;
+        this.editingIndex = null;
+        this.editingStep = null;
+        
+        // NOVO: Valores de opacidade
+        this.overlayOpacity = 0.75; // 75% de escurecimento fora do highlight
+        this.highlightOpacity = 0.20; // 20% de transparência dentro do highlight
+        
         this.init();
     }
 
@@ -24,8 +31,28 @@ class TutorialBuilderApp {
             });
             this._resizeObserver.observe(iframe);
         }
+    }
 
-        // removido: listeners de fullscreen
+    // Detectar offset proporcional para qualquer resolução
+    detectPowerBIOffset(iframe) {
+        const rect = iframe.getBoundingClientRect();
+        
+        // Calcular offset proporcional à resolução
+        const topOffset = Math.max(45, Math.min(60, rect.height * 0.06)); // 6% da altura ou 45-60px
+        const sideOffset = Math.max(6, rect.width * 0.008); // 0.8% da largura ou mínimo 6px
+        const bottomOffset = Math.max(6, rect.height * 0.01); // 1% da altura ou mínimo 6px
+        
+        console.log('[OFFSET-BUILDER] Calculado para resolução:', {
+            iframeSize: { w: rect.width, h: rect.height },
+            offsets: { top: topOffset, left: sideOffset, right: sideOffset, bottom: bottomOffset }
+        });
+        
+        return {
+            top: topOffset,
+            left: sideOffset,
+            right: sideOffset,
+            bottom: bottomOffset
+        };
     }
 
     async loadPageData() {
@@ -40,13 +67,11 @@ class TutorialBuilderApp {
             
             this.pageData = await response.json();
             
-            // Atualizar informações da página
             document.getElementById('pageInfo').innerHTML = `
                 <strong>${this.pageData.Title}</strong>
                 ${this.pageData.Subtitle || ''}
             `;
 
-            // Carregar iframe do Power BI
             if (this.pageData.PowerBIUrl) {
                 document.getElementById('powerbiFrame').src = this.pageData.PowerBIUrl;
                 document.getElementById('selectAreaBtn').disabled = false;
@@ -73,7 +98,6 @@ class TutorialBuilderApp {
                     this.steps = tutorial.steps;
                     console.log('[LOAD-TUTORIAL] Steps carregados:', this.steps.length);
                     
-                    // CORRIGIDO: Renderizar e atualizar botões após carregar
                     this.renderStepsList();
                     this.renderAllHighlights();
                     this.updateButtons();
@@ -89,6 +113,11 @@ class TutorialBuilderApp {
     setupEventListeners() {
         document.getElementById('selectAreaBtn').addEventListener('click', () => this.startSelection());
         document.getElementById('saveStepBtn').addEventListener('click', () => this.saveCurrentStep());
+        
+        const redoBtn = document.getElementById('redoSelectionBtn');
+        const cancelBtn = document.getElementById('cancelEditBtn');
+        if (redoBtn) redoBtn.addEventListener('click', () => this.redoSelection());
+        if (cancelBtn) cancelBtn.addEventListener('click', () => this.cancelEdit());
 
         const overlay = document.getElementById('canvasOverlay');
         overlay.addEventListener('mousedown', (e) => this.onMouseDown(e));
@@ -106,47 +135,127 @@ class TutorialBuilderApp {
         window.addEventListener('resize', onViewportChange);
         window.addEventListener('scroll', onViewportChange, true);
         this._onViewportChange = onViewportChange;
+    }
 
-        // removido: botões/handlers de fullscreen
+    // NOVO: Atualizar opacidade do overlay (área escura)
+    updateOverlayOpacity(value) {
+        this.overlayOpacity = value / 100;
+        document.getElementById('overlayOpacityValue').textContent = value + '%';
+        
+        if (this.tempHighlight) {
+            this.renderTempHighlight(this.tempHighlight);
+        }
+        
+        this.renderAllHighlights();
+    }
+
+    // NOVO: Atualizar opacidade do highlight (fundo colorido)
+    updateHighlightOpacity(value) {
+        this.highlightOpacity = value / 100;
+        document.getElementById('highlightOpacityValue').textContent = value + '%';
+        
+        if (this.tempHighlight) {
+            this.renderTempHighlight(this.tempHighlight);
+        }
+        
+        this.renderAllHighlights();
     }
 
     startSelection() {
         const title = document.getElementById('stepTitle').value.trim();
         const description = document.getElementById('stepDescription').value.trim();
-        if (!title || !description) { alert('❌ Preencha título e descrição antes de selecionar a área'); return; }
+        if (!title || !description) { 
+            alert('❌ Preencha título e descrição antes de selecionar a área'); 
+            return; 
+        }
 
-        // Sem fullscreen: começa direto
         this.isSelecting = true;
         const overlay = document.getElementById('canvasOverlay');
         overlay.classList.add('selecting');
         document.getElementById('selectBtnText').textContent = '🎯 Clique e arraste no dashboard...';
         document.getElementById('selectAreaBtn').style.background = '#4CAF50';
-        document.getElementById('selectionStatus').textContent = '🖱️ Clique e arraste para selecionar a área';
+        document.getElementById('selectionStatus').textContent = '🖱️ Clique e arraste para selecionar a área DENTRO do conteúdo do Power BI';
+    }
+
+    // NOVO: Refazer seleção durante edição
+    redoSelection() {
+        console.log('[REDO-SELECTION] Iniciando nova seleção durante edição');
+        
+        this.tempHighlight = null;
+        const tempHighlights = document.querySelectorAll('.highlight-area.active');
+        tempHighlights.forEach(h => h.remove());
+        
+        this.startSelection();
+    }
+
+    // NOVO: Cancelar edição
+    cancelEdit() {
+        console.log('[CANCEL-EDIT] Cancelando edição');
+        
+        if (this.isEditing && this.editingIndex !== null && this.editingStep) {
+            this.steps.splice(this.editingIndex, 0, this.editingStep);
+        }
+        
+        document.getElementById('stepTitle').value = '';
+        document.getElementById('stepDescription').value = '';
+        
+        this.isEditing = false;
+        this.editingIndex = null;
+        this.editingStep = null;
+        this.tempHighlight = null;
+        this.resetSelection();
+        
+        document.getElementById('saveStepBtn').style.display = 'none';
+        document.getElementById('redoSelectionBtn').style.display = 'none';
+        document.getElementById('cancelEditBtn').style.display = 'none';
+        document.getElementById('selectAreaBtn').style.display = 'block';
+        document.getElementById('selectAreaBtn').style.background = '';
+        document.getElementById('selectBtnText').textContent = 'Selecionar Área no Canvas';
+        document.getElementById('selectionStatus').textContent = '';
+        
+        this.renderStepsList();
+        this.renderAllHighlights();
+        this.updateButtons();
+        
+        const tempHighlights = document.querySelectorAll('.highlight-area.active');
+        tempHighlights.forEach(h => h.remove());
     }
 
     onMouseDown(e) {
         if (!this.isSelecting) return;
 
-        // CORRIGIDO: Pegar coordenadas relativas ao IFRAME, não ao canvas inteiro
         const iframe = document.getElementById('powerbiFrame');
         if (!iframe) return;
 
         const rect = iframe.getBoundingClientRect();
+        const offset = this.detectPowerBIOffset(iframe);
         
-        // Verificar se o clique está dentro do iframe
-        if (e.clientX < rect.left || e.clientX > rect.right || 
-            e.clientY < rect.top || e.clientY > rect.bottom) {
-            console.log('[SELECTION] Clique fora do iframe');
+        const usableTop = rect.top + offset.top;
+        const usableLeft = rect.left + offset.left;
+        const usableRight = rect.right - offset.right;
+        const usableBottom = rect.bottom - offset.bottom;
+        
+        if (e.clientX < usableLeft || e.clientX > usableRight || 
+            e.clientY < usableTop || e.clientY > usableBottom) {
+            console.log('[SELECTION] Clique fora da área útil do Power BI');
+            alert('⚠️ Clique DENTRO da área do dashboard (evite a barra de ferramentas e margens)');
             return;
         }
 
-        const x = ((e.clientX - rect.left) / rect.width) * 100;
-        const y = ((e.clientY - rect.top) / rect.height) * 100;
+        const usableWidth = rect.width - offset.left - offset.right;
+        const usableHeight = rect.height - offset.top - offset.bottom;
+        
+        const x = ((e.clientX - usableLeft) / usableWidth) * 100;
+        const y = ((e.clientY - usableTop) / usableHeight) * 100;
 
         this.selectionStart = { x, y };
         this.selectionCurrent = { x, y };
         
-        console.log('[SELECTION] ✅ Mouse Down (relativo ao iframe):', { x: x.toFixed(2), y: y.toFixed(2) });
+        console.log('[SELECTION] ✅ Mouse Down (área útil):', { 
+            x: x.toFixed(2), 
+            y: y.toFixed(2),
+            offset 
+        });
     }
 
     onMouseMove(e) {
@@ -156,22 +265,29 @@ class TutorialBuilderApp {
         if (!iframe) return;
 
         const rect = iframe.getBoundingClientRect();
+        const offset = this.detectPowerBIOffset(iframe);
         
-        // Limitar movimento dentro do iframe
-        let clientX = Math.max(rect.left, Math.min(e.clientX, rect.right));
-        let clientY = Math.max(rect.top, Math.min(e.clientY, rect.bottom));
+        const usableTop = rect.top + offset.top;
+        const usableLeft = rect.left + offset.left;
+        const usableRight = rect.right - offset.right;
+        const usableBottom = rect.bottom - offset.bottom;
         
-        const x = ((clientX - rect.left) / rect.width) * 100;
-        const y = ((clientY - rect.top) / rect.height) * 100;
+        let clientX = Math.max(usableLeft, Math.min(e.clientX, usableRight));
+        let clientY = Math.max(usableTop, Math.min(e.clientY, usableBottom));
+        
+        const usableWidth = rect.width - offset.left - offset.right;
+        const usableHeight = rect.height - offset.top - offset.bottom;
+        
+        const x = ((clientX - usableLeft) / usableWidth) * 100;
+        const y = ((clientY - usableTop) / usableHeight) * 100;
 
         this.selectionCurrent = { x, y };
         this.renderSelectionBox();
         
-        // Atualizar status com dimensões
         const width = Math.abs(this.selectionCurrent.x - this.selectionStart.x);
         const height = Math.abs(this.selectionCurrent.y - this.selectionStart.y);
         document.getElementById('selectionStatus').textContent = 
-            `📏 Área: ${width.toFixed(1)}% × ${height.toFixed(1)}% (relativo ao Power BI)`;
+            `📏 Área: ${width.toFixed(1)}% × ${height.toFixed(1)}% (área útil do Power BI)`;
     }
 
     onMouseUp(e) {
@@ -180,38 +296,43 @@ class TutorialBuilderApp {
             return;
         }
 
-        // CORRIGIDO: Atualizar selectionCurrent uma última vez relativo ao iframe
         const iframe = document.getElementById('powerbiFrame');
         if (!iframe) return;
 
         const rect = iframe.getBoundingClientRect();
-        let clientX = Math.max(rect.left, Math.min(e.clientX, rect.right));
-        let clientY = Math.max(rect.top, Math.min(e.clientY, rect.bottom));
+        const offset = this.detectPowerBIOffset(iframe);
         
-        const x = ((clientX - rect.left) / rect.width) * 100;
-        const y = ((clientY - rect.top) / rect.height) * 100;
+        const usableTop = rect.top + offset.top;
+        const usableLeft = rect.left + offset.left;
+        const usableRight = rect.right - offset.right;
+        const usableBottom = rect.bottom - offset.bottom;
+        
+        let clientX = Math.max(usableLeft, Math.min(e.clientX, usableRight));
+        let clientY = Math.max(usableTop, Math.min(e.clientY, usableBottom));
+        
+        const usableWidth = rect.width - offset.left - offset.right;
+        const usableHeight = rect.height - offset.top - offset.bottom;
+        
+        const x = ((clientX - usableLeft) / usableWidth) * 100;
+        const y = ((clientY - usableTop) / usableHeight) * 100;
 
         this.selectionCurrent = { x, y };
-
         this.isSelecting = false;
         document.getElementById('canvasOverlay').classList.remove('selecting');
         
-        // Calcular highlight
         const width = Math.abs(this.selectionCurrent.x - this.selectionStart.x);
         const height = Math.abs(this.selectionCurrent.y - this.selectionStart.y);
         
-        console.log('[SELECTION] 📊 Dimensões calculadas (% do iframe):', { 
+        console.log('[SELECTION] 📊 Dimensões (% área útil):', { 
             width: width.toFixed(2), 
             height: height.toFixed(2),
-            start: this.selectionStart,
-            current: this.selectionCurrent
+            offset
         });
         
-        // Validação: área mínima de 0.5%
         const minSize = 0.5;
         
         if (width < minSize || height < minSize) {
-            alert(`⚠️ Área muito pequena!\n\nLargura: ${width.toFixed(2)}%\nAltura: ${height.toFixed(2)}%\n\nMínimo necessário: ${minSize}%\n\nDica: Arraste o mouse por uma área maior.`);
+            alert(`⚠️ Área muito pequena!\n\nLargura: ${width.toFixed(2)}%\nAltura: ${height.toFixed(2)}%\n\nMínimo: ${minSize}%`);
             this.resetSelection();
             return;
         }
@@ -223,29 +344,33 @@ class TutorialBuilderApp {
             height: `${height.toFixed(2)}%`
         };
 
-        console.log('[SELECTION] ✅ Highlight válido (% do iframe):', highlight);
+        console.log('[SELECTION] ✅ Highlight válido:', highlight);
 
-        // Salvar temporariamente
         this.tempHighlight = highlight;
 
-        // Mostrar botão de salvar
         document.getElementById('saveStepBtn').style.display = 'block';
         document.getElementById('selectAreaBtn').style.display = 'none';
+        
+        if (this.isEditing) {
+            document.getElementById('redoSelectionBtn').style.display = 'inline-block';
+        }
+        
         document.getElementById('selectionStatus').textContent = '✅ Área selecionada! Clique em "Salvar Passo"';
 
-        // Limpar seleção visual
         const selectionBox = document.querySelector('.selection-box');
         if (selectionBox) selectionBox.remove();
 
-        // Mostrar preview da área selecionada
         this.renderTempHighlight(highlight);
     }
 
     renderSelectionBox() {
         if (!this.selectionStart || !this.selectionCurrent) return;
+        
         const iframe = document.getElementById('powerbiFrame');
         const overlayEl = document.getElementById('canvasOverlay');
         if (!iframe || !overlayEl) return;
+
+        const offset = this.detectPowerBIOffset(iframe);
 
         let box = document.querySelector('.selection-box');
         if (!box) {
@@ -266,11 +391,19 @@ class TutorialBuilderApp {
         const width = Math.abs(this.selectionCurrent.x - this.selectionStart.x);
         const height = Math.abs(this.selectionCurrent.y - this.selectionStart.y);
 
-        // Agora usamos percentuais diretamente porque o overlay cobre 100% do frame
-        box.style.top = `${top}%`;
-        box.style.left = `${left}%`;
-        box.style.width = `${width}%`;
-        box.style.height = `${height}%`;
+        const rect = iframe.getBoundingClientRect();
+        const usableWidth = rect.width - offset.left - offset.right;
+        const usableHeight = rect.height - offset.top - offset.bottom;
+        
+        const topPx = (top / 100) * usableHeight + offset.top;
+        const leftPx = (left / 100) * usableWidth + offset.left;
+        const widthPx = (width / 100) * usableWidth;
+        const heightPx = (height / 100) * usableHeight;
+
+        box.style.top = `${topPx}px`;
+        box.style.left = `${leftPx}px`;
+        box.style.width = `${widthPx}px`;
+        box.style.height = `${heightPx}px`;
     }
 
     renderTempHighlight(highlight) {
@@ -278,35 +411,52 @@ class TutorialBuilderApp {
         if (oldTemp) oldTemp.remove();
 
         const overlayEl = document.getElementById('canvasOverlay');
-        if (!overlayEl) return;
+        const iframe = document.getElementById('powerbiFrame');
+        if (!overlayEl || !iframe) return;
+
+        const offset = this.detectPowerBIOffset(iframe);
+        const rect = iframe.getBoundingClientRect();
+        
+        const usableWidth = rect.width - offset.left - offset.right;
+        const usableHeight = rect.height - offset.top - offset.bottom;
 
         const tempHighlight = document.createElement('div');
         tempHighlight.className = 'highlight-area active';
         tempHighlight.style.cssText = `
             position: absolute;
             border: 3px solid #4CAF50;
-            background: rgba(76, 175, 80, 0.2);
+            background: rgba(76, 175, 80, ${this.highlightOpacity});
             border-radius: 4px;
             cursor: pointer;
             transition: all 0.2s;
             z-index: 15;
             pointer-events: none;
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, ${this.overlayOpacity});
         `;
 
-        // Percentuais diretos no overlay
-        tempHighlight.style.top = highlight.top;
-        tempHighlight.style.left = highlight.left;
-        tempHighlight.style.width = highlight.width;
-        tempHighlight.style.height = highlight.height;
+        const topPct = parseFloat(highlight.top);
+        const leftPct = parseFloat(highlight.left);
+        const widthPct = parseFloat(highlight.width);
+        const heightPct = parseFloat(highlight.height);
+        
+        const topPx = (topPct / 100) * usableHeight + offset.top;
+        const leftPx = (leftPct / 100) * usableWidth + offset.left;
+        const widthPx = (widthPct / 100) * usableWidth;
+        const heightPx = (heightPct / 100) * usableHeight;
+
+        tempHighlight.style.top = `${topPx}px`;
+        tempHighlight.style.left = `${leftPx}px`;
+        tempHighlight.style.width = `${widthPx}px`;
+        tempHighlight.style.height = `${heightPx}px`;
 
         const label = document.createElement('div');
         label.className = 'highlight-label';
-        label.textContent = `Passo ${this.steps.length + 1} (Preview)`;
+        label.textContent = this.isEditing ? `Passo ${this.editingIndex + 1} (Editando)` : `Passo ${this.steps.length + 1} (Preview)`;
         label.style.cssText = `
             position: absolute;
             top: -30px;
             left: 0;
-            background: #4CAF50;
+            background: ${this.isEditing ? '#FF9800' : '#4CAF50'};
             color: white;
             padding: 4px 10px;
             border-radius: 4px;
@@ -323,7 +473,13 @@ class TutorialBuilderApp {
         const title = document.getElementById('stepTitle')?.value?.trim();
         const description = document.getElementById('stepDescription')?.value?.trim();
 
-        console.log('[SAVE-STEP] Tentando salvar:', { title, description, tempHighlight: this.tempHighlight });
+        console.log('[SAVE-STEP] Tentando salvar:', { 
+            title, 
+            description, 
+            tempHighlight: this.tempHighlight,
+            isEditing: this.isEditing,
+            editingIndex: this.editingIndex
+        });
 
         if (!title || !description) {
             alert('❌ Preencha o título e descrição');
@@ -335,29 +491,38 @@ class TutorialBuilderApp {
             return;
         }
 
+        // MODIFICADO: Incluir opacidades no step
         const step = {
-            id: Date.now(),
+            id: this.isEditing ? this.editingStep.id : Date.now(),
             title,
             description,
-            // NOVO: indicar que as medidas são relativas ao iframe
-            highlight: { ...this.tempHighlight, relativeTo: 'iframe' }
+            highlight: { ...this.tempHighlight },
+            // NOVO: Salvar configurações de opacidade
+            overlayOpacity: this.overlayOpacity,
+            highlightOpacity: this.highlightOpacity
         };
 
-        console.log('[SAVE-STEP] Step criado:', step);
+        console.log('[SAVE-STEP] Step criado com opacidades:', step);
 
-        this.steps.push(step);
+        if (this.isEditing && this.editingIndex !== null) {
+            this.steps.splice(this.editingIndex, 0, step);
+            console.log('[SAVE-STEP] Step atualizado na posição:', this.editingIndex);
+        } else {
+            this.steps.push(step);
+            console.log('[SAVE-STEP] Novo step adicionado');
+        }
 
-        console.log('[SAVE-STEP] Total de steps após adicionar:', this.steps.length);
-
-        // Limpar formulário
         document.getElementById('stepTitle').value = '';
         document.getElementById('stepDescription').value = '';
         
-        // Esconder botão de salvar e mostrar botão de selecionar novamente
         const saveBtn = document.getElementById('saveStepBtn');
         const selectBtn = document.getElementById('selectAreaBtn');
+        const redoBtn = document.getElementById('redoSelectionBtn');
+        const cancelBtn = document.getElementById('cancelEditBtn');
         
         if (saveBtn) saveBtn.style.display = 'none';
+        if (redoBtn) redoBtn.style.display = 'none';
+        if (cancelBtn) cancelBtn.style.display = 'none';
         if (selectBtn) {
             selectBtn.style.display = 'block';
             selectBtn.style.background = '';
@@ -366,21 +531,20 @@ class TutorialBuilderApp {
         document.getElementById('selectBtnText').textContent = 'Selecionar Área no Canvas';
         document.getElementById('selectionStatus').textContent = '';
 
-        // Remover preview temporário
         const tempHighlights = document.querySelectorAll('.highlight-area.active');
         tempHighlights.forEach(h => h.remove());
         
-        // Limpar variáveis de seleção
         this.tempHighlight = null;
+        this.isEditing = false;
+        this.editingIndex = null;
+        this.editingStep = null;
         this.resetSelection();
 
-        // Atualizar UI
-        console.log('[SAVE-STEP] Atualizando UI...');
         this.renderStepsList();
         this.renderAllHighlights();
         this.updateButtons();
 
-        alert('✅ Passo adicionado com sucesso!');
+        alert('✅ Passo salvo com sucesso!');
         
         console.log('[SAVE-STEP] ✅ Concluído. Steps atuais:', this.steps);
     }
@@ -397,9 +561,7 @@ class TutorialBuilderApp {
         if (overlay) overlay.classList.remove('selecting');
         
         const selectBtn = document.getElementById('selectAreaBtn');
-        if (selectBtn) {
-            selectBtn.style.background = '';
-        }
+        if (selectBtn) selectBtn.style.background = '';
         
         document.getElementById('selectBtnText').textContent = 'Selecionar Área no Canvas';
         document.getElementById('selectionStatus').textContent = '';
@@ -455,23 +617,25 @@ class TutorialBuilderApp {
             container.appendChild(stepItem);
         });
 
-        // Atualizar contador
         const stepCount = document.getElementById('stepCount');
-        if (stepCount) {
-            stepCount.textContent = this.steps.length;
-        }
+        if (stepCount) stepCount.textContent = this.steps.length;
 
         console.log('[RENDER-STEPS] ✅ Renderização concluída');
     }
 
     renderAllHighlights() {
-        // Remover highlights anteriores (exceto temp)
         document.querySelectorAll('.highlight-area:not(.active)').forEach(el => el.remove());
 
         if (this.steps.length === 0) return;
 
         const overlayEl = document.getElementById('canvasOverlay');
-        if (!overlayEl) return;
+        const iframe = document.getElementById('powerbiFrame');
+        if (!overlayEl || !iframe) return;
+
+        const offset = this.detectPowerBIOffset(iframe);
+        const rect = iframe.getBoundingClientRect();
+        const usableWidth = rect.width - offset.left - offset.right;
+        const usableHeight = rect.height - offset.top - offset.bottom;
 
         this.steps.forEach((step, index) => {
             const highlight = document.createElement('div');
@@ -479,18 +643,27 @@ class TutorialBuilderApp {
             highlight.style.cssText = `
                 position: absolute;
                 border: 3px solid #667eea;
-                background: rgba(102, 126, 234, 0.15);
+                background: rgba(102, 126, 234, ${this.highlightOpacity});
                 border-radius: 4px;
                 cursor: pointer;
                 transition: all 0.2s;
                 z-index: 15;
             `;
 
-            // Percentuais diretos
-            highlight.style.top = step.highlight.top;
-            highlight.style.left = step.highlight.left;
-            highlight.style.width = step.highlight.width;
-            highlight.style.height = step.highlight.height;
+            const topPct = parseFloat(step.highlight.top);
+            const leftPct = parseFloat(step.highlight.left);
+            const widthPct = parseFloat(step.highlight.width);
+            const heightPct = parseFloat(step.highlight.height);
+            
+            const topPx = (topPct / 100) * usableHeight + offset.top;
+            const leftPx = (leftPct / 100) * usableWidth + offset.left;
+            const widthPx = (widthPct / 100) * usableWidth;
+            const heightPx = (heightPct / 100) * usableHeight;
+
+            highlight.style.top = `${topPx}px`;
+            highlight.style.left = `${leftPx}px`;
+            highlight.style.width = `${widthPx}px`;
+            highlight.style.height = `${heightPx}px`;
 
             const label = document.createElement('div');
             label.className = 'highlight-label';
@@ -510,11 +683,11 @@ class TutorialBuilderApp {
             highlight.appendChild(label);
 
             highlight.onmouseenter = () => {
-                highlight.style.background = 'rgba(102, 126, 234, 0.25)';
+                highlight.style.background = `rgba(102, 126, 234, ${Math.min(this.highlightOpacity + 0.1, 1)})`;
                 highlight.style.boxShadow = '0 0 20px rgba(102, 126, 234, 0.5)';
             };
             highlight.onmouseleave = () => {
-                highlight.style.background = 'rgba(102, 126, 234, 0.15)';
+                highlight.style.background = `rgba(102, 126, 234, ${this.highlightOpacity})`;
                 highlight.style.boxShadow = '';
             };
 
@@ -550,27 +723,42 @@ class TutorialBuilderApp {
             return;
         }
 
-        // Preencher formulário
+        this.isEditing = true;
+        this.editingIndex = index;
+        this.editingStep = { ...step };
+
         document.getElementById('stepTitle').value = step.title;
         document.getElementById('stepDescription').value = step.description;
 
-        // Remover passo da lista (será readicionado ao salvar)
+        // NOVO: Carregar opacidades salvas do step
+        if (step.overlayOpacity !== undefined) {
+            this.overlayOpacity = step.overlayOpacity;
+            document.getElementById('overlayOpacity').value = Math.round(step.overlayOpacity * 100);
+            document.getElementById('overlayOpacityValue').textContent = Math.round(step.overlayOpacity * 100) + '%';
+        }
+        
+        if (step.highlightOpacity !== undefined) {
+            this.highlightOpacity = step.highlightOpacity;
+            document.getElementById('highlightOpacity').value = Math.round(step.highlightOpacity * 100);
+            document.getElementById('highlightOpacityValue').textContent = Math.round(step.highlightOpacity * 100) + '%';
+        }
+
         this.steps.splice(index, 1);
         
-        // Definir highlight temporário
         this.tempHighlight = step.highlight;
 
-        // Atualizar UI
         this.renderStepsList();
         this.renderAllHighlights();
         this.updateButtons();
 
-        // Mostrar preview do highlight
         this.renderTempHighlight(step.highlight);
 
-        // Mostrar botão de salvar
         document.getElementById('saveStepBtn').style.display = 'block';
+        document.getElementById('redoSelectionBtn').style.display = 'inline-block';
+        document.getElementById('cancelEditBtn').style.display = 'inline-block';
         document.getElementById('selectAreaBtn').style.display = 'none';
+        
+        alert('📝 Modo de edição ativado!\n\n✏️ Edite o texto ou clique em "Refazer Seleção" para remarcar a área.');
     }
 
     deleteStep(index) {
@@ -634,9 +822,6 @@ class TutorialBuilderApp {
 
             console.log('[SAVE-TUTORIAL] ✅ Tutorial salvo com sucesso');
             alert('✅ Tutorial salvo com sucesso!');
-            
-            // Opcional: fechar janela após salvar
-            // window.close();
 
         } catch (error) {
             console.error('[SAVE-TUTORIAL] Erro ao salvar tutorial:', error);
