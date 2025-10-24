@@ -12,6 +12,20 @@ class TutorialBuilderApp {
         this.editingStep = null;
         this.iframeLoaded = false;
         this.previewIndex = 0;
+        this.currentStepType = 'highlight';
+        
+        // Temporários para navegação
+        this.tempNavigationUrl = null;
+        this.tempNavigationPageName = null;
+        
+        // Configuração do relatório Power BI
+        this.reportId = null;
+        this.tenantId = null;
+        this.embedUrlBase = null;
+        this.reportConfigured = false;
+        
+        // URL da tela atual (para agrupamento)
+        this.currentScreenUrl = null;
         
         this.overlayOpacity = 0.75;
         this.highlightOpacity = 0.20;
@@ -19,12 +33,492 @@ class TutorialBuilderApp {
         this.init();
     }
 
+    // Callback quando tipo de step muda
+    onStepTypeChange(type) {
+        this.currentStepType = type;
+        
+        const highlightArea = document.getElementById('highlightSelectionArea');
+        const navigationArea = document.getElementById('navigationSaveArea');
+        const navPageDisplay = document.getElementById('navPageNameDisplay');
+        
+        if (type === 'navigation') {
+            highlightArea.style.display = 'none';
+            navigationArea.style.display = 'block';
+            
+            // Limpar URL anterior se houver
+            document.getElementById('stepPowerBIUrl').value = '';
+            if (navPageDisplay) navPageDisplay.style.display = 'none';
+        } else {
+            highlightArea.style.display = 'block';
+            navigationArea.style.display = 'none';
+            if (navPageDisplay) navPageDisplay.style.display = 'none';
+        }
+    }
+
     async init() {
+        console.log('[INIT] Iniciando tutorial builder para pageId:', this.pageId);
+        
         await this.loadPageData();
-        await this.loadExistingTutorial();
+        await this.loadExistingTutorial(); // Aguardar carregar steps
+        
+        console.log('[INIT] Steps após carregamento:', this.steps.length);
+        
+        // Agora que os steps foram carregados, verificar configuração
+        if (this.steps.length === 0) {
+            // Novo tutorial - mostrar modal de configuração
+            console.log('[INIT] Novo tutorial - mostrando modal de configuração');
+            this.showReportConfigModal();
+        } else {
+            // Tutorial existente - tentar extrair config
+            console.log('[INIT] Tutorial existente - tentando extrair configuração');
+            this.tryExtractExistingConfig();
+        }
+        
         this.setupEventListeners();
         this.setupKeyboardShortcuts();
         this.monitorIframeLoad();
+        
+        // Aguardar um pouco para o iframe carregar e então detectar URL
+        setTimeout(() => {
+            this.detectCurrentScreenUrl();
+            console.log('[INIT] ✅ currentScreenUrl definida:', this.currentScreenUrl);
+            
+            // Renderizar highlights e navegação após detectar URL
+            this.renderAllHighlights();
+            this.renderGroupNavigation();
+        }, 1000);
+    }
+
+    // Detectar URL da tela atual do Power BI
+    detectCurrentScreenUrl() {
+        const iframe = document.getElementById('powerbiFrame');
+        
+        // Prioridade: iframe.src > pageData.PowerBIUrl > embedUrlBase
+        if (iframe && iframe.src && iframe.src !== 'about:blank' && iframe.src !== '') {
+            this.currentScreenUrl = iframe.src;
+            console.log('[SCREEN] URL detectada do iframe:', this.currentScreenUrl);
+        } else if (this.pageData && this.pageData.PowerBIUrl) {
+            this.currentScreenUrl = this.pageData.PowerBIUrl;
+            console.log('[SCREEN] URL detectada do pageData:', this.currentScreenUrl);
+        } else if (this.embedUrlBase) {
+            this.currentScreenUrl = this.embedUrlBase;
+            console.log('[SCREEN] URL detectada do embedUrlBase:', this.currentScreenUrl);
+        } else {
+            console.warn('[SCREEN] ⚠️ Nenhuma URL detectada!');
+        }
+        
+        // Se ainda está undefined, forçar para string vazia
+        if (!this.currentScreenUrl) {
+            this.currentScreenUrl = '';
+            console.warn('[SCREEN] Usando string vazia como fallback');
+        }
+    }
+
+    // Obter nome da tela de uma URL
+    getScreenName(url) {
+        if (!url) return 'Tela Inicial';
+        
+        try {
+            const urlObj = new URL(url);
+            const pageName = urlObj.searchParams.get('pageName');
+            return pageName || 'Tela Inicial';
+        } catch (e) {
+            return 'Tela Inicial';
+        }
+    }
+
+    // Obter grupos de telas únicos dos steps
+    getScreenGroups() {
+        const groups = new Map();
+        
+        this.steps.forEach((step, index) => {
+            const screenUrl = step.screenUrl || this.embedUrlBase || '';
+            const screenName = this.getScreenName(screenUrl);
+            
+            if (!groups.has(screenUrl)) {
+                groups.set(screenUrl, {
+                    url: screenUrl,
+                    name: screenName,
+                    steps: []
+                });
+            }
+            
+            groups.get(screenUrl).steps.push({ step, index });
+        });
+        
+        return Array.from(groups.values());
+    }
+
+    // Renderizar navegação de grupos
+    renderGroupNavigation() {
+        const container = document.getElementById('groupNavigation');
+        if (!container) return;
+        
+        const groups = this.getScreenGroups();
+        
+        if (groups.length <= 1) {
+            container.style.display = 'none';
+            return;
+        }
+        
+        container.style.display = 'block';
+        container.innerHTML = '<h3 style="margin: 0 0 12px 0; font-size: 14px; color: #333;">📂 Navegação de Grupos</h3>';
+        
+        groups.forEach((group, index) => {
+            const isActive = group.url === this.currentScreenUrl;
+            const button = document.createElement('button');
+            button.className = 'group-nav-btn';
+            button.style.cssText = `
+                display: block;
+                width: 100%;
+                padding: 10px 12px;
+                margin-bottom: 8px;
+                border: 2px solid ${isActive ? '#667eea' : '#e0e0e0'};
+                background: ${isActive ? '#f0f3ff' : 'white'};
+                border-radius: 6px;
+                text-align: left;
+                cursor: pointer;
+                transition: all 0.2s;
+                font-size: 13px;
+            `;
+            
+            button.innerHTML = `
+                <div style="font-weight: 600; color: ${isActive ? '#667eea' : '#333'}; margin-bottom: 4px;">
+                    ${isActive ? '▶' : '○'} Grupo ${index + 1}: ${group.name}
+                </div>
+                <div style="font-size: 11px; color: #666;">
+                    ${group.steps.length} ${group.steps.length === 1 ? 'passo' : 'passos'}
+                </div>
+            `;
+            
+            button.onclick = () => this.switchToGroup(group.url);
+            
+            button.onmouseenter = () => {
+                if (!isActive) {
+                    button.style.borderColor = '#667eea';
+                    button.style.background = '#f8f9fa';
+                }
+            };
+            
+            button.onmouseleave = () => {
+                if (!isActive) {
+                    button.style.borderColor = '#e0e0e0';
+                    button.style.background = 'white';
+                }
+            };
+            
+            container.appendChild(button);
+        });
+    }
+
+    // Trocar para um grupo específico
+    switchToGroup(screenUrl) {
+        if (screenUrl === this.currentScreenUrl) return;
+        
+        console.log('[GROUP] Trocando para grupo:', screenUrl);
+        
+        this.currentScreenUrl = screenUrl;
+        
+        const iframe = document.getElementById('powerbiFrame');
+        if (iframe && screenUrl) {
+            iframe.src = screenUrl;
+        }
+        
+        // Atualizar highlights e navegação
+        this.renderAllHighlights();
+        this.renderGroupNavigation();
+        
+        const screenName = this.getScreenName(screenUrl);
+        this.showToast(`📂 Grupo: ${screenName}`, 'info');
+    }
+
+    showReportConfigModal() {
+        const modal = document.getElementById('reportConfigModal');
+        if (modal) modal.style.display = 'flex';
+    }
+
+    hideReportConfigModal() {
+        const modal = document.getElementById('reportConfigModal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    // Extrair configuração de tutorial existente
+    tryExtractExistingConfig() {
+        console.log('[CONFIG] Tentando extrair configuração existente...');
+        console.log('[CONFIG] Steps disponíveis:', this.steps.length);
+        
+        // 1. Tentar carregar config salva no localStorage (mais recente)
+        const savedConfig = localStorage.getItem(`tutorial_config_${this.pageId}`);
+        if (savedConfig) {
+            try {
+                const config = JSON.parse(savedConfig);
+                this.reportId = config.reportId;
+                this.tenantId = config.tenantId;
+                this.embedUrlBase = config.embedUrlBase;
+                this.reportConfigured = true;
+                
+                // IMPORTANTE: Definir currentScreenUrl
+                if (!this.currentScreenUrl && this.embedUrlBase) {
+                    this.currentScreenUrl = this.embedUrlBase;
+                }
+                
+                console.log('[CONFIG] ✅ Restaurado do localStorage:', config);
+                console.log('[CONFIG] currentScreenUrl:', this.currentScreenUrl);
+                return;
+            } catch (e) {
+                console.warn('[CONFIG] Erro ao parsear localStorage:', e);
+            }
+        }
+        
+        // 2. Tentar extrair de qualquer step com powerBIUrl
+        const stepWithUrl = this.steps.find(s => s.powerBIUrl);
+        if (stepWithUrl) {
+            console.log('[CONFIG] Encontrado step com URL:', stepWithUrl.powerBIUrl);
+            const success = this.parseEmbedUrl(stepWithUrl.powerBIUrl);
+            if (success) {
+                // Salvar no localStorage para próxima vez
+                this.saveReportConfig();
+                
+                // Definir currentScreenUrl
+                if (!this.currentScreenUrl && this.embedUrlBase) {
+                    this.currentScreenUrl = this.embedUrlBase;
+                }
+                
+                console.log('[CONFIG] ✅ Extraído de step com URL');
+                console.log('[CONFIG] currentScreenUrl:', this.currentScreenUrl);
+                return;
+            }
+        }
+        
+        // 3. Tentar do pageData
+        if (this.pageData && this.pageData.PowerBIUrl) {
+            console.log('[CONFIG] Tentando extrair do pageData:', this.pageData.PowerBIUrl);
+            const success = this.parseEmbedUrl(this.pageData.PowerBIUrl);
+            if (success) {
+                this.saveReportConfig();
+                
+                // Definir currentScreenUrl
+                if (!this.currentScreenUrl && this.embedUrlBase) {
+                    this.currentScreenUrl = this.embedUrlBase;
+                }
+                
+                console.log('[CONFIG] ✅ Extraído do pageData');
+                console.log('[CONFIG] currentScreenUrl:', this.currentScreenUrl);
+                return;
+            }
+        }
+        
+        // 4. Se não conseguiu de nenhuma forma, mostrar modal
+        console.log('[CONFIG] ❌ Não foi possível extrair config - mostrando modal');
+        this.showReportConfigModal();
+    }
+
+    // Salvar configuração do relatório no localStorage
+    saveReportConfig() {
+        if (!this.reportId || !this.tenantId || !this.embedUrlBase) return;
+        
+        const config = {
+            reportId: this.reportId,
+            tenantId: this.tenantId,
+            embedUrlBase: this.embedUrlBase
+        };
+        
+        localStorage.setItem(`tutorial_config_${this.pageId}`, JSON.stringify(config));
+        console.log('[CONFIG] Salvo no localStorage:', config);
+    }
+
+    // Parser de URL normal do Power BI
+    parseReportUrl() {
+        const input = document.getElementById('reportUrlInput');
+        const url = input.value.trim();
+        
+        if (!url) {
+            this.showToast('❌ Cole uma URL do Power BI', 'error');
+            return;
+        }
+
+        try {
+            const urlObj = new URL(url);
+            
+            // Extrair Report ID
+            const pathParts = urlObj.pathname.split('/');
+            const reportsIndex = pathParts.indexOf('reports');
+            
+            if (reportsIndex === -1 || reportsIndex + 1 >= pathParts.length) {
+                throw new Error('URL não contém /reports/');
+            }
+            
+            this.reportId = pathParts[reportsIndex + 1];
+            
+            // Extrair Tenant ID do embed URL atual ou usar padrão
+            // Tentamos extrair do Power BI URL da página carregada
+            const iframe = document.getElementById('powerbiFrame');
+            if (iframe && iframe.src) {
+                const iframeUrl = new URL(iframe.src);
+                this.tenantId = iframeUrl.searchParams.get('ctid');
+            }
+            
+            // Se não conseguiu do iframe, tentar da URL fornecida
+            if (!this.tenantId) {
+                this.tenantId = urlObj.searchParams.get('ctid');
+            }
+            
+            // Se ainda não tem, pedir ao usuário
+            if (!this.tenantId) {
+                const userTenantId = prompt(
+                    'Não foi possível detectar o Tenant ID automaticamente.\n\n' +
+                    'Por favor, informe o Tenant ID (ctid) do seu Power BI:\n\n' +
+                    '(Você pode encontrar na URL embed configurada na página do portal)'
+                );
+                
+                if (!userTenantId || userTenantId.trim() === '') {
+                    throw new Error('Tenant ID é obrigatório');
+                }
+                
+                this.tenantId = userTenantId.trim();
+            }
+            
+            // Gerar URL embed base com action bar
+            this.embedUrlBase = `https://app.powerbi.com/reportEmbed?reportId=${this.reportId}&autoAuth=true&ctid=${this.tenantId}&actionBarEnabled=true`;
+            
+            // Mostrar resultado
+            document.getElementById('extractedReportId').textContent = this.reportId;
+            document.getElementById('extractedTenantId').textContent = this.tenantId;
+            document.getElementById('extractedEmbedUrl').textContent = this.embedUrlBase;
+            document.getElementById('reportConfigResult').style.display = 'block';
+            document.getElementById('confirmReportConfigBtn').disabled = false;
+            document.getElementById('confirmReportConfigBtn').style.opacity = '1';
+            
+            this.showToast('✅ Relatório configurado com sucesso!', 'success');
+            
+        } catch (error) {
+            console.error('Erro ao fazer parse da URL:', error);
+            this.showToast('❌ ' + error.message, 'error');
+        }
+    }
+
+    // Parser de URL embed (para edição)
+    parseEmbedUrl(embedUrl) {
+        try {
+            const urlObj = new URL(embedUrl);
+            this.reportId = urlObj.searchParams.get('reportId');
+            this.tenantId = urlObj.searchParams.get('ctid');
+            
+            if (this.reportId && this.tenantId) {
+                this.embedUrlBase = `https://app.powerbi.com/reportEmbed?reportId=${this.reportId}&autoAuth=true&ctid=${this.tenantId}&actionBarEnabled=true`;
+                this.reportConfigured = true;
+                console.log('[CONFIG] Extraído de embed:', { reportId: this.reportId, tenantId: this.tenantId });
+                return true;
+            }
+            return false;
+        } catch (e) {
+            console.warn('[CONFIG] Não foi possível extrair config da URL embed:', e);
+            return false;
+        }
+    }
+
+    confirmReportConfig() {
+        if (!this.reportId || !this.tenantId) {
+            this.showToast('❌ Configure o relatório primeiro', 'error');
+            return;
+        }
+        
+        this.reportConfigured = true;
+        this.hideReportConfigModal();
+        
+        // Salvar configuração no localStorage
+        this.saveReportConfig();
+        
+        // Atualizar iframe com URL base (sem página específica)
+        const iframe = document.getElementById('powerbiFrame');
+        if (iframe && this.embedUrlBase) {
+            iframe.src = this.embedUrlBase;
+            
+            // IMPORTANTE: Definir currentScreenUrl aqui
+            this.currentScreenUrl = this.embedUrlBase;
+            console.log('[CONFIG] currentScreenUrl definida após confirmar:', this.currentScreenUrl);
+        }
+        
+        this.showToast('✅ Pronto para criar tutorial!', 'success');
+    }
+
+    // Abrir modal de configuração de página para navegação
+    openNavigationPageConfig() {
+        if (!this.reportConfigured) {
+            this.showToast('❌ Configure o relatório primeiro', 'error');
+            this.showReportConfigModal();
+            return;
+        }
+        
+        const modal = document.getElementById('navigationPageModal');
+        if (modal) {
+            modal.style.display = 'flex';
+            document.getElementById('navPageUrlInput').value = '';
+            document.getElementById('navPageResult').style.display = 'none';
+        }
+    }
+
+    closeNavigationPageModal() {
+        const modal = document.getElementById('navigationPageModal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    // Parser de URL para step de navegação
+    parseNavigationPageUrl() {
+        const input = document.getElementById('navPageUrlInput');
+        const url = input.value.trim();
+        
+        if (!url) {
+            this.showToast('❌ Cole uma URL do Power BI', 'error');
+            return;
+        }
+
+        try {
+            const urlObj = new URL(url);
+            const pathParts = urlObj.pathname.split('/');
+            
+            // Encontrar ReportSection
+            const reportSection = pathParts.find(part => part.startsWith('ReportSection'));
+            
+            if (!reportSection) {
+                throw new Error('URL não contém ReportSection (página do relatório)');
+            }
+            
+            // Montar URL embed completa
+            const fullEmbedUrl = `${this.embedUrlBase}&pageName=${reportSection}`;
+            
+            // Armazenar temporariamente
+            this.tempNavigationUrl = fullEmbedUrl;
+            this.tempNavigationPageName = reportSection;
+            
+            // Mostrar resultado
+            document.getElementById('navPageName').textContent = reportSection;
+            document.getElementById('navEmbedUrl').textContent = fullEmbedUrl;
+            document.getElementById('navPageResult').style.display = 'block';
+            document.getElementById('confirmNavPageBtn').disabled = false;
+            document.getElementById('confirmNavPageBtn').style.opacity = '1';
+            
+            this.showToast('✅ Página configurada!', 'success');
+            
+        } catch (error) {
+            console.error('Erro ao fazer parse da URL:', error);
+            this.showToast('❌ ' + error.message, 'error');
+        }
+    }
+
+    confirmNavigationPage() {
+        if (!this.tempNavigationUrl) {
+            this.showToast('❌ Configure a página primeiro', 'error');
+            return;
+        }
+        
+        // Preencher campo oculto
+        document.getElementById('stepPowerBIUrl').value = this.tempNavigationUrl;
+        document.getElementById('navPageNameDisplay').style.display = 'block';
+        document.getElementById('navPageNameValue').textContent = this.tempNavigationPageName;
+        
+        this.closeNavigationPageModal();
+        this.showToast(`✅ Página ${this.tempNavigationPageName} selecionada`, 'success');
     }
 
     monitorIframeLoad() {
@@ -86,6 +580,7 @@ class TutorialBuilderApp {
             if (!response.ok) throw new Error('Página não encontrada');
             
             this.pageData = await response.json();
+            console.log('[LOAD-PAGE] Dados da página carregados:', this.pageData);
             
             document.getElementById('pageInfo').innerHTML = `
                 <strong>${this.pageData.Title}</strong>
@@ -93,14 +588,16 @@ class TutorialBuilderApp {
             `;
 
             if (this.pageData.PowerBIUrl) {
+                console.log('[LOAD-PAGE] PowerBIUrl encontrada:', this.pageData.PowerBIUrl);
                 document.getElementById('powerbiFrame').src = this.pageData.PowerBIUrl;
                 document.getElementById('selectionStatus').textContent = '⏳ Aguardando carregamento do Power BI...';
             } else {
+                console.warn('[LOAD-PAGE] Página sem PowerBIUrl configurada');
                 this.showToast('⚠️ Esta página não possui URL do Power BI configurada', 'error');
             }
 
         } catch (error) {
-            console.error('Erro ao carregar página:', error);
+            console.error('[LOAD-PAGE] Erro ao carregar página:', error);
             this.showToast('❌ Erro ao carregar dados da página', 'error');
         }
     }
@@ -111,14 +608,29 @@ class TutorialBuilderApp {
             if (response.ok) {
                 const tutorial = await response.json();
                 
-                if (tutorial.steps && Array.isArray(tutorial.steps)) {
-                    this.steps = tutorial.steps;
-                    console.log('[LOAD-TUTORIAL] Steps carregados:', this.steps.length);
+                if (tutorial.steps) {
+                    // Se steps é string JSON, fazer parse
+                    let steps = tutorial.steps;
+                    if (typeof steps === 'string') {
+                        try {
+                            steps = JSON.parse(steps);
+                        } catch (e) {
+                            console.error('[LOAD-TUTORIAL] Erro ao parsear steps:', e);
+                            return;
+                        }
+                    }
                     
-                    this.renderStepsList();
-                    this.renderAllHighlights();
-                    this.updateButtons();
+                    if (Array.isArray(steps)) {
+                        this.steps = steps;
+                        console.log('[LOAD-TUTORIAL] Steps carregados:', this.steps.length);
+                        
+                        this.renderStepsList();
+                        this.renderAllHighlights();
+                        this.updateButtons();
+                    }
                 }
+            } else {
+                console.log('[LOAD-TUTORIAL] Nenhum tutorial existente para esta página');
             }
         } catch (error) {
             console.error('[LOAD-TUTORIAL] Erro:', error);
@@ -447,8 +959,14 @@ class TutorialBuilderApp {
     }
 
     saveCurrentStep() {
+        console.log('[SAVE] Tentando salvar step...');
+        console.log('[SAVE] currentScreenUrl:', this.currentScreenUrl);
+        
         const title = document.getElementById('stepTitle')?.value?.trim();
         const description = document.getElementById('stepDescription')?.value?.trim();
+
+        console.log('[SAVE] Title:', title);
+        console.log('[SAVE] Description:', description);
 
         if (!title || !description) {
             this.showToast('❌ Preencha o título e descrição', 'error');
@@ -456,27 +974,47 @@ class TutorialBuilderApp {
         }
 
         if (!this.tempHighlight) {
+            console.log('[SAVE] ❌ Sem tempHighlight');
             this.showToast('❌ Selecione uma área no canvas', 'error');
             return;
         }
 
+        console.log('[SAVE] tempHighlight:', this.tempHighlight);
+
+        const powerBIUrl = document.getElementById('stepPowerBIUrl')?.value?.trim() || null;
+
+        // Ao editar, preservar screenUrl original; ao criar novo, usar URL atual
+        const screenUrl = this.isEditing && this.editingStep ? 
+            this.editingStep.screenUrl : 
+            this.currentScreenUrl;
+
+        console.log('[SAVE] screenUrl final:', screenUrl);
+
         const step = {
             id: this.isEditing ? this.editingStep.id : Date.now(),
+            type: 'highlight',
             title,
             description,
             highlight: { ...this.tempHighlight },
+            powerBIUrl,
+            screenUrl: screenUrl,
             overlayOpacity: this.overlayOpacity,
             highlightOpacity: this.highlightOpacity
         };
 
+        console.log('[SAVE] Step criado:', step);
+
         if (this.isEditing && this.editingIndex !== null) {
             this.steps.splice(this.editingIndex, 0, step);
+            console.log('[SAVE] Step inserido na posição:', this.editingIndex);
         } else {
             this.steps.push(step);
+            console.log('[SAVE] Step adicionado ao final. Total:', this.steps.length);
         }
 
         document.getElementById('stepTitle').value = '';
         document.getElementById('stepDescription').value = '';
+        document.getElementById('stepPowerBIUrl').value = '';
         
         document.getElementById('saveStepBtn').style.display = 'none';
         document.getElementById('redoSelectionBtn').style.display = 'none';
@@ -494,11 +1032,101 @@ class TutorialBuilderApp {
         this.editingStep = null;
         this.resetSelection();
 
+        console.log('[SAVE] Renderizando lista e highlights...');
         this.renderStepsList();
         this.renderAllHighlights();
         this.updateButtons();
 
         this.showToast('✅ Passo salvo com sucesso!', 'success');
+        console.log('[SAVE] ✅ Processo concluído');
+    }
+
+    // Salvar step de navegação (COM URL obrigatória)
+    saveNavigationStep() {
+        const title = document.getElementById('stepTitle')?.value?.trim();
+        const description = document.getElementById('stepDescription')?.value?.trim();
+
+        if (!title || !description) {
+            this.showToast('❌ Preencha o título e descrição', 'error');
+            return;
+        }
+
+        const powerBIUrl = document.getElementById('stepPowerBIUrl')?.value?.trim();
+        
+        if (!powerBIUrl) {
+            this.showToast('❌ Configure a página de destino', 'error');
+            return;
+        }
+
+        // Ao editar, preservar screenUrl original; ao criar novo, usar URL atual
+        const screenUrl = this.isEditing && this.editingStep ? 
+            this.editingStep.screenUrl : 
+            this.currentScreenUrl;
+
+        // Navegação pode ter highlight opcional (para apontar botão) ou não ter
+        const step = {
+            id: this.isEditing ? this.editingStep.id : Date.now(),
+            type: 'navigation',
+            title,
+            description,
+            highlight: this.tempHighlight ? { ...this.tempHighlight } : null,
+            powerBIUrl,
+            screenUrl: screenUrl,
+            overlayOpacity: this.overlayOpacity,
+            highlightOpacity: this.highlightOpacity
+        };
+
+        if (this.isEditing && this.editingIndex !== null) {
+            this.steps.splice(this.editingIndex, 0, step);
+        } else {
+            this.steps.push(step);
+        }
+
+        // IMPORTANTE: Atualizar URL da tela atual para a tela de destino
+        // porque os próximos steps serão dessa nova tela (apenas se não estiver editando)
+        if (!this.isEditing) {
+            this.currentScreenUrl = powerBIUrl;
+            console.log('[SCREEN] Mudando para próxima tela:', powerBIUrl);
+            
+            // Trocar iframe para a nova tela
+            const iframe = document.getElementById('powerbiFrame');
+            if (iframe) {
+                iframe.src = powerBIUrl;
+            }
+        }
+
+        document.getElementById('stepTitle').value = '';
+        document.getElementById('stepDescription').value = '';
+        document.getElementById('stepPowerBIUrl').value = '';
+        document.getElementById('navPageNameDisplay').style.display = 'none';
+        
+        document.getElementById('navigationSaveArea').style.display = 'none';
+        document.getElementById('highlightSelectionArea').style.display = 'block';
+        document.getElementById('redoSelectionBtn').style.display = 'none';
+        document.getElementById('cancelEditBtn').style.display = 'none';
+        
+        // Resetar radio para highlight
+        document.querySelector('input[name="stepType"][value="highlight"]').checked = true;
+        this.currentStepType = 'highlight';
+
+        document.querySelectorAll('.highlight-area.active').forEach(h => h.remove());
+        
+        this.tempHighlight = null;
+        this.tempNavigationUrl = null;
+        this.tempNavigationPageName = null;
+        this.isEditing = false;
+        this.editingIndex = null;
+        this.editingStep = null;
+        this.resetSelection();
+
+        this.renderStepsList();
+        this.renderAllHighlights();
+        this.updateButtons();
+
+        const message = this.isEditing ? 
+            '✅ Passo de navegação atualizado!' : 
+            '✅ Passo de navegação salvo! Agora crie steps da próxima tela.';
+        this.showToast(message, 'success');
     }
 
     resetSelection() {
@@ -520,8 +1148,14 @@ class TutorialBuilderApp {
     }
 
     renderStepsList() {
+        console.log('[RENDER-LIST] Iniciando renderização...');
+        console.log('[RENDER-LIST] Total de steps:', this.steps.length);
+        
         const container = document.getElementById('stepsList');
-        if (!container) return;
+        if (!container) {
+            console.error('[RENDER-LIST] Container não encontrado!');
+            return;
+        }
 
         container.innerHTML = '';
 
@@ -532,10 +1166,67 @@ class TutorialBuilderApp {
                     <p>Nenhum passo criado ainda</p>
                 </div>
             `;
+            this.renderGroupNavigation();
+            console.log('[RENDER-LIST] Nenhum step para renderizar');
             return;
         }
 
+        let lastScreenUrl = null;
+        let screenGroupNumber = 1;
+
         this.steps.forEach((step, index) => {
+            const stepScreenUrl = step.screenUrl || this.embedUrlBase || '';
+            console.log(`[RENDER-LIST] Step ${index}: screenUrl="${stepScreenUrl}"`);
+            
+            const isNewScreen = lastScreenUrl && stepScreenUrl !== lastScreenUrl;
+            
+            const nextStep = this.steps[index + 1];
+            const nextScreenChange = step.type === 'navigation' && nextStep;
+            
+            if (isNewScreen) {
+                screenGroupNumber++;
+                console.log('[RENDER-LIST] Nova tela detectada, grupo:', screenGroupNumber);
+                
+                const separator = document.createElement('div');
+                separator.style.cssText = `
+                    margin: 20px 0;
+                    padding: 12px;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    border-radius: 8px;
+                    color: white;
+                    font-weight: 600;
+                    text-align: center;
+                    font-size: 13px;
+                `;
+                separator.innerHTML = `
+                    <i class="fas fa-layer-group"></i> 
+                    Grupo ${screenGroupNumber}: ${this.getScreenName(stepScreenUrl)}
+                `;
+                container.appendChild(separator);
+            }
+            
+            if (index === 0) {
+                console.log('[RENDER-LIST] Primeiro step, criando cabeçalho grupo 1');
+                const separator = document.createElement('div');
+                separator.style.cssText = `
+                    margin-bottom: 16px;
+                    padding: 12px;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    border-radius: 8px;
+                    color: white;
+                    font-weight: 600;
+                    text-align: center;
+                    font-size: 13px;
+                `;
+                separator.innerHTML = `
+                    <i class="fas fa-layer-group"></i> 
+                    Grupo ${screenGroupNumber}: ${this.getScreenName(stepScreenUrl)}
+                `;
+                container.appendChild(separator);
+            }
+            
+            lastScreenUrl = stepScreenUrl;
+            
             const stepItem = document.createElement('div');
             stepItem.className = 'step-item';
             stepItem.draggable = true;
@@ -543,6 +1234,16 @@ class TutorialBuilderApp {
             
             const overlayPct = Math.round((step.overlayOpacity || 0.75) * 100);
             const highlightPct = Math.round((step.highlightOpacity || 0.20) * 100);
+            
+            const typeIcon = step.type === 'navigation' ? '🔗' : '🎯';
+            const typeName = step.type === 'navigation' ? 'Navegação' : 'Highlight';
+            const typeColor = step.type === 'navigation' ? '#2196F3' : '#667eea';
+            
+            let destInfo = '';
+            if (step.type === 'navigation' && step.powerBIUrl) {
+                const destName = this.getScreenName(step.powerBIUrl);
+                destInfo = `<span style="color:#666;font-size:11px;">→ Vai para: ${destName}</span>`;
+            }
             
             stepItem.innerHTML = `
                 <div class="step-header">
@@ -560,14 +1261,30 @@ class TutorialBuilderApp {
                         </button>
                     </div>
                 </div>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+                    <span style="background:${typeColor};color:white;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;">
+                        ${typeIcon} ${typeName}
+                    </span>
+                    ${destInfo}
+                </div>
                 <div class="step-title">${this.escapeHtml(step.title)}</div>
                 <div class="step-description">${this.escapeHtml(step.description)}</div>
-                <div style="font-size:11px;color:#999;margin-top:8px;">
-                    🌑 Escurecimento: ${overlayPct}% | ✨ Claridade: ${highlightPct}%
-                </div>
+                ${step.highlight ? `
+                    <div style="font-size:11px;color:#999;margin-top:8px;">
+                        🌑 Escurecimento: ${overlayPct}% | ✨ Claridade: ${highlightPct}%
+                    </div>
+                ` : `
+                    <div style="font-size:11px;color:#999;margin-top:8px;font-style:italic;">
+                        Sem área destacada (apenas instrução)
+                    </div>
+                `}
             `;
             
-            // Drag events
+            if (step.type === 'navigation' && nextScreenChange) {
+                stepItem.style.borderLeft = '4px solid #2196F3';
+                stepItem.style.borderBottom = '2px solid #2196F3';
+            }
+            
             stepItem.addEventListener('dragstart', (e) => {
                 stepItem.classList.add('dragging');
                 e.dataTransfer.effectAllowed = 'move';
@@ -611,6 +1328,9 @@ class TutorialBuilderApp {
         });
 
         document.getElementById('stepCount').textContent = this.steps.length;
+        
+        console.log('[RENDER-LIST] ✅ Lista renderizada, atualizando navegação...');
+        this.renderGroupNavigation();
     }
 
     reorderSteps(fromIndex, toIndex) {
@@ -636,7 +1356,20 @@ class TutorialBuilderApp {
         const usableWidth = rect.width - offset.left - offset.right;
         const usableHeight = rect.height - offset.top - offset.bottom;
 
-        this.steps.forEach((step, index) => {
+        const currentSteps = this.steps.filter(step => {
+            if (!step.highlight) return false;
+            
+            const stepScreen = step.screenUrl || this.embedUrlBase || '';
+            const currentScreen = this.currentScreenUrl || this.embedUrlBase || '';
+            
+            return stepScreen === currentScreen;
+        });
+
+        console.log('[RENDER] Tela atual:', this.currentScreenUrl);
+        console.log('[RENDER] Steps da tela atual:', currentSteps.length, 'de', this.steps.length, 'total');
+
+        currentSteps.forEach((step) => {
+            const stepIndex = this.steps.indexOf(step);
             const stepOverlayOpacity = step.overlayOpacity !== undefined ? step.overlayOpacity : 0.75;
             const stepHighlightOpacity = step.highlightOpacity !== undefined ? step.highlightOpacity : 0.20;
 
@@ -669,7 +1402,7 @@ class TutorialBuilderApp {
 
             const label = document.createElement('div');
             label.className = 'highlight-label';
-            label.textContent = `Passo ${index + 1}`;
+            label.textContent = `Passo ${stepIndex + 1}`;
             highlight.appendChild(label);
 
             highlight.onmouseenter = () => {
@@ -697,9 +1430,12 @@ class TutorialBuilderApp {
 
         const duplicated = {
             id: Date.now(),
+            type: step.type || 'highlight',
             title: step.title + ' (cópia)',
             description: step.description,
-            highlight: { ...step.highlight },
+            highlight: step.highlight ? { ...step.highlight } : null,
+            powerBIUrl: step.powerBIUrl || null,
+            screenUrl: step.screenUrl || this.currentScreenUrl,
             overlayOpacity: step.overlayOpacity,
             highlightOpacity: step.highlightOpacity
         };
@@ -723,6 +1459,29 @@ class TutorialBuilderApp {
 
         document.getElementById('stepTitle').value = step.title;
         document.getElementById('stepDescription').value = step.description;
+        document.getElementById('stepPowerBIUrl').value = step.powerBIUrl || '';
+
+        const stepType = step.type || 'highlight';
+        document.querySelector(`input[name="stepType"][value="${stepType}"]`).checked = true;
+        this.currentStepType = stepType;
+        this.onStepTypeChange(stepType);
+
+        if (stepType === 'navigation' && step.powerBIUrl) {
+            try {
+                const urlObj = new URL(step.powerBIUrl);
+                const pageName = urlObj.searchParams.get('pageName');
+                if (pageName) {
+                    const navDisplay = document.getElementById('navPageNameDisplay');
+                    const navValue = document.getElementById('navPageNameValue');
+                    if (navDisplay && navValue) {
+                        navDisplay.style.display = 'block';
+                        navValue.textContent = pageName;
+                    }
+                }
+            } catch (e) {
+                console.warn('Erro ao extrair pageName:', e);
+            }
+        }
 
         if (step.overlayOpacity !== undefined) {
             this.overlayOpacity = step.overlayOpacity;
@@ -736,18 +1495,35 @@ class TutorialBuilderApp {
             document.getElementById('highlightOpacityValue').textContent = Math.round(step.highlightOpacity * 100) + '%';
         }
 
+        if (step.screenUrl) {
+            const iframe = document.getElementById('powerbiFrame');
+            if (iframe && iframe.src !== step.screenUrl) {
+                console.log('[EDIT] Mudando para tela do step:', step.screenUrl);
+                iframe.src = step.screenUrl;
+                this.currentScreenUrl = step.screenUrl;
+            }
+        }
+
         this.steps.splice(index, 1);
         this.tempHighlight = step.highlight;
 
         this.renderStepsList();
         this.renderAllHighlights();
         this.updateButtons();
-        this.renderTempHighlight(step.highlight);
+        
+        if (step.highlight) {
+            this.renderTempHighlight(step.highlight);
+        }
 
-        document.getElementById('saveStepBtn').style.display = 'block';
         document.getElementById('redoSelectionBtn').style.display = 'inline-block';
         document.getElementById('cancelEditBtn').style.display = 'inline-block';
-        document.getElementById('selectAreaBtn').style.display = 'none';
+        
+        if (stepType === 'navigation') {
+            document.getElementById('navigationSaveArea').style.display = 'block';
+        } else {
+            document.getElementById('saveStepBtn').style.display = 'block';
+            document.getElementById('selectAreaBtn').style.display = 'none';
+        }
         
         this.showToast('📝 Modo de edição ativado', 'info');
     }
@@ -761,9 +1537,10 @@ class TutorialBuilderApp {
         this.showToast('🗑️ Passo excluído', 'info');
     }
 
-    // PREVIEW VISUAL FUNCIONAL
     startPreview() {
         if (this.steps.length === 0) return;
+        
+        document.querySelectorAll('.highlight-area:not(.active)').forEach(el => el.remove());
         
         this.previewIndex = 0;
         this.createPreviewOverlay();
@@ -771,7 +1548,6 @@ class TutorialBuilderApp {
     }
 
     createPreviewOverlay() {
-        // Remover preview antigo se existir
         let overlay = document.getElementById('tutorialPreviewOverlay');
         if (overlay) overlay.remove();
         
@@ -784,7 +1560,6 @@ class TutorialBuilderApp {
             pointer-events: none;
         `;
         
-        // Highlight box
         const highlight = document.createElement('div');
         highlight.id = 'previewHighlight';
         highlight.style.cssText = `
@@ -796,7 +1571,6 @@ class TutorialBuilderApp {
             transition: all 0.3s ease;
         `;
         
-        // Tooltip
         const tooltip = document.createElement('div');
         tooltip.id = 'previewTooltip';
         tooltip.style.cssText = `
@@ -870,12 +1644,10 @@ class TutorialBuilderApp {
         overlay.appendChild(tooltip);
         document.body.appendChild(overlay);
         
-        // Event listeners
         document.getElementById('previewCloseBtn').onclick = () => this.closePreview();
         document.getElementById('previewPrevBtn').onclick = () => this.previewNavigate(-1);
         document.getElementById('previewNextBtn').onclick = () => this.previewNavigate(1);
         
-        // Hover effects
         const prevBtn = document.getElementById('previewPrevBtn');
         const nextBtn = document.getElementById('previewNextBtn');
         const closeBtn = document.getElementById('previewCloseBtn');
@@ -887,7 +1659,6 @@ class TutorialBuilderApp {
         closeBtn.onmouseenter = () => { closeBtn.style.background = '#f0f0f0'; closeBtn.style.color = '#333'; };
         closeBtn.onmouseleave = () => { closeBtn.style.background = 'none'; closeBtn.style.color = '#999'; };
         
-        // Keyboard navigation
         this._previewKeyHandler = (e) => {
             if (e.key === 'Escape') this.closePreview();
             if (e.key === 'ArrowLeft') this.previewNavigate(-1);
@@ -900,21 +1671,238 @@ class TutorialBuilderApp {
         const step = this.steps[this.previewIndex];
         if (!step) return;
         
+        console.log('[PREVIEW] Renderizando step', this.previewIndex, '- Tipo:', step.type || 'undefined');
+        
+        const isNavigationStep = step.type === 'navigation';
+        
+        if (isNavigationStep && step.powerBIUrl) {
+            console.log('[PREVIEW] ✅ Step de NAVEGAÇÃO confirmado - trocando página automaticamente');
+            
+            const iframe = document.getElementById('powerbiFrame');
+            if (!iframe) {
+                this.showToast('❌ Power BI não está carregado', 'error');
+                this.closePreview();
+                return;
+            }
+            
+            if (step.powerBIUrl !== iframe.src) {
+                this.showPreviewLoading();
+                iframe.src = step.powerBIUrl;
+                
+                let loadHandled = false;
+                
+                const loadHandler = () => {
+                    if (loadHandled) return;
+                    loadHandled = true;
+                    
+                    iframe.removeEventListener('load', loadHandler);
+                    clearTimeout(timeoutId);
+                    
+                    setTimeout(() => {
+                        this.hidePreviewLoading();
+                        console.log('[PREVIEW] Página carregada, avançando automaticamente...');
+                        this.previewIndex++;
+                        if (this.previewIndex < this.steps.length) {
+                            this.renderPreviewStep();
+                        } else {
+                            this.closePreview();
+                            this.showToast('🎉 Preview concluído!', 'success');
+                            this.renderAllHighlights();
+                        }
+                    }, 500);
+                };
+                
+                const timeoutId = setTimeout(() => {
+                    if (loadHandled) return;
+                    loadHandled = true;
+                    
+                    iframe.removeEventListener('load', loadHandler);
+                    this.hidePreviewLoading();
+                    console.log('[PREVIEW] Timeout - avançando automaticamente...');
+                    this.previewIndex++;
+                    if (this.previewIndex < this.steps.length) {
+                        this.renderPreviewStep();
+                    } else {
+                        this.closePreview();
+                        this.showToast('🎉 Preview concluído!', 'success');
+                        this.renderAllHighlights();
+                    }
+                }, 5000);
+                
+                iframe.addEventListener('load', loadHandler);
+                return;
+            } else {
+                console.log('[PREVIEW] Já na página correta, avançando...');
+                this.previewIndex++;
+                if (this.previewIndex < this.steps.length) {
+                    this.renderPreviewStep();
+                } else {
+                    this.closePreview();
+                    this.showToast('🎉 Preview concluído!', 'success');
+                    this.renderAllHighlights();
+                }
+                return;
+            }
+        }
+        
+        console.log('[PREVIEW] ✅ Step NORMAL (highlight/indefinido) - mostrando card e AGUARDANDO clique');
+        
         const iframe = document.getElementById('powerbiFrame');
         if (!iframe) {
             this.showToast('❌ Power BI não está carregado', 'error');
             this.closePreview();
             return;
         }
+
+        const targetUrl = step.screenUrl || this.embedUrlBase;
+
+        if (targetUrl && targetUrl !== iframe.src) {
+            console.log('[PREVIEW] Mudando para tela do step:', targetUrl);
+            this.showPreviewLoading();
+            
+            iframe.src = targetUrl;
+            
+            let loadHandled = false;
+            
+            const loadHandler = () => {
+                if (loadHandled) return;
+                loadHandled = true;
+                
+                iframe.removeEventListener('load', loadHandler);
+                clearTimeout(timeoutId);
+                
+                setTimeout(() => {
+                    this.hidePreviewLoading();
+                    console.log('[PREVIEW] Tela carregada - renderizando card (SEM avançar)');
+                    this.renderPreviewStepContent(step);
+                }, 500);
+            };
+            
+            const timeoutId = setTimeout(() => {
+                if (loadHandled) return;
+                loadHandled = true;
+                
+                iframe.removeEventListener('load', loadHandler);
+                this.hidePreviewLoading();
+                console.log('[PREVIEW] Timeout - renderizando card (SEM avançar)');
+                this.renderPreviewStepContent(step);
+            }, 5000);
+            
+            iframe.addEventListener('load', loadHandler);
+            return;
+        }
         
+        console.log('[PREVIEW] Tela já correta - renderizando card (SEM avançar)');
+        this.renderPreviewStepContent(step);
+    }
+
+    showPreviewLoading() {
         const highlight = document.getElementById('previewHighlight');
         const tooltip = document.getElementById('previewTooltip');
         
-        // Usar opacidades do step
+        if (highlight) highlight.style.display = 'none';
+        if (tooltip) {
+            tooltip.style.visibility = 'visible';
+            tooltip.style.left = '50%';
+            tooltip.style.top = '50%';
+            tooltip.style.transform = 'translate(-50%, -50%)';
+            tooltip.innerHTML = `
+                <div style="text-align: center; padding: 20px;">
+                    <div style="font-size: 48px; margin-bottom: 16px;">⏳</div>
+                    <h3 style="margin: 0 0 8px 0; color: #333;">Carregando página...</h3>
+                    <p style="margin: 0; color: #666; font-size: 14px;">Aguarde enquanto o Power BI carrega a nova página</p>
+                </div>
+            `;
+        }
+    }
+
+    hidePreviewLoading() {
+        const highlight = document.getElementById('previewHighlight');
+        if (highlight) highlight.style.display = 'block';
+    }
+
+    renderPreviewStepContent(step) {
+        const iframe = document.getElementById('powerbiFrame');
+        const highlight = document.getElementById('previewHighlight');
+        const tooltip = document.getElementById('previewTooltip');
+        
         const stepOverlayOpacity = step.overlayOpacity !== undefined ? step.overlayOpacity : 0.75;
         const stepHighlightOpacity = step.highlightOpacity !== undefined ? step.highlightOpacity : 0.20;
         
-        // Calcular posição do highlight
+        if (!step.highlight) {
+            highlight.style.display = 'none';
+            
+            tooltip.style.visibility = 'visible';
+            tooltip.style.left = '50%';
+            tooltip.style.top = '50%';
+            tooltip.style.transform = 'translate(-50%, -50%)';
+            tooltip.style.maxWidth = '500px';
+            
+            tooltip.innerHTML = `
+                <button id="previewCloseBtn" style="
+                    position: absolute;
+                    top: 10px;
+                    right: 10px;
+                    background: none;
+                    border: none;
+                    font-size: 28px;
+                    color: #999;
+                    cursor: pointer;
+                    width: 36px;
+                    height: 36px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 50%;
+                    transition: all 0.2s;
+                ">×</button>
+                <div style="text-align: center; margin-bottom: 16px;">
+                    <span style="font-size: 48px;">💡</span>
+                </div>
+                <h3 style="margin: 0 0 12px 0; font-size: 20px; color: #333; text-align: center;">${this.escapeHtml(step.title)}</h3>
+                <p style="margin: 0 0 20px 0; color: #666; line-height: 1.6;">${this.escapeHtml(step.description)}</p>
+                <div style="
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding-top: 20px;
+                    border-top: 2px solid #e5e5e5;
+                ">
+                    <span id="previewProgress" style="color: #666; font-weight: 600; font-size: 14px;">${this.previewIndex + 1} / ${this.steps.length}</span>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="previewPrevBtn" class="preview-btn" style="
+                            padding: 10px 20px;
+                            border: none;
+                            border-radius: 6px;
+                            cursor: pointer;
+                            font-weight: 600;
+                            background: #e5e5e5;
+                            color: #333;
+                            transition: all 0.2s;
+                        ">Anterior</button>
+                        <button id="previewNextBtn" class="preview-btn" style="
+                            padding: 10px 20px;
+                            border: none;
+                            border-radius: 6px;
+                            cursor: pointer;
+                            font-weight: 600;
+                            background: #667eea;
+                            color: white;
+                            transition: all 0.2s;
+                        ">${this.previewIndex === this.steps.length - 1 ? 'Concluir' : 'Próximo'}</button>
+                    </div>
+                </div>
+                <div style="margin-top: 12px; font-size: 11px; color: #999; text-align: center;">
+                    Use as setas ← → do teclado ou clique nos botões
+                </div>
+            `;
+            
+            this.setupPreviewButtons();
+            return;
+        }
+        
+        highlight.style.display = 'block';
+        
         const offset = this.detectPowerBIOffset(iframe);
         const rect = iframe.getBoundingClientRect();
         const usableWidth = rect.width - offset.left - offset.right;
@@ -930,7 +1918,6 @@ class TutorialBuilderApp {
         const hlWidth = (widthPct / 100) * usableWidth;
         const hlHeight = (heightPct / 100) * usableHeight;
         
-        // Aplicar estilo ao highlight com opacidades do step
         highlight.style.top = hlTop + 'px';
         highlight.style.left = hlLeft + 'px';
         highlight.style.width = hlWidth + 'px';
@@ -942,30 +1929,99 @@ class TutorialBuilderApp {
             0 0 40px 5px rgba(76, 175, 80, 0.8)
         `;
         
-        // Atualizar conteúdo do tooltip
-        document.getElementById('previewTitle').textContent = step.title;
-        document.getElementById('previewDesc').textContent = step.description;
-        document.getElementById('previewProgress').textContent = `${this.previewIndex + 1} / ${this.steps.length}`;
+        tooltip.innerHTML = `
+            <button id="previewCloseBtn" style="
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                background: none;
+                border: none;
+                font-size: 28px;
+                color: #999;
+                cursor: pointer;
+                width: 36px;
+                height: 36px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 50%;
+                transition: all 0.2s;
+            ">×</button>
+            <h3 id="previewTitle" style="margin: 0 0 12px 0; font-size: 20px; color: #333; padding-right: 30px;">${this.escapeHtml(step.title)}</h3>
+            <p id="previewDesc" style="margin: 0 0 20px 0; color: #666; line-height: 1.6;">${this.escapeHtml(step.description)}</p>
+            <div style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding-top: 20px;
+                border-top: 2px solid #e5e5e5;
+            ">
+                <span id="previewProgress" style="color: #666; font-weight: 600; font-size: 14px;">${this.previewIndex + 1} / ${this.steps.length}</span>
+                <div style="display: flex; gap: 10px;">
+                    <button id="previewPrevBtn" class="preview-btn" style="
+                        padding: 10px 20px;
+                        border: none;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-weight: 600;
+                        background: #e5e5e5;
+                        color: #333;
+                        transition: all 0.2s;
+                    ">Anterior</button>
+                    <button id="previewNextBtn" class="preview-btn" style="
+                        padding: 10px 20px;
+                        border: none;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-weight: 600;
+                        background: #667eea;
+                        color: white;
+                        transition: all 0.2s;
+                    ">${this.previewIndex === this.steps.length - 1 ? 'Concluir' : 'Próximo'}</button>
+                </div>
+            </div>
+            <div style="margin-top: 12px; font-size: 11px; color: #999; text-align: center;">
+                Use as setas ← → do teclado ou clique nos botões
+            </div>
+        `;
         
-        // Atualizar botões
+        this.setupPreviewButtons();
+        
+        this.positionPreviewTooltip(hlTop, hlLeft, hlWidth, hlHeight);
+    }
+
+    setupPreviewButtons() {
         const prevBtn = document.getElementById('previewPrevBtn');
         const nextBtn = document.getElementById('previewNextBtn');
+        const closeBtn = document.getElementById('previewCloseBtn');
         
-        prevBtn.disabled = this.previewIndex === 0;
-        prevBtn.style.opacity = this.previewIndex === 0 ? '0.5' : '1';
-        prevBtn.style.cursor = this.previewIndex === 0 ? 'not-allowed' : 'pointer';
+        if (closeBtn) closeBtn.onclick = () => this.closePreview();
+        if (prevBtn) {
+            prevBtn.onclick = () => this.previewNavigate(-1);
+            prevBtn.disabled = this.previewIndex === 0;
+            prevBtn.style.opacity = this.previewIndex === 0 ? '0.5' : '1';
+            prevBtn.style.cursor = this.previewIndex === 0 ? 'not-allowed' : 'pointer';
+            
+            prevBtn.onmouseenter = () => { if (!prevBtn.disabled) prevBtn.style.background = '#d0d0d0'; };
+            prevBtn.onmouseleave = () => prevBtn.style.background = '#e5e5e5';
+        }
         
-        nextBtn.textContent = this.previewIndex === this.steps.length - 1 ? 'Concluir' : 'Próximo';
+        if (nextBtn) {
+            nextBtn.onclick = () => this.previewNavigate(1);
+            nextBtn.onmouseenter = () => nextBtn.style.background = '#5568d3';
+            nextBtn.onmouseleave = () => nextBtn.style.background = '#667eea';
+        }
         
-        // Posicionar tooltip
-        this.positionPreviewTooltip(hlTop, hlLeft, hlWidth, hlHeight);
+        if (closeBtn) {
+            closeBtn.onmouseenter = () => { closeBtn.style.background = '#f0f0f0'; closeBtn.style.color = '#333'; };
+            closeBtn.onmouseleave = () => { closeBtn.style.background = 'none'; closeBtn.style.color = '#999'; };
+        }
     }
 
     positionPreviewTooltip(hlTop, hlLeft, hlWidth, hlHeight) {
         const tooltip = document.getElementById('previewTooltip');
         if (!tooltip) return;
         
-        // Reset para medir dimensões
         tooltip.style.visibility = 'hidden';
         tooltip.style.left = '0px';
         tooltip.style.top = '0px';
@@ -974,28 +2030,23 @@ class TutorialBuilderApp {
             const ttRect = tooltip.getBoundingClientRect();
             const margin = 20;
             
-            // Tentar posicionar à direita do highlight
             let ttLeft = hlLeft + hlWidth + margin;
             let ttTop = hlTop;
             
-            // Se não couber à direita, tentar embaixo
             if (ttLeft + ttRect.width > window.innerWidth - 10) {
                 ttLeft = hlLeft;
                 ttTop = hlTop + hlHeight + margin;
             }
             
-            // Se não couber embaixo, tentar em cima
             if (ttTop + ttRect.height > window.innerHeight - 10) {
                 ttTop = hlTop - ttRect.height - margin;
             }
             
-            // Se não couber em cima, tentar à esquerda
             if (ttTop < 10) {
                 ttLeft = hlLeft - ttRect.width - margin;
                 ttTop = hlTop;
             }
             
-            // Garantir que está dentro da tela
             ttLeft = Math.max(10, Math.min(ttLeft, window.innerWidth - ttRect.width - 10));
             ttTop = Math.max(10, Math.min(ttTop, window.innerHeight - ttRect.height - 10));
             
@@ -1006,6 +2057,8 @@ class TutorialBuilderApp {
     }
 
     previewNavigate(delta) {
+        const currentStep = this.steps[this.previewIndex];
+        
         this.previewIndex += delta;
         
         if (this.previewIndex < 0) {
@@ -1016,7 +2069,50 @@ class TutorialBuilderApp {
         if (this.previewIndex >= this.steps.length) {
             this.closePreview();
             this.showToast('🎉 Preview concluído!', 'success');
+            this.renderAllHighlights();
             return;
+        }
+        
+        const nextStep = this.steps[this.previewIndex];
+        
+        const currentScreenUrl = currentStep?.screenUrl || this.embedUrlBase;
+        const nextScreenUrl = nextStep?.screenUrl || this.embedUrlBase;
+        
+        if (nextScreenUrl && currentScreenUrl !== nextScreenUrl) {
+            console.log('[PREVIEW] Mudança de tela detectada:', currentScreenUrl, '→', nextScreenUrl);
+            
+            const iframe = document.getElementById('powerbiFrame');
+            if (iframe && iframe.src !== nextScreenUrl) {
+                this.showPreviewLoading();
+                iframe.src = nextScreenUrl;
+                
+                let loadHandled = false;
+                
+                const loadHandler = () => {
+                    if (loadHandled) return;
+                    loadHandled = true;
+                    
+                    iframe.removeEventListener('load', loadHandler);
+                    clearTimeout(timeoutId);
+                    
+                    setTimeout(() => {
+                        this.hidePreviewLoading();
+                        this.renderPreviewStep();
+                    }, 500);
+                };
+                
+                const timeoutId = setTimeout(() => {
+                    if (loadHandled) return;
+                    loadHandled = true;
+                    
+                    iframe.removeEventListener('load', loadHandler);
+                    this.hidePreviewLoading();
+                    this.renderPreviewStep();
+                }, 5000);
+                
+                iframe.addEventListener('load', loadHandler);
+                return;
+            }
         }
         
         this.renderPreviewStep();
@@ -1030,6 +2126,8 @@ class TutorialBuilderApp {
             document.removeEventListener('keydown', this._previewKeyHandler);
             this._previewKeyHandler = null;
         }
+        
+        this.renderAllHighlights();
     }
 
     async saveTutorial() {
@@ -1077,7 +2175,6 @@ class TutorialBuilderApp {
         }
     }
 
-    // Toast notifications
     showToast(message, type = 'info') {
         let toast = document.getElementById('toast');
         
