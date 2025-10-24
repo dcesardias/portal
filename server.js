@@ -2699,6 +2699,40 @@ app.put('/api/tutorials/:id', authenticateToken, async (req, res) => {
     }
 });
 
+// Deletar tutorial por pageId
+app.delete('/api/tutorials/page/:pageId', authenticateToken, async (req, res) => {
+    if (!req.user.isAdmin) {
+        return res.status(403).json({ error: 'Acesso negado' });
+    }
+    
+    try {
+        const pageId = parseInt(req.params.pageId);
+        
+        console.log('[TUTORIALS] Deletando tutorial da página:', pageId);
+        
+        const result = await pool.request()
+            .input('pageId', sql.Int, pageId)
+            .query(`
+                UPDATE Tutorials
+                SET IsActive = 0,
+                    UpdatedAt = GETDATE()
+                WHERE PageId = @pageId AND IsActive = 1
+            `);
+        
+        if (!result.rowsAffected || result.rowsAffected[0] === 0) {
+            console.log('[TUTORIALS] Nenhum tutorial encontrado para deletar');
+            return res.status(404).json({ error: 'Tutorial não encontrado' });
+        }
+        
+        console.log('[TUTORIALS] ✅ Tutorial deletado com sucesso');
+        res.json({ success: true, message: 'Tutorial excluído com sucesso' });
+        
+    } catch (err) {
+        console.error('[TUTORIALS] Erro ao excluir por pageId:', err);
+        res.status(500).json({ error: 'Erro ao excluir tutorial' });
+    }
+});
+
 // Deletar tutorial (soft delete)
 app.delete('/api/tutorials/:id', authenticateToken, async (req, res) => {
     if (!req.user.isAdmin) {
