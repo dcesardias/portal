@@ -224,7 +224,6 @@
             position: relative;
         }
 
-        /* NOVO: container do Power BI no builder com o MESMO comportamento do portal (16:9) */
         .builder-powerbi-container {
             width: 100%;
             aspect-ratio: 16 / 9;
@@ -236,7 +235,6 @@
             overflow: hidden;
         }
 
-        /* Ajustes: iframe absoluto dentro do container (igual ao portal) */
         #powerbiFrame {
             position: absolute;
             top: 0;
@@ -246,7 +244,6 @@
             border: none;
         }
 
-        /* Overlay deve cobrir SOMENTE o container acima (não a tela toda) */
         .canvas-overlay {
             position: absolute;
             top: 0;
@@ -343,23 +340,6 @@
             margin-bottom: 4px;
         }
 
-        .fs-tip {
-            margin-top: 10px;
-            font-size: 12px;
-            color: #666;
-            display: none;
-        }
-        .fs-tip.show { display: block; }
-        .btn-fullscreen {
-            background: #1565c0;
-            color: #fff;
-        }
-        .btn-fullscreen:hover {
-            background: #0d47a1;
-        }
-    </style>
-    <style>
-        /* Drag & Drop */
         .step-item.dragging {
             opacity: 0.5;
             cursor: move;
@@ -380,150 +360,6 @@
             color: #667eea;
         }
 
-        /* Preview Modal */
-        .preview-modal {
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.8);
-            z-index: 9999;
-            display: none;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .preview-modal.active {
-            display: flex;
-        }
-
-        .preview-content {
-            background: white;
-            border-radius: 12px;
-            padding: 30px;
-            max-width: 600px;
-            width: 90%;
-            position: relative;
-        }
-
-        .preview-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-
-        .preview-header h2 {
-            margin: 0;
-            color: #333;
-        }
-
-        .preview-close {
-            background: none;
-            border: none;
-            font-size: 32px;
-            color: #999;
-            cursor: pointer;
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            transition: all 0.2s;
-        }
-
-        .preview-close:hover {
-            background: #f0f0f0;
-            color: #333;
-        }
-
-        .preview-step {
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-
-        .preview-step h3 {
-            margin: 0 0 10px 0;
-            color: #667eea;
-            font-size: 18px;
-        }
-
-        .preview-step p {
-            margin: 0;
-            color: #666;
-            line-height: 1.6;
-        }
-
-        .preview-navigation {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 2px solid #e0e0e0;
-        }
-
-        .preview-progress {
-            color: #666;
-            font-weight: 600;
-        }
-
-        .preview-buttons {
-            display: flex;
-            gap: 10px;
-        }
-
-        .preview-btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.2s;
-        }
-
-        .preview-btn-prev {
-            background: #e5e5e5;
-            color: #333;
-        }
-
-        .preview-btn-prev:hover {
-            background: #d0d0d0;
-        }
-
-        .preview-btn-prev:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .preview-btn-next {
-            background: #667eea;
-            color: white;
-        }
-
-        .preview-btn-next:hover {
-            background: #5568d3;
-        }
-
-        /* Keyboard hints */
-        .keyboard-hint {
-            font-size: 11px;
-            color: #999;
-            margin-top: 8px;
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-
-        .keyboard-hint span {
-            background: #f0f0f0;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-family: monospace;
-        }
-
-        /* Toast notifications */
         .toast {
             position: fixed;
             bottom: 20px;
@@ -559,8 +395,29 @@
                 opacity: 1;
             }
         }
-    </style>
 
+        .btn-redo {
+            padding: 8px 16px;
+            background: #ff9800;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        .btn-cancel {
+            padding: 8px 16px;
+            background: #f44336;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -582,6 +439,25 @@
             <div class="sidebar-section" style="background: #f8f9fa;">
                 <h2>📝 Novo Passo</h2>
                 
+                <!-- Tipo de Step -->
+                <div class="form-group">
+                    <label style="font-weight: 600; margin-bottom: 10px; display: block;">Tipo de Passo</label>
+                    <div style="display: flex; gap: 20px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="radio" name="stepType" value="highlight" checked onchange="app.onStepTypeChange('highlight')">
+                            <span>🎯 Highlight Normal</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="radio" name="stepType" value="navigation" onchange="app.onStepTypeChange('navigation')">
+                            <span>🔗 Navegação de Página</span>
+                        </label>
+                    </div>
+                    <small style="color: #666; display: block; margin-top: 8px;">
+                        <strong>Highlight:</strong> Aponta uma área específica do dashboard.<br>
+                        <strong>Navegação:</strong> Instrui o usuário a clicar em um botão para mudar de página.
+                    </small>
+                </div>
+                
                 <div class="form-group">
                     <label for="stepTitle">Título do Passo</label>
                     <input type="text" id="stepTitle" placeholder="Ex: Filtros de Data">
@@ -592,19 +468,75 @@
                     <textarea id="stepDescription" placeholder="Explique o que o usuário deve fazer..."></textarea>
                 </div>
 
-                <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                    <button class="btn btn-primary" id="selectAreaBtn" style="flex:1;" disabled>
-                        <i class="fas fa-mouse-pointer"></i>
-                        <span id="selectBtnText">Selecionar Área no Canvas</span>
+                <!-- Campo oculto para armazenar URL -->
+                <input type="hidden" id="stepPowerBIUrl">
+
+                <!-- Área de seleção (visível apenas para tipo "highlight") -->
+                <div id="highlightSelectionArea">
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <button class="btn btn-primary" id="selectAreaBtn" style="flex:1;" disabled>
+                            <i class="fas fa-mouse-pointer"></i>
+                            <span id="selectBtnText">Selecionar Área no Canvas</span>
+                        </button>
+                    </div>
+
+                    <button class="btn btn-success" id="saveStepBtn" style="width: 100%; margin-top: 10px; display: none;">
+                        <i class="fas fa-save"></i>
+                        Salvar Passo
                     </button>
                 </div>
 
-                <button class="btn btn-success" id="saveStepBtn" style="width: 100%; margin-top: 10px; display: none;">
-                    <i class="fas fa-save"></i>
-                    Salvar Passo
-                </button>
+                <!-- Botão de salvar para navegação (COM URL obrigatória) -->
+                <div id="navigationSaveArea" style="display: none;">
+                    <!-- Display da página configurada -->
+                    <div id="navPageNameDisplay" style="
+                        display: none;
+                        background: #e3f2fd;
+                        padding: 12px;
+                        border-radius: 6px;
+                        margin-bottom: 12px;
+                    ">
+                        <div style="font-size: 12px; color: #1565c0; font-weight: 600; margin-bottom: 4px;">
+                            📄 Página de Destino Configurada
+                        </div>
+                        <div id="navPageNameValue" style="
+                            font-family: monospace;
+                            font-size: 13px;
+                            color: #0d47a1;
+                            word-break: break-all;
+                        "></div>
+                    </div>
+                    
+                    <button class="btn btn-primary" onclick="app.openNavigationPageConfig()" style="width: 100%; margin-bottom: 10px;">
+                        <i class="fas fa-link"></i>
+                        Configurar Página de Destino
+                    </button>
+                    
+                    <button class="btn btn-success" id="saveNavigationStepBtn" style="width: 100%;" onclick="app.saveNavigationStep()">
+                        <i class="fas fa-save"></i>
+                        Salvar Passo de Navegação
+                    </button>
+                    
+                    <small style="color: #666; display: block; margin-top: 8px; text-align: center;">
+                        💡 Step de navegação muda de página. Configure a URL de destino acima.
+                    </small>
+                    
+                    <div style="
+                        margin-top: 12px;
+                        padding: 12px;
+                        background: #fff3cd;
+                        border-left: 4px solid #ffc107;
+                        border-radius: 4px;
+                        font-size: 12px;
+                        color: #856404;
+                        line-height: 1.6;
+                    ">
+                        <strong>⚠️ Atenção:</strong> Steps de navegação mudam de página e encerram a sequência atual. 
+                        Após salvar este step, crie novos steps para a próxima página do relatório.
+                    </div>
+                </div>
 
-                <!-- Adicione isso no tutorial-builder.html, acima dos botões de salvar -->
+                <!-- Ajustes visuais do highlight -->
                 <div class="form-group" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
                     <h4 style="margin: 0 0 15px 0; font-size: 14px; color: #333;">🎨 Ajustes Visuais do Highlight</h4>
                     
@@ -613,13 +545,9 @@
                             Escurecimento Fora do Highlight
                         </label>
                         <div style="display: flex; align-items: center; gap: 10px;">
-                            <input type="range" id="overlayOpacity" min="0" max="100" value="75" 
-                                style="flex: 1;" oninput="app.updateOverlayOpacity(this.value)">
+                            <input type="range" id="overlayOpacity" min="0" max="100" value="75" style="flex: 1;">
                             <span id="overlayOpacityValue" style="min-width: 40px; font-weight: 600; color: #667eea;">75%</span>
                         </div>
-                        <small style="color: #666; display: block; margin-top: 4px;">
-                            Controla o quão escuro fica a área fora do highlight (0% = transparente, 100% = muito escuro)
-                        </small>
                     </div>
                     
                     <div>
@@ -627,38 +555,36 @@
                             Claridade Dentro do Highlight
                         </label>
                         <div style="display: flex; align-items: center; gap: 10px;">
-                            <input type="range" id="highlightOpacity" min="0" max="100" value="20" 
-                                style="flex: 1;" oninput="app.updateHighlightOpacity(this.value)">
+                            <input type="range" id="highlightOpacity" min="0" max="100" value="20" style="flex: 1;">
                             <span id="highlightOpacityValue" style="min-width: 40px; font-weight: 600; color: #4CAF50;">20%</span>
                         </div>
-                        <small style="color: #666; display: block; margin-top: 4px;">
-                            Controla a transparência do fundo verde do highlight (0% = totalmente transparente, 100% = opaco)
-                        </small>
                     </div>
                 </div>
 
                 <div style="display:flex;gap:10px;margin-top:20px;">
-                    <button class="btn btn-admin" id="saveStepBtn" onclick="app.saveCurrentStep()" style="display:none;">
-                        Salvar Passo
-                    </button>
                     <button class="btn-redo" id="redoSelectionBtn" onclick="app.redoSelection()" style="display:none;">
                         🔄 Refazer Seleção
                     </button>
                     <button class="btn-cancel" id="cancelEditBtn" onclick="app.cancelEdit()" style="display:none;">
                         ❌ Cancelar Edição
                     </button>
-                    <button class="btn btn-admin" id="selectAreaBtn" onclick="app.startSelection()">
-                        <span id="selectBtnText">Selecionar Área no Canvas</span>
-                    </button>
                 </div>
+                
                 <div id="selectionStatus" style="margin-top: 10px; color: #666; font-size: 12px; min-height: 20px;"></div>
-
-                <div id="selectionStatus" style="margin-top: 12px; font-size: 13px; color: #666; text-align: center;"></div>
-                <div id="fsNotice" class="fs-tip">Dica: use Tela Cheia para manter a proporção do Power BI idêntica ao portal.</div>
             </div>
 
             <!-- Lista de Passos -->
             <div class="sidebar-section">
+                <!-- Navegação de Grupos (se houver múltiplos grupos) -->
+                <div id="groupNavigation" style="
+                    display: none;
+                    margin-bottom: 20px;
+                    padding: 16px;
+                    background: #f8f9fa;
+                    border-radius: 8px;
+                    border: 2px solid #e0e0e0;
+                "></div>
+                
                 <h2>📋 Passos Criados (<span id="stepCount">0</span>)</h2>
                 <div class="steps-list" id="stepsList">
                     <div class="empty-state">
@@ -685,7 +611,6 @@
         <!-- Canvas Principal -->
         <div class="main-canvas">
             <div id="canvas">
-                <!-- Garantir wrapper com iframe e overlay -->
                 <div id="frameWrapper" class="builder-powerbi-container">
                     <iframe id="powerbiFrame" src="" title="Dashboard Preview"></iframe>
                     <div class="canvas-overlay" id="canvasOverlay"></div>
@@ -697,5 +622,269 @@
     </div>
 
     <script src="assets/js/tutorial-builder.js"></script>
+
+    <!-- Modal: Configuração Inicial do Relatório -->
+    <div id="reportConfigModal" style="
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.8);
+        z-index: 10000;
+        align-items: center;
+        justify-content: center;
+    ">
+        <div style="
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            max-width: 700px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        ">
+            <h2 style="margin: 0 0 12px 0; color: #333; font-size: 24px;">
+                🔗 Configuração do Relatório Power BI
+            </h2>
+            <p style="margin: 0 0 24px 0; color: #666; line-height: 1.6;">
+                Cole a URL completa de <strong>qualquer página</strong> do seu relatório Power BI. 
+                Vamos extrair automaticamente os IDs necessários para criar as URLs embed.
+            </p>
+
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #333;">
+                    URL do Relatório Power BI
+                </label>
+                <input 
+                    type="text" 
+                    id="reportUrlInput" 
+                    placeholder="https://app.powerbi.com/groups/.../reports/.../ReportSection...?experience=power-bi"
+                    style="
+                        width: 100%;
+                        padding: 12px;
+                        border: 2px solid #e0e0e0;
+                        border-radius: 6px;
+                        font-size: 14px;
+                        font-family: monospace;
+                    "
+                >
+                <small style="display: block; margin-top: 8px; color: #666;">
+                    💡 Exemplo: https://app.powerbi.com/groups/5d2f86f0.../reports/8fe56d7d.../ReportSection...
+                </small>
+            </div>
+
+            <div id="reportConfigResult" style="
+                display: none;
+                background: #e8f5e9;
+                padding: 16px;
+                border-radius: 8px;
+                margin-bottom: 20px;
+            ">
+                <div style="font-weight: 600; color: #2e7d32; margin-bottom: 8px;">
+                    ✅ Relatório Configurado
+                </div>
+                <div style="font-size: 13px; color: #555; font-family: monospace; line-height: 1.8;">
+                    <div><strong>Report ID:</strong> <span id="extractedReportId"></span></div>
+                    <div><strong>Tenant ID:</strong> <span id="extractedTenantId"></span></div>
+                    <div style="margin-top: 8px;"><strong>URL Embed Base:</strong></div>
+                    <div style="background: white; padding: 8px; border-radius: 4px; word-break: break-all; margin-top: 4px;">
+                        <span id="extractedEmbedUrl"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                <button 
+                    id="parseReportUrlBtn"
+                    onclick="app.parseReportUrl()"
+                    style="
+                        padding: 12px 24px;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        color: white;
+                        border: none;
+                        border-radius: 6px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                    "
+                >
+                    🔍 Analisar URL
+                </button>
+                <button 
+                    id="confirmReportConfigBtn"
+                    onclick="app.confirmReportConfig()"
+                    disabled
+                    style="
+                        padding: 12px 24px;
+                        background: #4CAF50;
+                        color: white;
+                        border: none;
+                        border-radius: 6px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                        opacity: 0.5;
+                    "
+                >
+                    ✅ Confirmar e Continuar
+                </button>
+            </div>
+
+            <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #e0e0e0;">
+                <details style="cursor: pointer;">
+                    <summary style="font-weight: 600; color: #666; font-size: 14px;">
+                        ℹ️ Como obter a URL do relatório?
+                    </summary>
+                    <div style="margin-top: 12px; padding-left: 20px; color: #666; font-size: 13px; line-height: 1.8;">
+                        <ol style="margin: 0; padding-left: 20px;">
+                            <li>Abra seu relatório no Power BI Service</li>
+                            <li>Navegue até qualquer página do relatório</li>
+                            <li>Copie a URL completa da barra de endereços do navegador</li>
+                            <li>Cole aqui e clique em "Analisar URL"</li>
+                        </ol>
+                        <div style="margin-top: 12px; background: #f5f5f5; padding: 12px; border-radius: 4px; font-family: monospace; font-size: 12px;">
+                            A URL deve conter: <strong>groups/</strong>, <strong>reports/</strong> e <strong>ReportSection</strong>
+                        </div>
+                    </div>
+                </details>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Configuração de Página para Navegação -->
+    <div id="navigationPageModal" style="
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.8);
+        z-index: 10001;
+        align-items: center;
+        justify-content: center;
+    ">
+        <div style="
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            max-width: 700px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        ">
+            <h2 style="margin: 0 0 12px 0; color: #333; font-size: 24px;">
+                🔗 Configurar Página de Destino
+            </h2>
+            <p style="margin: 0 0 24px 0; color: #666; line-height: 1.6;">
+                Cole a URL completa da página do Power BI para onde o usuário será navegado ao completar este passo.
+            </p>
+
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #333;">
+                    URL da Página de Destino
+                </label>
+                <input 
+                    type="text" 
+                    id="navPageUrlInput" 
+                    placeholder="https://app.powerbi.com/groups/.../reports/.../ReportSection2?experience=power-bi"
+                    style="
+                        width: 100%;
+                        padding: 12px;
+                        border: 2px solid #e0e0e0;
+                        border-radius: 6px;
+                        font-size: 14px;
+                        font-family: monospace;
+                    "
+                >
+                <small style="display: block; margin-top: 8px; color: #666;">
+                    💡 Cole a URL da página específica do relatório. Exemplo: .../ReportSection2
+                </small>
+            </div>
+
+            <div id="navPageResult" style="
+                display: none;
+                background: #e8f5e9;
+                padding: 16px;
+                border-radius: 8px;
+                margin-bottom: 20px;
+            ">
+                <div style="font-weight: 600; color: #2e7d32; margin-bottom: 8px;">
+                    ✅ Página Configurada
+                </div>
+                <div style="font-size: 13px; color: #555; font-family: monospace; line-height: 1.8;">
+                    <div><strong>Página:</strong> <span id="navPageName"></span></div>
+                    <div style="margin-top: 8px;"><strong>URL Embed:</strong></div>
+                    <div style="background: white; padding: 8px; border-radius: 4px; word-break: break-all; margin-top: 4px;">
+                        <span id="navEmbedUrl"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                <button 
+                    onclick="app.closeNavigationPageModal()"
+                    style="
+                        padding: 12px 24px;
+                        background: #e5e5e5;
+                        color: #333;
+                        border: none;
+                        border-radius: 6px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                    "
+                >
+                    Cancelar
+                </button>
+                <button 
+                    onclick="app.parseNavigationPageUrl()"
+                    style="
+                        padding: 12px 24px;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        color: white;
+                        border: none;
+                        border-radius: 6px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                    "
+                >
+                    🔍 Analisar URL
+                </button>
+                <button 
+                    id="confirmNavPageBtn"
+                    onclick="app.confirmNavigationPage()"
+                    disabled
+                    style="
+                        padding: 12px 24px;
+                        background: #4CAF50;
+                        color: white;
+                        border: none;
+                        border-radius: 6px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                        opacity: 0.5;
+                    "
+                >
+                    ✅ Confirmar
+                </button>
+            </div>
+
+            <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #e0e0e0;">
+                <details style="cursor: pointer;">
+                    <summary style="font-weight: 600; color: #666; font-size: 14px;">
+                        ℹ️ Como obter a URL da página?
+                    </summary>
+                    <div style="margin-top: 12px; padding-left: 20px; color: #666; font-size: 13px; line-height: 1.8;">
+                        <ol style="margin: 0; padding-left: 20px;">
+                            <li>Abra seu relatório no Power BI Service</li>
+                            <li>Navegue até a página desejada (ReportSection2, ReportSection3, etc)</li>
+                            <li>Copie a URL completa da barra de endereços</li>
+                            <li>Cole aqui e clique em "Analisar URL"</li>
+                        </ol>
+                        <div style="margin-top: 12px; background: #fff3cd; padding: 12px; border-radius: 4px; border-left: 4px solid #ffc107;">
+                            <strong>⚠️ Importante:</strong> Steps de navegação mudam de página. Todos os steps anteriores devem ser da mesma página atual.
+                        </div>
+                    </div>
+                </details>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
