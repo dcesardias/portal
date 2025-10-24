@@ -29,7 +29,6 @@
                     <div class="page-title" id="pageTitle">Power BI Dashboard</div>
                     <div class="page-subtitle" id="pageSubtitle">Visão geral do portal de relatórios</div>
                 </div>
-                <!-- Search UI with Dark Mode Toggle -->
                 <div class="search-container">
                     <input id="searchInput" 
                            name="q_search_portal_2025" 
@@ -55,7 +54,6 @@
                 </div>
             </div>
             <div class="content" id="mainContent">
-                <!-- Home view (padrão) -->
                 <div id="homeView">
                     <div class="info-card" style="margin-bottom:20px;">
                         <h3>Bem-vindo ao Portal</h3>
@@ -64,22 +62,18 @@
 
                     <div class="cards-section">
                         <h2 style="color: var(--text-color); margin-bottom: 20px; font-size: 20px;">Acesso Rápido aos Painéis</h2>
-                        <div id="quickAccessCards" class="cards-grid">
-                            <!-- Cards serão inseridos aqui dinamicamente -->
-                        </div>
+                        <div id="quickAccessCards" class="cards-grid"></div>
                     </div>
                 </div>
 
-                <!-- Page view (quando uma página for selecionada) -->
                 <div id="pageView" style="display:none;">
                     <div class="info-card">
                         <p id="pageDescription">Este painel oferece uma visão abrangente das métricas...</p>
                     </div>
                     <div style="position:relative;">
-                        <!-- NOVO: Botão para iniciar tutorial -->
                         <button id="startTutorialBtn" class="btn-start-tutorial" style="display:none;" title="Iniciar tutorial desta página">
                             <i class="fas fa-graduation-cap"></i>
-                            Tutorial
+                            Ajuda
                         </button>
                         
                         <button id="refreshIframeBtn" class="btn-refresh-iframe" style="display:none;" title="Atualizar painel">
@@ -101,7 +95,7 @@
 
     <div class="overlay" id="overlay"></div>
 
-            <div class="login-modal" id="loginModal">
+    <div class="login-modal" id="loginModal">
         <div class="login-header">
             <h2>Login Administrativo</h2>
         </div>
@@ -257,7 +251,6 @@
 
             <div class="tab-content" id="configTab">
                 <h3>Configurações do Portal</h3>
-                <!-- Logo Upload Section (primeiro campo) -->
                 <div class="form-group">
                     <label>Logo do Portal</label>
                     <div class="logo-upload-section">
@@ -445,7 +438,6 @@
                 </div>
             </div>
 
-            <!-- Nova aba para Dicionário de Dados -->
             <div class="tab-content" id="dictionaryTab">
                 <h3>Gerenciar Dicionários de Dados (IA)</h3>
                 <p style="color: #666; font-size: 14px; margin-bottom: 20px;">
@@ -459,7 +451,6 @@
                     </button>
                 </div>
 
-                <!-- Lista de dicionários existentes -->
                 <h4>Dicionários Existentes</h4>
                 <div class="menu-list" id="dictionariesList">
                     <div style="text-align: center; color: #666; padding: 20px;">
@@ -470,7 +461,6 @@
         </div>
     </div>
 
-    <!-- Modal: Tutorial Builder (abre dentro do portal) -->
     <div id="tutorialBuilderModal" style="display:none;position:fixed;inset:0;z-index:10050;backdrop-filter:blur(2px);background:rgba(0,0,0,0.55);">
         <div style="position:absolute;inset:30px;display:flex;flex-direction:column;">
             <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
@@ -489,7 +479,6 @@
     <script defer src="assets/js/modules/tutorial.js"></script>
     <script defer src="assets/js/chatbot.js"></script>
     
-    <!-- Debug: Verificar se módulos carregaram -->
     <script>
         window.addEventListener('load', () => {
             setTimeout(() => {
@@ -505,7 +494,6 @@
         });
     </script>
 
-    <!-- Patch savePage: avoid misleading error if only the reload fails -->
     <script>
     (function() {
         function getVal(id) { const el = document.getElementById(id); return el ? el.value : ''; }
@@ -524,7 +512,6 @@
             } catch (_) {}
         }
 
-        // Override global savePage to improve UX/errors after save
         window.savePage = async function() {
             const title = getVal('pageNameInput').trim();
             if (!title) { alert('Por favor, preencha o título da página'); return; }
@@ -562,25 +549,22 @@
                     return;
                 }
 
-                // Sucesso: limpar formulário e estado de edição
                 try { if (typeof window.clearPageForm === 'function') window.clearPageForm(); } catch (_) {}
                 window.editingPageId = null;
                 const btn = document.getElementById('savePageBtn'); if (btn) btn.textContent = 'Salvar Página';
                 const cancel = document.getElementById('cancelPageEditBtn'); if (cancel) cancel.style.display = 'none';
 
-                // Recarregar dados sem falhar a operação de salvar
                 await reloadSafely();
                 alert(editingId ? 'Página atualizada com sucesso!' : 'Página salva com sucesso!');
             } catch (err) {
                 console.error('[savePage] erro:', err);
-                // Evitar mensagem enganosa: o erro pode ser apenas ao recarregar a UI
                 alert(`Não foi possível atualizar a interface após salvar. Detalhes: ${err.message || err}`);
             }
         };
     })();
     </script>
 
-    <!-- Patch: Tutorial responsivo com opacidades personalizadas -->
+    <!-- Tutorial System with Custom Opacities and Auto Navigation -->
     <script>
     (function () {
         const tutorialStyle = document.createElement('style');
@@ -600,7 +584,7 @@
                 border-radius: 8px !important;
                 z-index: 10001 !important;
                 pointer-events: auto !important;
-                transition: none !important;
+                transition: all 0.3s ease !important;
             }
 
             .tutorial-tooltip {
@@ -699,12 +683,27 @@
                 background: #f0f0f0;
                 color: #333;
             }
+
+            .tutorial-loading {
+                text-align: center;
+                padding: 20px;
+            }
+
+            .tutorial-loading-icon {
+                font-size: 48px;
+                margin-bottom: 16px;
+                animation: pulse 1.5s ease-in-out infinite;
+            }
+
+            @keyframes pulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.5; }
+            }
         `;
         document.head.appendChild(tutorialStyle);
 
         function detectPowerBIOffset(iframe) {
             const rect = iframe.getBoundingClientRect();
-            
             const topOffset = Math.max(45, Math.min(60, rect.height * 0.06));
             const sideOffset = Math.max(6, rect.width * 0.008);
             const bottomOffset = Math.max(6, rect.height * 0.01);
@@ -738,6 +737,10 @@
         }
 
         function computeLocalRect(highlight, usableWidth, usableHeight) {
+            if (!highlight) {
+                return { top: 0, left: 0, width: 0, height: 0 };
+            }
+            
             let topPx = toPx(highlight.top, usableHeight);
             let leftPx = toPx(highlight.left, usableWidth);
             let widthPx = toPx(highlight.width, usableWidth);
@@ -748,12 +751,7 @@
             topPx = Math.max(0, Math.min(topPx, usableHeight - heightPx));
             leftPx = Math.max(0, Math.min(leftPx, usableWidth - widthPx));
 
-            return { 
-                top: topPx, 
-                left: leftPx, 
-                width: widthPx, 
-                height: heightPx 
-            };
+            return { top: topPx, left: leftPx, width: widthPx, height: heightPx };
         }
 
         function makeOverlay() {
@@ -796,13 +794,30 @@
             return overlay;
         }
 
+        function showLoadingState(overlay) {
+            const hl = overlay._highlight;
+            const tt = overlay._tooltip;
+            
+            hl.style.display = 'none';
+            tt.style.visibility = 'visible';
+            tt.style.left = '50%';
+            tt.style.top = '50%';
+            tt.style.transform = 'translate(-50%, -50%)';
+            tt.innerHTML = `
+                <div class="tutorial-loading">
+                    <div class="tutorial-loading-icon">⏳</div>
+                    <h3 style="margin: 0 0 8px 0; color: #333;">Carregando página...</h3>
+                    <p style="margin: 0; color: #666; font-size: 14px;">Aguarde enquanto o Power BI carrega</p>
+                </div>
+            `;
+        }
+
         function placeHighlight(iframe, localRect, step, idx, total) {
             const overlay = document.querySelector('.tutorial-overlay');
             if (!overlay) return;
             
             const hl = overlay._highlight;
             const tt = overlay._tooltip;
-            const c = overlay._controls;
 
             const iframeRect = iframe.getBoundingClientRect();
             const offset = detectPowerBIOffset(iframe);
@@ -812,17 +827,10 @@
             const hlWidth = localRect.width;
             const hlHeight = localRect.height;
 
-            // NOVO: Usar opacidades salvas no step ou valores padrão
             const overlayOpacity = step.overlayOpacity !== undefined ? step.overlayOpacity : 0.75;
             const highlightOpacity = step.highlightOpacity !== undefined ? step.highlightOpacity : 0.20;
 
-            console.log('[TUTORIAL] Positioning com opacidades:', {
-                overlayOpacity,
-                highlightOpacity,
-                position: { hlTop, hlLeft, hlWidth, hlHeight }
-            });
-
-            // MODIFICADO: Aplicar opacidades personalizadas
+            hl.style.display = 'block';
             hl.style.top = hlTop + 'px';
             hl.style.left = hlLeft + 'px';
             hl.style.width = hlWidth + 'px';
@@ -834,16 +842,35 @@
                 0 0 40px 5px rgba(76, 175, 80, 0.8)
             `;
 
-            c.title.textContent = step.title || ('Passo ' + (idx + 1));
-            c.desc.textContent = step.description || '';
-            c.progress.textContent = (idx + 1) + ' / ' + total;
-            c.prev.disabled = idx === 0;
-            c.next.textContent = idx === total - 1 ? 'Concluir' : 'Próximo';
+            // CRÍTICO: Sempre recriar HTML do tooltip para garantir elementos válidos
+            tt.innerHTML = `
+                <button class="btn-tutorial-close" aria-label="Fechar">×</button>
+                <h3>${step.title || ('Passo ' + (idx + 1))}</h3>
+                <p>${step.description || ''}</p>
+                <div class="tutorial-footer">
+                    <span class="tutorial-progress">${(idx + 1)} / ${total}</span>
+                    <div class="tutorial-buttons">
+                        <button class="btn-tutorial btn-tutorial-prev">Anterior</button>
+                        <button class="btn-tutorial btn-tutorial-next">${idx === total - 1 ? 'Concluir' : 'Próximo'}</button>
+                    </div>
+                </div>
+            `;
+
+            // Atualizar referências dos controles
+            overlay._controls = {
+                prev: tt.querySelector('.btn-tutorial-prev'),
+                next: tt.querySelector('.btn-tutorial-next'),
+                close: tt.querySelector('.btn-tutorial-close'),
+                progress: tt.querySelector('.tutorial-progress')
+            };
+
+            overlay._controls.prev.disabled = idx === 0;
 
             const margin = 20;
             let ttLeft = hlLeft + hlWidth + margin;
             let ttTop = hlTop;
 
+            tt.style.transform = '';
             tt.style.visibility = 'hidden';
             tt.style.left = '0px';
             tt.style.top = '0px';
@@ -874,6 +901,44 @@
             });
         }
 
+        function showCenteredTooltip(overlay, step, idx, total) {
+            const hl = overlay._highlight;
+            const tt = overlay._tooltip;
+            
+            hl.style.display = 'none';
+            
+            tt.innerHTML = `
+                <button class="btn-tutorial-close" aria-label="Fechar">×</button>
+                <div style="text-align: center; margin-bottom: 16px;">
+                    <span style="font-size: 48px;">💡</span>
+                </div>
+                <h3 style="margin: 0 0 12px 0; font-size: 20px; color: #333; text-align: center;">${step.title || ('Passo ' + (idx + 1))}</h3>
+                <p style="margin: 0 0 20px 0; color: #666; line-height: 1.6;">${step.description || ''}</p>
+                <div class="tutorial-footer">
+                    <span class="tutorial-progress">${(idx + 1)} / ${total}</span>
+                    <div class="tutorial-buttons">
+                        <button class="btn-tutorial btn-tutorial-prev">Anterior</button>
+                        <button class="btn-tutorial btn-tutorial-next">${idx === total - 1 ? 'Concluir' : 'Próximo'}</button>
+                    </div>
+                </div>
+            `;
+            
+            overlay._controls = {
+                prev: tt.querySelector('.btn-tutorial-prev'),
+                next: tt.querySelector('.btn-tutorial-next'),
+                close: tt.querySelector('.btn-tutorial-close'),
+                progress: tt.querySelector('.tutorial-progress')
+            };
+            
+            overlay._controls.prev.disabled = idx === 0;
+            
+            tt.style.transform = 'translate(-50%, -50%)';
+            tt.style.left = '50%';
+            tt.style.top = '50%';
+            tt.style.visibility = 'visible';
+            tt.style.maxWidth = '500px';
+        }
+
         function patchTutorial() {
             if (window.__TutorialPatched) return;
             window.__TutorialPatched = true;
@@ -888,7 +953,15 @@
                         }
                         
                         const tutorial = await resp.json();
-                        const steps = Array.isArray(tutorial.steps) ? tutorial.steps : [];
+                        let steps = Array.isArray(tutorial.steps) ? tutorial.steps : [];
+                        
+                        if (typeof tutorial.steps === 'string') {
+                            try {
+                                steps = JSON.parse(tutorial.steps);
+                            } catch (e) {
+                                console.error('[TUTORIAL] Erro ao parsear steps:', e);
+                            }
+                        }
                         
                         if (!steps.length) { 
                             alert('Tutorial sem passos'); 
@@ -901,40 +974,277 @@
                             return; 
                         }
 
+                        // NOVO: SEMPRE recarregar iframe para URL base (primeira página)
+                        // Buscar a URL base original da página
+                        const pageResp = await fetch(`/api/pages/${pageId}`);
+                        if (!pageResp.ok) {
+                            console.warn('[TUTORIAL] Não foi possível obter URL da página');
+                        }
+                        
+                        const pageData = await pageResp.json();
+                        const baseUrl = pageData.PowerBIUrl || powerIframe.src;
+                        
+                        console.log('[TUTORIAL] Forçando volta para primeira página:', baseUrl);
+                        
+                        // Mostrar feedback visual
+                        const existingOverlay = document.querySelector('.tutorial-overlay');
+                        if (existingOverlay) existingOverlay.remove();
+                        
+                        const loadingOverlay = makeOverlay();
+                        showLoadingState(loadingOverlay);
+                        
+                        // Aguardar carregamento da primeira página
+                        await new Promise((resolve) => {
+                            let loadHandled = false;
+                            
+                            const loadHandler = () => {
+                                if (loadHandled) return;
+                                loadHandled = true;
+                                
+                                powerIframe.removeEventListener('load', loadHandler);
+                                clearTimeout(timeoutId);
+                                
+                                setTimeout(() => {
+                                    if (document.body.contains(loadingOverlay)) {
+                                        document.body.removeChild(loadingOverlay);
+                                    }
+                                    resolve();
+                                }, 500);
+                            };
+                            
+                            const timeoutId = setTimeout(() => {
+                                if (loadHandled) return;
+                                loadHandled = true;
+                                
+                                powerIframe.removeEventListener('load', loadHandler);
+                                if (document.body.contains(loadingOverlay)) {
+                                    document.body.removeChild(loadingOverlay);
+                                }
+                                resolve();
+                            }, 5000);
+                            
+                            powerIframe.addEventListener('load', loadHandler);
+                            
+                            // FORÇA reload adicionando timestamp
+                            const separator = baseUrl.includes('?') ? '&' : '?';
+                            powerIframe.src = baseUrl + separator + '_t=' + Date.now();
+                        });
+
                         const overlay = makeOverlay();
                         let currentIndex = 0;
                         let ro = null;
                         let rafId = null;
+                        let isNavigating = false;
 
                         const reposition = () => {
                             if (rafId) cancelAnimationFrame(rafId);
+                            if (isNavigating) return;
                             
                             rafId = requestAnimationFrame(() => {
                                 if (!document.body.contains(overlay)) return;
                                 
-                                const iframeRect = powerIframe.getBoundingClientRect();
-                                const offset = detectPowerBIOffset(powerIframe);
+                                const step = steps[currentIndex];
+                                if (!step) return;
                                 
-                                const usableWidth = iframeRect.width - offset.left - offset.right;
-                                const usableHeight = iframeRect.height - offset.top - offset.bottom;
-                                
-                                const hl = steps[currentIndex]?.highlight || {};
-                                const localRect = computeLocalRect(hl, usableWidth, usableHeight);
-                                
-                                placeHighlight(powerIframe, localRect, steps[currentIndex], currentIndex, steps.length);
+                                if (!step.highlight) {
+                                    showCenteredTooltip(overlay, step, currentIndex, steps.length);
+                                    setupNavigation();
+                                } else {
+                                    const iframeRect = powerIframe.getBoundingClientRect();
+                                    const offset = detectPowerBIOffset(powerIframe);
+                                    
+                                    const usableWidth = iframeRect.width - offset.left - offset.right;
+                                    const usableHeight = iframeRect.height - offset.top - offset.bottom;
+                                    
+                                    const localRect = computeLocalRect(step.highlight, usableWidth, usableHeight);
+                                    placeHighlight(powerIframe, localRect, step, currentIndex, steps.length);
+                                    setupNavigation();
+                                }
                                 
                                 rafId = null;
                             });
                         };
 
                         const go = (delta) => {
-                            currentIndex += delta;
-                            if (currentIndex < 0) currentIndex = 0;
-                            if (currentIndex >= steps.length) { 
+                            if (isNavigating) return;
+                            
+                            const currentStep = steps[currentIndex];
+                            const newIndex = currentIndex + delta;
+                            
+                            if (newIndex < 0) {
+                                currentIndex = 0;
+                                return;
+                            }
+                            
+                            if (newIndex >= steps.length) { 
                                 close(); 
                                 return; 
                             }
-                            reposition();
+                            
+                            const nextStep = steps[newIndex];
+                            
+                            // IMPORTANTE: Atualizar currentIndex ANTES de processar navegação
+                            currentIndex = newIndex;
+                            
+                            // CRITICAL: Steps de navegação devem ser PULADOS (avançar E voltar)
+                            if (nextStep.type === 'navigation') {
+                                if (delta > 0) {
+                                    // Avançando: carregar destino e pular para próximo step
+                                    handleNavigation(nextStep);
+                                } else {
+                                    // Voltando: carregar origem e pular para step anterior
+                                    const prevStep = currentIndex > 0 ? steps[currentIndex - 1] : null;
+                                    if (prevStep) {
+                                        currentIndex--; // Pular o navigation
+                                        const targetScreenUrl = prevStep.screenUrl || '';
+                                        
+                                        if (targetScreenUrl && targetScreenUrl !== (currentStep?.screenUrl || '')) {
+                                            console.log('[TUTORIAL] Voltando através de navigation:', targetScreenUrl);
+                                            loadScreen(targetScreenUrl, () => reposition());
+                                        } else {
+                                            reposition();
+                                        }
+                                    } else {
+                                        currentIndex = 0;
+                                        reposition();
+                                    }
+                                }
+                                return;
+                            }
+                            
+                            // Steps normais: verificar mudança de tela (avançar OU voltar)
+                            const currentScreenUrl = currentStep?.screenUrl || '';
+                            const nextScreenUrl = nextStep?.screenUrl || '';
+                            
+                            if (nextScreenUrl && currentScreenUrl !== nextScreenUrl) {
+                                console.log('[TUTORIAL] Mudança de tela detectada:', currentScreenUrl, '→', nextScreenUrl);
+                                loadScreen(nextScreenUrl, () => reposition());
+                            } else {
+                                reposition();
+                            }
+                        };
+
+                        const handleNavigation = (navStep) => {
+                            if (!navStep.powerBIUrl || navStep.powerBIUrl === powerIframe.src) {
+                                currentIndex++;
+                                if (currentIndex >= steps.length) {
+                                    close();
+                                } else {
+                                    reposition();
+                                }
+                                return;
+                            }
+                            
+                            isNavigating = true;
+                            showLoadingState(overlay);
+                            
+                            let loadHandled = false;
+                            
+                            const loadHandler = () => {
+                                if (loadHandled) return;
+                                loadHandled = true;
+                                
+                                powerIframe.removeEventListener('load', loadHandler);
+                                clearTimeout(timeoutId);
+                                
+                                setTimeout(() => {
+                                    isNavigating = false;
+                                    currentIndex++;
+                                    
+                                    if (currentIndex >= steps.length) {
+                                        close();
+                                    } else {
+                                        reposition();
+                                    }
+                                }, 500);
+                            };
+                            
+                            const timeoutId = setTimeout(() => {
+                                if (loadHandled) return;
+                                loadHandled = true;
+                                
+                                powerIframe.removeEventListener('load', loadHandler);
+                                isNavigating = false;
+                                currentIndex++;
+                                
+                                if (currentIndex >= steps.length) {
+                                    close();
+                                } else {
+                                    reposition();
+                                }
+                            }, 5000);
+                            
+                            powerIframe.addEventListener('load', loadHandler);
+                            powerIframe.src = navStep.powerBIUrl;
+                        };
+
+                        const loadScreen = (url, callback) => {
+                            if (!url || url === powerIframe.src) {
+                                callback();
+                                return;
+                            }
+                            
+                            isNavigating = true;
+                            showLoadingState(overlay);
+                            
+                            let loadHandled = false;
+                            
+                            const loadHandler = () => {
+                                if (loadHandled) return;
+                                loadHandled = true;
+                                
+                                powerIframe.removeEventListener('load', loadHandler);
+                                clearTimeout(timeoutId);
+                                
+                                setTimeout(() => {
+                                    isNavigating = false;
+                                    callback();
+                                }, 500);
+                            };
+                            
+                            const timeoutId = setTimeout(() => {
+                                if (loadHandled) return;
+                                loadHandled = true;
+                                
+                                powerIframe.removeEventListener('load', loadHandler);
+                                isNavigating = false;
+                                callback();
+                            }, 5000);
+                            
+                            powerIframe.addEventListener('load', loadHandler);
+                            powerIframe.src = url;
+                        };
+
+                        const setupNavigation = () => {
+                            const c = overlay._controls;
+                            if (!c) return;
+                            
+                            c.prev.onclick = () => go(-1);
+                            c.next.onclick = () => go(1);
+                            c.close.onclick = () => close();
+                            
+                            c.prev.onmouseenter = () => { 
+                                if (!c.prev.disabled) c.prev.style.background = '#d0d0d0'; 
+                            };
+                            c.prev.onmouseleave = () => { 
+                                c.prev.style.background = '#e5e5e5'; 
+                            };
+                            
+                            c.next.onmouseenter = () => { 
+                                c.next.style.background = '#0052a3'; 
+                            };
+                            c.next.onmouseleave = () => { 
+                                c.next.style.background = '#0066cc'; 
+                            };
+                            
+                            c.close.onmouseenter = () => { 
+                                c.close.style.background = '#f0f0f0'; 
+                                c.close.style.color = '#333'; 
+                            };
+                            c.close.onmouseleave = () => { 
+                                c.close.style.background = 'none'; 
+                                c.close.style.color = '#999'; 
+                            };
                         };
 
                         const close = () => {
@@ -950,13 +1260,8 @@
                             }
                         };
 
-                        overlay._controls.prev.onclick = () => go(-1);
-                        overlay._controls.next.onclick = () => go(1);
-                        overlay._controls.close.onclick = () => close();
-
                         window.addEventListener('resize', reposition);
                         window.addEventListener('scroll', reposition, true);
-                        powerIframe.addEventListener('load', reposition);
                         
                         if ('ResizeObserver' in window) {
                             ro = new ResizeObserver(reposition);
