@@ -114,14 +114,50 @@ class TutorialBuilderApp {
         }
     }
 
-    // Obter nome da tela de uma URL
+    // Obter nome da tela de uma URL (aceita múltiplos formatos)
     getScreenName(url) {
         if (!url) return 'Tela Inicial';
         
         try {
             const urlObj = new URL(url);
+            
+            // Tentar extrair do parâmetro pageName (formato embed)
             const pageName = urlObj.searchParams.get('pageName');
-            return pageName || 'Tela Inicial';
+            if (pageName) {
+                // Se começa com ReportSection, extrair número
+                if (pageName.startsWith('ReportSection')) {
+                    const match = pageName.match(/ReportSection(\d+)/);
+                    return match ? `Página ${match[1]}` : pageName;
+                }
+                // Se é um ID hexadecimal, mostrar primeiros caracteres
+                if (/^[a-f0-9]{16,20}$/i.test(pageName)) {
+                    return `Página ${pageName.substring(0, 8)}...`;
+                }
+                return pageName;
+            }
+            
+            // Tentar extrair do path (formato: .../reports/{reportId}/{pageId})
+            const pathParts = urlObj.pathname.split('/').filter(p => p);
+            const reportsIndex = pathParts.indexOf('reports');
+            
+            if (reportsIndex !== -1 && reportsIndex + 2 < pathParts.length) {
+                const pageId = pathParts[reportsIndex + 2];
+                
+                // Se começa com ReportSection
+                if (pageId.startsWith('ReportSection')) {
+                    const match = pageId.match(/ReportSection(\d+)/);
+                    return match ? `Página ${match[1]}` : pageId;
+                }
+                
+                // Se é ID hexadecimal
+                if (/^[a-f0-9]{16,20}$/i.test(pageId)) {
+                    return `Página ${pageId.substring(0, 8)}...`;
+                }
+                
+                return pageId;
+            }
+            
+            return 'Tela Inicial';
         } catch (e) {
             return 'Tela Inicial';
         }
@@ -463,7 +499,7 @@ class TutorialBuilderApp {
         if (modal) modal.style.display = 'none';
     }
 
-    // Parser de URL para step de navegação
+    // Parser de URL para step de navegação (aceita múltiplos formatos)
     parseNavigationPageUrl() {
         const input = document.getElementById('navPageUrlInput');
         const url = input.value.trim();
@@ -475,24 +511,45 @@ class TutorialBuilderApp {
 
         try {
             const urlObj = new URL(url);
-            const pathParts = urlObj.pathname.split('/');
+            const pathParts = urlObj.pathname.split('/').filter(p => p);
             
-            // Encontrar ReportSection
+            let pageName = null;
+            
+            // FORMATO 1: .../reports/{reportId}/ReportSection123456
             const reportSection = pathParts.find(part => part.startsWith('ReportSection'));
+            if (reportSection) {
+                pageName = reportSection;
+                console.log('[NAV-PARSE] Formato ReportSection detectado:', pageName);
+            }
             
-            if (!reportSection) {
-                throw new Error('URL não contém ReportSection (página do relatório)');
+            // FORMATO 2: .../groups/{groupId}/reports/{reportId}/{pageId}?experience=power-bi
+            if (!pageName) {
+                const reportsIndex = pathParts.indexOf('reports');
+                if (reportsIndex !== -1 && reportsIndex + 2 < pathParts.length) {
+                    // O pageId está 2 posições depois de "reports"
+                    const potentialPageId = pathParts[reportsIndex + 2];
+                    
+                    // Validar que parece um ID válido (hex, 16-20 caracteres)
+                    if (potentialPageId && /^[a-f0-9]{16,20}$/i.test(potentialPageId)) {
+                        pageName = potentialPageId;
+                        console.log('[NAV-PARSE] Formato pageId detectado:', pageName);
+                    }
+                }
+            }
+            
+            if (!pageName) {
+                throw new Error('URL não contém página do relatório (ReportSection ou pageId)');
             }
             
             // Montar URL embed completa
-            const fullEmbedUrl = `${this.embedUrlBase}&pageName=${reportSection}`;
+            const fullEmbedUrl = `${this.embedUrlBase}&pageName=${pageName}`;
             
             // Armazenar temporariamente
             this.tempNavigationUrl = fullEmbedUrl;
-            this.tempNavigationPageName = reportSection;
+            this.tempNavigationPageName = pageName;
             
             // Mostrar resultado
-            document.getElementById('navPageName').textContent = reportSection;
+            document.getElementById('navPageName').textContent = pageName;
             document.getElementById('navEmbedUrl').textContent = fullEmbedUrl;
             document.getElementById('navPageResult').style.display = 'block';
             document.getElementById('confirmNavPageBtn').disabled = false;
@@ -1420,8 +1477,12 @@ class TutorialBuilderApp {
 
     updateButtons() {
         const hasSteps = this.steps.length > 0;
+        
+        // Preview só funciona com steps
         document.getElementById('previewBtn').disabled = !hasSteps;
-        document.getElementById('saveBtn').disabled = !hasSteps;
+        
+        // Salvar SEMPRE habilitado (permite salvar tutorial vazio = deletar todos os steps)
+        document.getElementById('saveBtn').disabled = false;
     }
 
     duplicateStep(index) {
@@ -2136,11 +2197,6 @@ class TutorialBuilderApp {
             return;
         }
 
-        if (this.steps.length === 0) {
-            this.showToast('❌ Adicione pelo menos um passo', 'error');
-            return;
-        }
-
         try {
             const token = localStorage.getItem('authToken');
             if (!token) {
@@ -2148,8 +2204,28 @@ class TutorialBuilderApp {
                 return;
             }
 
-            console.log('[SAVE-TUTORIAL] Salvando:', this.steps.length, 'passos');
+            const stepsCount = this.steps.length;
+            console.log('[SAVE-TUTORIAL] Salvando:', stepsCount, 'passos');
 
+            // Se não há steps, deletar o tutorial ao invés de salvar vazio
+            if (stepsCount === 0) {
+                const response = await fetch(`/api/tutorials/page/${this.pageId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok && response.status !== 404) {
+                    const errorText = await response.text();
+                    throw new Error(errorText || 'Erro ao deletar');
+                }
+
+                this.showToast('✅ Tutorial removido com sucesso!', 'success');
+                return;
+            }
+
+            // Salvar tutorial com steps
             const response = await fetch(`/api/tutorials`, {
                 method: 'POST',
                 headers: {
