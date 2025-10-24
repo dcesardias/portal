@@ -358,6 +358,209 @@
             background: #0d47a1;
         }
     </style>
+    <style>
+        /* Drag & Drop */
+        .step-item.dragging {
+            opacity: 0.5;
+            cursor: move;
+        }
+
+        .step-item.drag-over {
+            border-top: 3px solid #667eea;
+        }
+
+        .drag-handle {
+            cursor: move;
+            color: #999;
+            margin-right: 8px;
+            user-select: none;
+        }
+
+        .drag-handle:hover {
+            color: #667eea;
+        }
+
+        /* Preview Modal */
+        .preview-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.8);
+            z-index: 9999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .preview-modal.active {
+            display: flex;
+        }
+
+        .preview-content {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 600px;
+            width: 90%;
+            position: relative;
+        }
+
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .preview-header h2 {
+            margin: 0;
+            color: #333;
+        }
+
+        .preview-close {
+            background: none;
+            border: none;
+            font-size: 32px;
+            color: #999;
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s;
+        }
+
+        .preview-close:hover {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .preview-step {
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .preview-step h3 {
+            margin: 0 0 10px 0;
+            color: #667eea;
+            font-size: 18px;
+        }
+
+        .preview-step p {
+            margin: 0;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .preview-navigation {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 2px solid #e0e0e0;
+        }
+
+        .preview-progress {
+            color: #666;
+            font-weight: 600;
+        }
+
+        .preview-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .preview-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .preview-btn-prev {
+            background: #e5e5e5;
+            color: #333;
+        }
+
+        .preview-btn-prev:hover {
+            background: #d0d0d0;
+        }
+
+        .preview-btn-prev:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .preview-btn-next {
+            background: #667eea;
+            color: white;
+        }
+
+        .preview-btn-next:hover {
+            background: #5568d3;
+        }
+
+        /* Keyboard hints */
+        .keyboard-hint {
+            font-size: 11px;
+            color: #999;
+            margin-top: 8px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .keyboard-hint span {
+            background: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+
+        /* Toast notifications */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #333;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            z-index: 10000;
+            animation: slideIn 0.3s ease;
+            display: none;
+        }
+
+        .toast.show {
+            display: block;
+        }
+
+        .toast.success {
+            background: #4CAF50;
+        }
+
+        .toast.error {
+            background: #f44336;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+
 </head>
 <body>
     <div class="container">
@@ -490,18 +693,6 @@
             </div>
 
             <div class="status-bar" id="statusBar"></div>
-        </div>
-    </div>
-
-    <!-- Preview Overlay -->
-    <div id="previewOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999;">
-        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 40px; border-radius: 12px; max-width: 500px; width: 90%;">
-            <h2 style="margin-bottom: 20px;">🎉 Preview não disponível aqui</h2>
-            <p style="margin-bottom: 20px; color: #666;">O preview do tutorial será exibido na página real do portal após salvar.</p>
-            <button class="btn btn-primary" onclick="closePreview()" style="width: 100%;">
-                <i class="fas fa-times"></i>
-                Fechar
-            </button>
         </div>
     </div>
 

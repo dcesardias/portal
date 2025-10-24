@@ -10,42 +10,62 @@ class TutorialBuilderApp {
         this.isEditing = false;
         this.editingIndex = null;
         this.editingStep = null;
+        this.iframeLoaded = false;
+        this.previewIndex = 0;
         
-        // NOVO: Valores de opacidade
-        this.overlayOpacity = 0.75; // 75% de escurecimento fora do highlight
-        this.highlightOpacity = 0.20; // 20% de transparência dentro do highlight
+        this.overlayOpacity = 0.75;
+        this.highlightOpacity = 0.20;
         
         this.init();
     }
 
     async init() {
-        this.setupEventListeners();
         await this.loadPageData();
         await this.loadExistingTutorial();
+        this.setupEventListeners();
+        this.setupKeyboardShortcuts();
+        this.monitorIframeLoad();
+    }
 
+    monitorIframeLoad() {
         const iframe = document.getElementById('powerbiFrame');
-        if (iframe && 'ResizeObserver' in window) {
-            this._resizeObserver = new ResizeObserver(() => {
+        if (!iframe) return;
+
+        const checkLoaded = () => {
+            try {
+                if (iframe.contentWindow) {
+                    this.iframeLoaded = true;
+                    console.log('[IFRAME] ✅ Power BI carregado');
+                    document.getElementById('selectAreaBtn').disabled = false;
+                    document.getElementById('selectionStatus').textContent = '';
+                }
+            } catch (e) {
+                setTimeout(checkLoaded, 1000);
+            }
+        };
+
+        iframe.addEventListener('load', () => {
+            this.iframeLoaded = true;
+            document.getElementById('selectAreaBtn').disabled = false;
+            console.log('[IFRAME] ✅ Load event');
+        });
+
+        setTimeout(checkLoaded, 2000);
+
+        if ('ResizeObserver' in window) {
+            const ro = new ResizeObserver(() => {
                 this.renderAllHighlights();
                 if (this.tempHighlight) this.renderTempHighlight(this.tempHighlight);
             });
-            this._resizeObserver.observe(iframe);
+            ro.observe(iframe);
         }
     }
 
-    // Detectar offset proporcional para qualquer resolução
     detectPowerBIOffset(iframe) {
         const rect = iframe.getBoundingClientRect();
-        
-        // Calcular offset proporcional à resolução
-        const topOffset = Math.max(45, Math.min(60, rect.height * 0.06)); // 6% da altura ou 45-60px
-        const sideOffset = Math.max(6, rect.width * 0.008); // 0.8% da largura ou mínimo 6px
-        const bottomOffset = Math.max(6, rect.height * 0.01); // 1% da altura ou mínimo 6px
-        
-        console.log('[OFFSET-BUILDER] Calculado para resolução:', {
-            iframeSize: { w: rect.width, h: rect.height },
-            offsets: { top: topOffset, left: sideOffset, right: sideOffset, bottom: bottomOffset }
-        });
+        const topOffset = Math.max(45, Math.min(60, rect.height * 0.06));
+        const sideOffset = Math.max(6, rect.width * 0.008);
+        const bottomOffset = Math.max(6, rect.height * 0.01);
         
         return {
             top: topOffset,
@@ -57,7 +77,7 @@ class TutorialBuilderApp {
 
     async loadPageData() {
         if (!this.pageId) {
-            alert('❌ ID da página não encontrado na URL');
+            this.showToast('❌ ID da página não encontrado na URL', 'error');
             return;
         }
 
@@ -74,25 +94,22 @@ class TutorialBuilderApp {
 
             if (this.pageData.PowerBIUrl) {
                 document.getElementById('powerbiFrame').src = this.pageData.PowerBIUrl;
-                document.getElementById('selectAreaBtn').disabled = false;
+                document.getElementById('selectionStatus').textContent = '⏳ Aguardando carregamento do Power BI...';
             } else {
-                alert('⚠️ Esta página não possui URL do Power BI configurada');
+                this.showToast('⚠️ Esta página não possui URL do Power BI configurada', 'error');
             }
 
         } catch (error) {
             console.error('Erro ao carregar página:', error);
-            alert('❌ Erro ao carregar dados da página');
+            this.showToast('❌ Erro ao carregar dados da página', 'error');
         }
     }
 
     async loadExistingTutorial() {
         try {
-            console.log('[LOAD-TUTORIAL] Carregando tutorial existente para página:', this.pageId);
-            
             const response = await fetch(`/api/tutorials/page/${this.pageId}`);
             if (response.ok) {
                 const tutorial = await response.json();
-                console.log('[LOAD-TUTORIAL] Tutorial encontrado:', tutorial);
                 
                 if (tutorial.steps && Array.isArray(tutorial.steps)) {
                     this.steps = tutorial.steps;
@@ -102,70 +119,79 @@ class TutorialBuilderApp {
                     this.renderAllHighlights();
                     this.updateButtons();
                 }
-            } else {
-                console.log('[LOAD-TUTORIAL] Nenhum tutorial existente (404)');
             }
         } catch (error) {
-            console.error('[LOAD-TUTORIAL] Erro ao carregar tutorial:', error);
+            console.error('[LOAD-TUTORIAL] Erro:', error);
         }
     }
 
     setupEventListeners() {
-        document.getElementById('selectAreaBtn').addEventListener('click', () => this.startSelection());
-        document.getElementById('saveStepBtn').addEventListener('click', () => this.saveCurrentStep());
-        
-        const redoBtn = document.getElementById('redoSelectionBtn');
-        const cancelBtn = document.getElementById('cancelEditBtn');
-        if (redoBtn) redoBtn.addEventListener('click', () => this.redoSelection());
-        if (cancelBtn) cancelBtn.addEventListener('click', () => this.cancelEdit());
+        document.getElementById('selectAreaBtn').onclick = () => this.startSelection();
+        document.getElementById('saveStepBtn').onclick = () => this.saveCurrentStep();
+        document.getElementById('redoSelectionBtn').onclick = () => this.redoSelection();
+        document.getElementById('cancelEditBtn').onclick = () => this.cancelEdit();
+        document.getElementById('previewBtn').onclick = () => this.startPreview();
+        document.getElementById('saveBtn').onclick = () => this.saveTutorial();
 
         const overlay = document.getElementById('canvasOverlay');
         overlay.addEventListener('mousedown', (e) => this.onMouseDown(e));
         overlay.addEventListener('mousemove', (e) => this.onMouseMove(e));
         overlay.addEventListener('mouseup', (e) => this.onMouseUp(e));
 
-        document.getElementById('previewBtn').addEventListener('click', () => this.startPreview());
-        document.getElementById('saveBtn').addEventListener('click', () => this.saveTutorial());
-
-        const onViewportChange = () => {
-            this.renderAllHighlights();
-            if (this.tempHighlight) this.renderTempHighlight(this.tempHighlight);
-            this.renderSelectionBox();
-        };
-        window.addEventListener('resize', onViewportChange);
-        window.addEventListener('scroll', onViewportChange, true);
-        this._onViewportChange = onViewportChange;
+        document.getElementById('overlayOpacity').oninput = (e) => this.updateOverlayOpacity(e.target.value);
+        document.getElementById('highlightOpacity').oninput = (e) => this.updateHighlightOpacity(e.target.value);
     }
 
-    // NOVO: Atualizar opacidade do overlay (área escura)
+    setupKeyboardShortcuts() {
+        document.addEventListener('keydown', (e) => {
+            // Ctrl/Cmd + S = Salvar tutorial
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                if (this.steps.length > 0) this.saveTutorial();
+            }
+            
+            // Ctrl/Cmd + P = Preview
+            if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+                e.preventDefault();
+                if (this.steps.length > 0) this.startPreview();
+            }
+            
+            // Escape = Cancelar seleção
+            if (e.key === 'Escape') {
+                if (this.isSelecting) {
+                    this.resetSelection();
+                    this.showToast('Seleção cancelada', 'info');
+                }
+            }
+        });
+    }
+
     updateOverlayOpacity(value) {
         this.overlayOpacity = value / 100;
         document.getElementById('overlayOpacityValue').textContent = value + '%';
         
-        if (this.tempHighlight) {
-            this.renderTempHighlight(this.tempHighlight);
-        }
-        
+        if (this.tempHighlight) this.renderTempHighlight(this.tempHighlight);
         this.renderAllHighlights();
     }
 
-    // NOVO: Atualizar opacidade do highlight (fundo colorido)
     updateHighlightOpacity(value) {
         this.highlightOpacity = value / 100;
         document.getElementById('highlightOpacityValue').textContent = value + '%';
         
-        if (this.tempHighlight) {
-            this.renderTempHighlight(this.tempHighlight);
-        }
-        
+        if (this.tempHighlight) this.renderTempHighlight(this.tempHighlight);
         this.renderAllHighlights();
     }
 
     startSelection() {
+        if (!this.iframeLoaded) {
+            this.showToast('⏳ Aguarde o Power BI carregar completamente', 'error');
+            return;
+        }
+
         const title = document.getElementById('stepTitle').value.trim();
         const description = document.getElementById('stepDescription').value.trim();
         if (!title || !description) { 
-            alert('❌ Preencha título e descrição antes de selecionar a área'); 
+            this.showToast('❌ Preencha título e descrição', 'error');
             return; 
         }
 
@@ -174,24 +200,16 @@ class TutorialBuilderApp {
         overlay.classList.add('selecting');
         document.getElementById('selectBtnText').textContent = '🎯 Clique e arraste no dashboard...';
         document.getElementById('selectAreaBtn').style.background = '#4CAF50';
-        document.getElementById('selectionStatus').textContent = '🖱️ Clique e arraste para selecionar a área DENTRO do conteúdo do Power BI';
+        document.getElementById('selectionStatus').textContent = '🖱️ Clique e arraste para selecionar a área';
     }
 
-    // NOVO: Refazer seleção durante edição
     redoSelection() {
-        console.log('[REDO-SELECTION] Iniciando nova seleção durante edição');
-        
         this.tempHighlight = null;
-        const tempHighlights = document.querySelectorAll('.highlight-area.active');
-        tempHighlights.forEach(h => h.remove());
-        
+        document.querySelectorAll('.highlight-area.active').forEach(h => h.remove());
         this.startSelection();
     }
 
-    // NOVO: Cancelar edição
     cancelEdit() {
-        console.log('[CANCEL-EDIT] Cancelando edição');
-        
         if (this.isEditing && this.editingIndex !== null && this.editingStep) {
             this.steps.splice(this.editingIndex, 0, this.editingStep);
         }
@@ -209,16 +227,13 @@ class TutorialBuilderApp {
         document.getElementById('redoSelectionBtn').style.display = 'none';
         document.getElementById('cancelEditBtn').style.display = 'none';
         document.getElementById('selectAreaBtn').style.display = 'block';
-        document.getElementById('selectAreaBtn').style.background = '';
-        document.getElementById('selectBtnText').textContent = 'Selecionar Área no Canvas';
-        document.getElementById('selectionStatus').textContent = '';
         
         this.renderStepsList();
         this.renderAllHighlights();
         this.updateButtons();
         
-        const tempHighlights = document.querySelectorAll('.highlight-area.active');
-        tempHighlights.forEach(h => h.remove());
+        document.querySelectorAll('.highlight-area.active').forEach(h => h.remove());
+        this.showToast('Edição cancelada', 'info');
     }
 
     onMouseDown(e) {
@@ -237,8 +252,7 @@ class TutorialBuilderApp {
         
         if (e.clientX < usableLeft || e.clientX > usableRight || 
             e.clientY < usableTop || e.clientY > usableBottom) {
-            console.log('[SELECTION] Clique fora da área útil do Power BI');
-            alert('⚠️ Clique DENTRO da área do dashboard (evite a barra de ferramentas e margens)');
+            this.showToast('⚠️ Clique DENTRO da área do dashboard', 'error');
             return;
         }
 
@@ -250,12 +264,6 @@ class TutorialBuilderApp {
 
         this.selectionStart = { x, y };
         this.selectionCurrent = { x, y };
-        
-        console.log('[SELECTION] ✅ Mouse Down (área útil):', { 
-            x: x.toFixed(2), 
-            y: y.toFixed(2),
-            offset 
-        });
     }
 
     onMouseMove(e) {
@@ -287,14 +295,11 @@ class TutorialBuilderApp {
         const width = Math.abs(this.selectionCurrent.x - this.selectionStart.x);
         const height = Math.abs(this.selectionCurrent.y - this.selectionStart.y);
         document.getElementById('selectionStatus').textContent = 
-            `📏 Área: ${width.toFixed(1)}% × ${height.toFixed(1)}% (área útil do Power BI)`;
+            `📏 Área: ${width.toFixed(1)}% × ${height.toFixed(1)}%`;
     }
 
     onMouseUp(e) {
-        if (!this.isSelecting || !this.selectionStart) {
-            console.log('[SELECTION] ❌ Mouse up sem seleção ativa');
-            return;
-        }
+        if (!this.isSelecting || !this.selectionStart) return;
 
         const iframe = document.getElementById('powerbiFrame');
         if (!iframe) return;
@@ -323,16 +328,10 @@ class TutorialBuilderApp {
         const width = Math.abs(this.selectionCurrent.x - this.selectionStart.x);
         const height = Math.abs(this.selectionCurrent.y - this.selectionStart.y);
         
-        console.log('[SELECTION] 📊 Dimensões (% área útil):', { 
-            width: width.toFixed(2), 
-            height: height.toFixed(2),
-            offset
-        });
-        
         const minSize = 0.5;
         
         if (width < minSize || height < minSize) {
-            alert(`⚠️ Área muito pequena!\n\nLargura: ${width.toFixed(2)}%\nAltura: ${height.toFixed(2)}%\n\nMínimo: ${minSize}%`);
+            this.showToast(`⚠️ Área muito pequena! Mínimo: ${minSize}%`, 'error');
             this.resetSelection();
             return;
         }
@@ -343,8 +342,6 @@ class TutorialBuilderApp {
             width: `${width.toFixed(2)}%`,
             height: `${height.toFixed(2)}%`
         };
-
-        console.log('[SELECTION] ✅ Highlight válido:', highlight);
 
         this.tempHighlight = highlight;
 
@@ -376,13 +373,6 @@ class TutorialBuilderApp {
         if (!box) {
             box = document.createElement('div');
             box.className = 'selection-box';
-            box.style.cssText = `
-                position: absolute;
-                border: 3px dashed #667eea;
-                background: rgba(102, 126, 234, 0.1);
-                pointer-events: none;
-                z-index: 20;
-            `;
             overlayEl.appendChild(box);
         }
 
@@ -407,8 +397,7 @@ class TutorialBuilderApp {
     }
 
     renderTempHighlight(highlight) {
-        const oldTemp = document.querySelector('.highlight-area.active');
-        if (oldTemp) oldTemp.remove();
+        document.querySelectorAll('.highlight-area.active').forEach(el => el.remove());
 
         const overlayEl = document.getElementById('canvasOverlay');
         const iframe = document.getElementById('powerbiFrame');
@@ -452,18 +441,6 @@ class TutorialBuilderApp {
         const label = document.createElement('div');
         label.className = 'highlight-label';
         label.textContent = this.isEditing ? `Passo ${this.editingIndex + 1} (Editando)` : `Passo ${this.steps.length + 1} (Preview)`;
-        label.style.cssText = `
-            position: absolute;
-            top: -30px;
-            left: 0;
-            background: ${this.isEditing ? '#FF9800' : '#4CAF50'};
-            color: white;
-            padding: 4px 10px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: 600;
-            white-space: nowrap;
-        `;
         tempHighlight.appendChild(label);
 
         overlayEl.appendChild(tempHighlight);
@@ -473,66 +450,43 @@ class TutorialBuilderApp {
         const title = document.getElementById('stepTitle')?.value?.trim();
         const description = document.getElementById('stepDescription')?.value?.trim();
 
-        console.log('[SAVE-STEP] Tentando salvar:', { 
-            title, 
-            description, 
-            tempHighlight: this.tempHighlight,
-            isEditing: this.isEditing,
-            editingIndex: this.editingIndex
-        });
-
         if (!title || !description) {
-            alert('❌ Preencha o título e descrição');
+            this.showToast('❌ Preencha o título e descrição', 'error');
             return;
         }
 
         if (!this.tempHighlight) {
-            alert('❌ Selecione uma área no canvas antes de salvar');
+            this.showToast('❌ Selecione uma área no canvas', 'error');
             return;
         }
 
-        // MODIFICADO: Incluir opacidades no step
         const step = {
             id: this.isEditing ? this.editingStep.id : Date.now(),
             title,
             description,
             highlight: { ...this.tempHighlight },
-            // NOVO: Salvar configurações de opacidade
             overlayOpacity: this.overlayOpacity,
             highlightOpacity: this.highlightOpacity
         };
 
-        console.log('[SAVE-STEP] Step criado com opacidades:', step);
-
         if (this.isEditing && this.editingIndex !== null) {
             this.steps.splice(this.editingIndex, 0, step);
-            console.log('[SAVE-STEP] Step atualizado na posição:', this.editingIndex);
         } else {
             this.steps.push(step);
-            console.log('[SAVE-STEP] Novo step adicionado');
         }
 
         document.getElementById('stepTitle').value = '';
         document.getElementById('stepDescription').value = '';
         
-        const saveBtn = document.getElementById('saveStepBtn');
-        const selectBtn = document.getElementById('selectAreaBtn');
-        const redoBtn = document.getElementById('redoSelectionBtn');
-        const cancelBtn = document.getElementById('cancelEditBtn');
-        
-        if (saveBtn) saveBtn.style.display = 'none';
-        if (redoBtn) redoBtn.style.display = 'none';
-        if (cancelBtn) cancelBtn.style.display = 'none';
-        if (selectBtn) {
-            selectBtn.style.display = 'block';
-            selectBtn.style.background = '';
-        }
-        
+        document.getElementById('saveStepBtn').style.display = 'none';
+        document.getElementById('redoSelectionBtn').style.display = 'none';
+        document.getElementById('cancelEditBtn').style.display = 'none';
+        document.getElementById('selectAreaBtn').style.display = 'block';
+        document.getElementById('selectAreaBtn').style.background = '';
         document.getElementById('selectBtnText').textContent = 'Selecionar Área no Canvas';
         document.getElementById('selectionStatus').textContent = '';
 
-        const tempHighlights = document.querySelectorAll('.highlight-area.active');
-        tempHighlights.forEach(h => h.remove());
+        document.querySelectorAll('.highlight-area.active').forEach(h => h.remove());
         
         this.tempHighlight = null;
         this.isEditing = false;
@@ -544,9 +498,7 @@ class TutorialBuilderApp {
         this.renderAllHighlights();
         this.updateButtons();
 
-        alert('✅ Passo salvo com sucesso!');
-        
-        console.log('[SAVE-STEP] ✅ Concluído. Steps atuais:', this.steps);
+        this.showToast('✅ Passo salvo com sucesso!', 'success');
     }
 
     resetSelection() {
@@ -559,12 +511,6 @@ class TutorialBuilderApp {
         
         const overlay = document.getElementById('canvasOverlay');
         if (overlay) overlay.classList.remove('selecting');
-        
-        const selectBtn = document.getElementById('selectAreaBtn');
-        if (selectBtn) selectBtn.style.background = '';
-        
-        document.getElementById('selectBtnText').textContent = 'Selecionar Área no Canvas';
-        document.getElementById('selectionStatus').textContent = '';
     }
 
     escapeHtml(text) {
@@ -575,12 +521,7 @@ class TutorialBuilderApp {
 
     renderStepsList() {
         const container = document.getElementById('stepsList');
-        if (!container) {
-            console.error('[RENDER-STEPS] Container stepsList não encontrado');
-            return;
-        }
-
-        console.log('[RENDER-STEPS] Renderizando', this.steps.length, 'passos');
+        if (!container) return;
 
         container.innerHTML = '';
 
@@ -597,11 +538,20 @@ class TutorialBuilderApp {
         this.steps.forEach((step, index) => {
             const stepItem = document.createElement('div');
             stepItem.className = 'step-item';
+            stepItem.draggable = true;
+            stepItem.dataset.index = index;
+            
+            const overlayPct = Math.round((step.overlayOpacity || 0.75) * 100);
+            const highlightPct = Math.round((step.highlightOpacity || 0.20) * 100);
             
             stepItem.innerHTML = `
                 <div class="step-header">
+                    <span class="drag-handle" title="Arrastar para reordenar">⋮⋮</span>
                     <span class="step-number">Passo ${index + 1}</span>
                     <div class="step-actions">
+                        <button class="btn-small" onclick="app.duplicateStep(${index})" title="Duplicar" style="background:#2196F3;">
+                            <i class="fas fa-copy"></i>
+                        </button>
                         <button class="btn-small btn-edit" onclick="app.editStep(${index})" title="Editar">
                             <i class="fas fa-edit"></i>
                         </button>
@@ -612,15 +562,64 @@ class TutorialBuilderApp {
                 </div>
                 <div class="step-title">${this.escapeHtml(step.title)}</div>
                 <div class="step-description">${this.escapeHtml(step.description)}</div>
+                <div style="font-size:11px;color:#999;margin-top:8px;">
+                    🌑 Escurecimento: ${overlayPct}% | ✨ Claridade: ${highlightPct}%
+                </div>
             `;
+            
+            // Drag events
+            stepItem.addEventListener('dragstart', (e) => {
+                stepItem.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', index);
+            });
+            
+            stepItem.addEventListener('dragend', () => {
+                stepItem.classList.remove('dragging');
+                document.querySelectorAll('.step-item').forEach(item => {
+                    item.classList.remove('drag-over');
+                });
+            });
+            
+            stepItem.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                
+                const dragging = document.querySelector('.dragging');
+                if (dragging && dragging !== stepItem) {
+                    stepItem.classList.add('drag-over');
+                }
+            });
+            
+            stepItem.addEventListener('dragleave', () => {
+                stepItem.classList.remove('drag-over');
+            });
+            
+            stepItem.addEventListener('drop', (e) => {
+                e.preventDefault();
+                stepItem.classList.remove('drag-over');
+                
+                const draggedIndex = parseInt(e.dataTransfer.getData('text/plain'));
+                const targetIndex = parseInt(stepItem.dataset.index);
+                
+                if (draggedIndex !== targetIndex) {
+                    this.reorderSteps(draggedIndex, targetIndex);
+                }
+            });
             
             container.appendChild(stepItem);
         });
 
-        const stepCount = document.getElementById('stepCount');
-        if (stepCount) stepCount.textContent = this.steps.length;
+        document.getElementById('stepCount').textContent = this.steps.length;
+    }
 
-        console.log('[RENDER-STEPS] ✅ Renderização concluída');
+    reorderSteps(fromIndex, toIndex) {
+        const [movedStep] = this.steps.splice(fromIndex, 1);
+        this.steps.splice(toIndex, 0, movedStep);
+        
+        this.renderStepsList();
+        this.renderAllHighlights();
+        this.showToast('✅ Ordem atualizada', 'success');
     }
 
     renderAllHighlights() {
@@ -638,12 +637,15 @@ class TutorialBuilderApp {
         const usableHeight = rect.height - offset.top - offset.bottom;
 
         this.steps.forEach((step, index) => {
+            const stepOverlayOpacity = step.overlayOpacity !== undefined ? step.overlayOpacity : 0.75;
+            const stepHighlightOpacity = step.highlightOpacity !== undefined ? step.highlightOpacity : 0.20;
+
             const highlight = document.createElement('div');
             highlight.className = 'highlight-area';
             highlight.style.cssText = `
                 position: absolute;
                 border: 3px solid #667eea;
-                background: rgba(102, 126, 234, ${this.highlightOpacity});
+                background: rgba(102, 126, 234, ${stepHighlightOpacity});
                 border-radius: 4px;
                 cursor: pointer;
                 transition: all 0.2s;
@@ -668,26 +670,14 @@ class TutorialBuilderApp {
             const label = document.createElement('div');
             label.className = 'highlight-label';
             label.textContent = `Passo ${index + 1}`;
-            label.style.cssText = `
-                position: absolute;
-                top: -30px;
-                left: 0;
-                background: #667eea;
-                color: white;
-                padding: 4px 10px;
-                border-radius: 4px;
-                font-size: 12px;
-                font-weight: 600;
-                white-space: nowrap;
-            `;
             highlight.appendChild(label);
 
             highlight.onmouseenter = () => {
-                highlight.style.background = `rgba(102, 126, 234, ${Math.min(this.highlightOpacity + 0.1, 1)})`;
+                highlight.style.background = `rgba(102, 126, 234, ${Math.min(stepHighlightOpacity + 0.1, 1)})`;
                 highlight.style.boxShadow = '0 0 20px rgba(102, 126, 234, 0.5)';
             };
             highlight.onmouseleave = () => {
-                highlight.style.background = `rgba(102, 126, 234, ${this.highlightOpacity})`;
+                highlight.style.background = `rgba(102, 126, 234, ${stepHighlightOpacity})`;
                 highlight.style.boxShadow = '';
             };
 
@@ -697,31 +687,35 @@ class TutorialBuilderApp {
 
     updateButtons() {
         const hasSteps = this.steps.length > 0;
+        document.getElementById('previewBtn').disabled = !hasSteps;
+        document.getElementById('saveBtn').disabled = !hasSteps;
+    }
+
+    duplicateStep(index) {
+        const step = this.steps[index];
+        if (!step) return;
+
+        const duplicated = {
+            id: Date.now(),
+            title: step.title + ' (cópia)',
+            description: step.description,
+            highlight: { ...step.highlight },
+            overlayOpacity: step.overlayOpacity,
+            highlightOpacity: step.highlightOpacity
+        };
+
+        this.steps.splice(index + 1, 0, duplicated);
         
-        const previewBtn = document.getElementById('previewBtn');
-        const saveBtn = document.getElementById('saveBtn');
+        this.renderStepsList();
+        this.renderAllHighlights();
+        this.updateButtons();
         
-        if (previewBtn) {
-            previewBtn.disabled = !hasSteps;
-            console.log('[UPDATE-BUTTONS] Preview button:', hasSteps ? 'enabled' : 'disabled');
-        }
-        
-        if (saveBtn) {
-            saveBtn.disabled = !hasSteps;
-            console.log('[UPDATE-BUTTONS] Save button:', hasSteps ? 'enabled' : 'disabled');
-        }
-        
-        console.log('[UPDATE-BUTTONS] Total steps:', this.steps.length);
+        this.showToast('✅ Passo duplicado', 'success');
     }
 
     editStep(index) {
-        console.log('[EDIT-STEP] Editando passo:', index);
-        
         const step = this.steps[index];
-        if (!step) {
-            console.error('[EDIT-STEP] Passo não encontrado');
-            return;
-        }
+        if (!step) return;
 
         this.isEditing = true;
         this.editingIndex = index;
@@ -730,7 +724,6 @@ class TutorialBuilderApp {
         document.getElementById('stepTitle').value = step.title;
         document.getElementById('stepDescription').value = step.description;
 
-        // NOVO: Carregar opacidades salvas do step
         if (step.overlayOpacity !== undefined) {
             this.overlayOpacity = step.overlayOpacity;
             document.getElementById('overlayOpacity').value = Math.round(step.overlayOpacity * 100);
@@ -744,13 +737,11 @@ class TutorialBuilderApp {
         }
 
         this.steps.splice(index, 1);
-        
         this.tempHighlight = step.highlight;
 
         this.renderStepsList();
         this.renderAllHighlights();
         this.updateButtons();
-
         this.renderTempHighlight(step.highlight);
 
         document.getElementById('saveStepBtn').style.display = 'block';
@@ -758,49 +749,308 @@ class TutorialBuilderApp {
         document.getElementById('cancelEditBtn').style.display = 'inline-block';
         document.getElementById('selectAreaBtn').style.display = 'none';
         
-        alert('📝 Modo de edição ativado!\n\n✏️ Edite o texto ou clique em "Refazer Seleção" para remarcar a área.');
+        this.showToast('📝 Modo de edição ativado', 'info');
     }
 
     deleteStep(index) {
         if (!confirm('Excluir este passo?')) return;
-
-        console.log('[DELETE-STEP] Excluindo passo:', index);
-
         this.steps.splice(index, 1);
-        
         this.renderStepsList();
         this.renderAllHighlights();
         this.updateButtons();
+        this.showToast('🗑️ Passo excluído', 'info');
     }
 
+    // PREVIEW VISUAL FUNCIONAL
     startPreview() {
         if (this.steps.length === 0) return;
         
-        document.getElementById('previewOverlay').style.display = 'block';
+        this.previewIndex = 0;
+        this.createPreviewOverlay();
+        this.renderPreviewStep();
+    }
+
+    createPreviewOverlay() {
+        // Remover preview antigo se existir
+        let overlay = document.getElementById('tutorialPreviewOverlay');
+        if (overlay) overlay.remove();
+        
+        overlay = document.createElement('div');
+        overlay.id = 'tutorialPreviewOverlay';
+        overlay.style.cssText = `
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            pointer-events: none;
+        `;
+        
+        // Highlight box
+        const highlight = document.createElement('div');
+        highlight.id = 'previewHighlight';
+        highlight.style.cssText = `
+            position: fixed;
+            border: 4px solid #4CAF50;
+            border-radius: 8px;
+            z-index: 10001;
+            pointer-events: none;
+            transition: all 0.3s ease;
+        `;
+        
+        // Tooltip
+        const tooltip = document.createElement('div');
+        tooltip.id = 'previewTooltip';
+        tooltip.style.cssText = `
+            position: fixed;
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 400px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+            z-index: 10002;
+            pointer-events: auto;
+        `;
+        
+        tooltip.innerHTML = `
+            <button id="previewCloseBtn" style="
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                background: none;
+                border: none;
+                font-size: 28px;
+                color: #999;
+                cursor: pointer;
+                width: 36px;
+                height: 36px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 50%;
+                transition: all 0.2s;
+            ">×</button>
+            <h3 id="previewTitle" style="margin: 0 0 12px 0; font-size: 20px; color: #333; padding-right: 30px;"></h3>
+            <p id="previewDesc" style="margin: 0 0 20px 0; color: #666; line-height: 1.6;"></p>
+            <div style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding-top: 20px;
+                border-top: 2px solid #e5e5e5;
+            ">
+                <span id="previewProgress" style="color: #666; font-weight: 600; font-size: 14px;"></span>
+                <div style="display: flex; gap: 10px;">
+                    <button id="previewPrevBtn" class="preview-btn" style="
+                        padding: 10px 20px;
+                        border: none;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-weight: 600;
+                        background: #e5e5e5;
+                        color: #333;
+                        transition: all 0.2s;
+                    ">Anterior</button>
+                    <button id="previewNextBtn" class="preview-btn" style="
+                        padding: 10px 20px;
+                        border: none;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-weight: 600;
+                        background: #667eea;
+                        color: white;
+                        transition: all 0.2s;
+                    ">Próximo</button>
+                </div>
+            </div>
+            <div style="margin-top: 12px; font-size: 11px; color: #999; text-align: center;">
+                Use as setas ← → do teclado ou clique nos botões
+            </div>
+        `;
+        
+        overlay.appendChild(highlight);
+        overlay.appendChild(tooltip);
+        document.body.appendChild(overlay);
+        
+        // Event listeners
+        document.getElementById('previewCloseBtn').onclick = () => this.closePreview();
+        document.getElementById('previewPrevBtn').onclick = () => this.previewNavigate(-1);
+        document.getElementById('previewNextBtn').onclick = () => this.previewNavigate(1);
+        
+        // Hover effects
+        const prevBtn = document.getElementById('previewPrevBtn');
+        const nextBtn = document.getElementById('previewNextBtn');
+        const closeBtn = document.getElementById('previewCloseBtn');
+        
+        prevBtn.onmouseenter = () => prevBtn.style.background = '#d0d0d0';
+        prevBtn.onmouseleave = () => prevBtn.style.background = '#e5e5e5';
+        nextBtn.onmouseenter = () => nextBtn.style.background = '#5568d3';
+        nextBtn.onmouseleave = () => nextBtn.style.background = '#667eea';
+        closeBtn.onmouseenter = () => { closeBtn.style.background = '#f0f0f0'; closeBtn.style.color = '#333'; };
+        closeBtn.onmouseleave = () => { closeBtn.style.background = 'none'; closeBtn.style.color = '#999'; };
+        
+        // Keyboard navigation
+        this._previewKeyHandler = (e) => {
+            if (e.key === 'Escape') this.closePreview();
+            if (e.key === 'ArrowLeft') this.previewNavigate(-1);
+            if (e.key === 'ArrowRight') this.previewNavigate(1);
+        };
+        document.addEventListener('keydown', this._previewKeyHandler);
+    }
+
+    renderPreviewStep() {
+        const step = this.steps[this.previewIndex];
+        if (!step) return;
+        
+        const iframe = document.getElementById('powerbiFrame');
+        if (!iframe) {
+            this.showToast('❌ Power BI não está carregado', 'error');
+            this.closePreview();
+            return;
+        }
+        
+        const highlight = document.getElementById('previewHighlight');
+        const tooltip = document.getElementById('previewTooltip');
+        
+        // Usar opacidades do step
+        const stepOverlayOpacity = step.overlayOpacity !== undefined ? step.overlayOpacity : 0.75;
+        const stepHighlightOpacity = step.highlightOpacity !== undefined ? step.highlightOpacity : 0.20;
+        
+        // Calcular posição do highlight
+        const offset = this.detectPowerBIOffset(iframe);
+        const rect = iframe.getBoundingClientRect();
+        const usableWidth = rect.width - offset.left - offset.right;
+        const usableHeight = rect.height - offset.top - offset.bottom;
+        
+        const topPct = parseFloat(step.highlight.top);
+        const leftPct = parseFloat(step.highlight.left);
+        const widthPct = parseFloat(step.highlight.width);
+        const heightPct = parseFloat(step.highlight.height);
+        
+        const hlTop = rect.top + offset.top + (topPct / 100) * usableHeight;
+        const hlLeft = rect.left + offset.left + (leftPct / 100) * usableWidth;
+        const hlWidth = (widthPct / 100) * usableWidth;
+        const hlHeight = (heightPct / 100) * usableHeight;
+        
+        // Aplicar estilo ao highlight com opacidades do step
+        highlight.style.top = hlTop + 'px';
+        highlight.style.left = hlLeft + 'px';
+        highlight.style.width = hlWidth + 'px';
+        highlight.style.height = hlHeight + 'px';
+        highlight.style.background = `rgba(76, 175, 80, ${stepHighlightOpacity})`;
+        highlight.style.boxShadow = `
+            0 0 0 4px rgba(76, 175, 80, 0.4),
+            0 0 0 9999px rgba(0, 0, 0, ${stepOverlayOpacity}),
+            0 0 40px 5px rgba(76, 175, 80, 0.8)
+        `;
+        
+        // Atualizar conteúdo do tooltip
+        document.getElementById('previewTitle').textContent = step.title;
+        document.getElementById('previewDesc').textContent = step.description;
+        document.getElementById('previewProgress').textContent = `${this.previewIndex + 1} / ${this.steps.length}`;
+        
+        // Atualizar botões
+        const prevBtn = document.getElementById('previewPrevBtn');
+        const nextBtn = document.getElementById('previewNextBtn');
+        
+        prevBtn.disabled = this.previewIndex === 0;
+        prevBtn.style.opacity = this.previewIndex === 0 ? '0.5' : '1';
+        prevBtn.style.cursor = this.previewIndex === 0 ? 'not-allowed' : 'pointer';
+        
+        nextBtn.textContent = this.previewIndex === this.steps.length - 1 ? 'Concluir' : 'Próximo';
+        
+        // Posicionar tooltip
+        this.positionPreviewTooltip(hlTop, hlLeft, hlWidth, hlHeight);
+    }
+
+    positionPreviewTooltip(hlTop, hlLeft, hlWidth, hlHeight) {
+        const tooltip = document.getElementById('previewTooltip');
+        if (!tooltip) return;
+        
+        // Reset para medir dimensões
+        tooltip.style.visibility = 'hidden';
+        tooltip.style.left = '0px';
+        tooltip.style.top = '0px';
+        
+        requestAnimationFrame(() => {
+            const ttRect = tooltip.getBoundingClientRect();
+            const margin = 20;
+            
+            // Tentar posicionar à direita do highlight
+            let ttLeft = hlLeft + hlWidth + margin;
+            let ttTop = hlTop;
+            
+            // Se não couber à direita, tentar embaixo
+            if (ttLeft + ttRect.width > window.innerWidth - 10) {
+                ttLeft = hlLeft;
+                ttTop = hlTop + hlHeight + margin;
+            }
+            
+            // Se não couber embaixo, tentar em cima
+            if (ttTop + ttRect.height > window.innerHeight - 10) {
+                ttTop = hlTop - ttRect.height - margin;
+            }
+            
+            // Se não couber em cima, tentar à esquerda
+            if (ttTop < 10) {
+                ttLeft = hlLeft - ttRect.width - margin;
+                ttTop = hlTop;
+            }
+            
+            // Garantir que está dentro da tela
+            ttLeft = Math.max(10, Math.min(ttLeft, window.innerWidth - ttRect.width - 10));
+            ttTop = Math.max(10, Math.min(ttTop, window.innerHeight - ttRect.height - 10));
+            
+            tooltip.style.left = ttLeft + 'px';
+            tooltip.style.top = ttTop + 'px';
+            tooltip.style.visibility = 'visible';
+        });
+    }
+
+    previewNavigate(delta) {
+        this.previewIndex += delta;
+        
+        if (this.previewIndex < 0) {
+            this.previewIndex = 0;
+            return;
+        }
+        
+        if (this.previewIndex >= this.steps.length) {
+            this.closePreview();
+            this.showToast('🎉 Preview concluído!', 'success');
+            return;
+        }
+        
+        this.renderPreviewStep();
+    }
+
+    closePreview() {
+        const overlay = document.getElementById('tutorialPreviewOverlay');
+        if (overlay) overlay.remove();
+        
+        if (this._previewKeyHandler) {
+            document.removeEventListener('keydown', this._previewKeyHandler);
+            this._previewKeyHandler = null;
+        }
     }
 
     async saveTutorial() {
         if (!this.pageId) {
-            alert('❌ ID da página não encontrado na URL');
+            this.showToast('❌ ID da página não encontrado', 'error');
             return;
         }
 
         if (this.steps.length === 0) {
-            alert('❌ Adicione pelo menos um passo');
+            this.showToast('❌ Adicione pelo menos um passo', 'error');
             return;
         }
 
         try {
             const token = localStorage.getItem('authToken');
             if (!token) {
-                alert('❌ Você precisa estar logado como admin para salvar tutoriais');
+                this.showToast('❌ Você precisa estar logado como admin', 'error');
                 return;
             }
 
-            console.log('[SAVE-TUTORIAL] Salvando tutorial...');
-            console.log('[SAVE-TUTORIAL] PageId:', this.pageId);
-            console.log('[SAVE-TUTORIAL] Número de passos:', this.steps.length);
-            console.log('[SAVE-TUTORIAL] Steps:', this.steps);
+            console.log('[SAVE-TUTORIAL] Salvando:', this.steps.length, 'passos');
 
             const response = await fetch(`/api/tutorials`, {
                 method: 'POST',
@@ -816,23 +1066,40 @@ class TutorialBuilderApp {
 
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error('[SAVE-TUTORIAL] Erro do servidor:', errorText);
                 throw new Error(errorText || 'Erro ao salvar');
             }
 
-            console.log('[SAVE-TUTORIAL] ✅ Tutorial salvo com sucesso');
-            alert('✅ Tutorial salvo com sucesso!');
+            this.showToast('✅ Tutorial salvo com sucesso!', 'success');
 
         } catch (error) {
-            console.error('[SAVE-TUTORIAL] Erro ao salvar tutorial:', error);
-            alert('❌ Erro ao salvar tutorial: ' + error.message);
+            console.error('[SAVE-TUTORIAL] Erro:', error);
+            this.showToast('❌ Erro ao salvar: ' + error.message, 'error');
         }
+    }
+
+    // Toast notifications
+    showToast(message, type = 'info') {
+        let toast = document.getElementById('toast');
+        
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'toast';
+            toast.className = 'toast';
+            document.body.appendChild(toast);
+        }
+        
+        toast.textContent = message;
+        toast.className = `toast show ${type}`;
+        
+        setTimeout(() => {
+            toast.classList.remove('show');
+        }, 3000);
     }
 }
 
-// Inicializar app
 const app = new TutorialBuilderApp();
 
 function closePreview() {
-    document.getElementById('previewOverlay').style.display = 'none';
+    const overlay = document.getElementById('previewOverlay');
+    if (overlay) overlay.style.display = 'none';
 }
