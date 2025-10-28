@@ -95,7 +95,9 @@ const config = {
     database: process.env.DB_NAME || 'PowerBIPortal',
     options: {
         encrypt: false,
-        trustServerCertificate: true
+        trustServerCertificate: true,
+        // Adicione timeout global do pool (em ms)
+        requestTimeout: 90000 // 90 segundos
     }
 };
 
@@ -1450,7 +1452,10 @@ app.post('/api/chat/generate-chart', optionalAuthenticate, async (req, res) => {
         });
         
         if (!convResp.ok) {
-            return res.status(502).json({ error: 'Falha ao conectar', stage: 'conversation_start' });
+            return res.status(502).json({ 
+                error: 'Falha ao conectar',
+                stage: 'conversation_start' 
+            });
         }
         
         const conv = await convResp.json();
@@ -1467,7 +1472,10 @@ app.post('/api/chat/generate-chart', optionalAuthenticate, async (req, res) => {
         });
         
         if (!postResp.ok) {
-            return res.status(502).json({ error: 'Falha ao enviar', stage: 'message_send' });
+            return res.status(502).json({ 
+                error: 'Falha ao enviar',
+                stage: 'message_send' 
+            });
         }
 
         let watermark;
@@ -1912,9 +1920,26 @@ app.post('/api/chat/query', optionalAuthenticate, async (req, res) => {
         }
 
         const request = pool.request();
-        request.timeout = 30000;
+        request.timeout = 90000; // 90 segundos
+        console.log('[CHATBOT QUERY] Timeout configurado:', request.timeout);
+
         const start = Date.now();
-        const result = await request.query(query);
+        let result;
+        try {
+            result = await request.query(query);
+        } catch (err) {
+            if (err && err.code === 'ETIMEOUT') {
+                // Attempt to cancel the request if possible
+                try { await request.cancel(); } catch (_) {}
+                return res.status(408).json({
+                    message: 'A consulta demorou muito para executar. Tente uma consulta mais simples.',
+                    error: err.message,
+                    sql: req.body?.query,
+                    timestamp: new Date().toISOString()
+                });
+            }
+            throw err;
+        }
         const ms = Date.now() - start;
 
         if (req.user) {
@@ -1937,6 +1962,11 @@ app.post('/api/chat/query', optionalAuthenticate, async (req, res) => {
             executionTime: ms
         });
     } catch (err) {
+        // Log query and error for debugging
+        console.error('[CHATBOT QUERY ERROR]');
+        console.error('Query:', req.body?.query);
+        console.error('Error:', err && err.message ? err.message : err);
+
         const msg = err && err.message ? err.message : String(err);
         let userMsg = 'Erro ao executar consulta';
         if (/Invalid object name/i.test(msg)) userMsg = 'Tabela não encontrada. Verifique o nome da tabela.';
@@ -1944,9 +1974,11 @@ app.post('/api/chat/query', optionalAuthenticate, async (req, res) => {
         else if (/timeout/i.test(msg)) userMsg = 'A consulta demorou muito para executar. Tente uma consulta mais simples.';
         else if (/Incorrect syntax/i.test(msg)) userMsg = 'Erro de sintaxe SQL. A query gerada está malformada.';
 
+        // Return full error message for easier debugging
         return res.status(400).json({
             message: userMsg,
             error: msg,
+            sql: req.body?.query,
             timestamp: new Date().toISOString()
         });
     }
@@ -2116,7 +2148,7 @@ app.get('/api/data-dictionaries/:id/full', optionalAuthenticate, async (req, res
             .query(`
                 SELECT Id, DictionaryId, Name, Description, [Order]
                 FROM DataDictionaryTables
-                WHERE DictionaryId = @id AND ISNULL(IsActive,1) = 1
+                WHERE DictionaryId = @id AND IsActive = 1
                 ORDER BY [Order] ASC, Name
             `);
         const tableIds = tRes.recordset.map(t => t.Id);
@@ -2128,7 +2160,7 @@ app.get('/api/data-dictionaries/:id/full', optionalAuthenticate, async (req, res
             cRes = await reqCols.query(`
                 SELECT Id, TableId, Name, Type, Description, [Order]
                 FROM DataDictionaryColumns
-                WHERE TableId IN (${inList}) AND ISNULL(IsActive,1) = 1
+                WHERE TableId IN (${inList}) AND IsActive = 1
                 ORDER BY TableId, [Order] ASC, Id
             `);
         }
