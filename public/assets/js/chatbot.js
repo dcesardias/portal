@@ -1587,8 +1587,7 @@
                 expandedCanvas.id = `expanded-${canvasId}`;
                 expandedCanvas.style.cssText = `
                     flex: 1;
-                    width: 100%;
-                    height: 100%;
+                    max-height: calc(85vh - 64px);
                 `;
                 
                 modalContent.appendChild(closeBtn);
@@ -1612,7 +1611,7 @@
                 try {
                     const executor = new Function(
                         'Chart', 'ctx', 'canvas', 'console',
-                        `"use strict"; Chart.defaults.responsive = true; Chart.defaults.maintainAspectRatio = false; Chart.register(ChartDataLabels); Chart.defaults.plugins.datalabels.display = true; Chart.defaults.plugins.datalabels.color = '#666'; Chart.defaults.plugins.datalabels.font = { weight: 'bold' }; Chart.defaults.plugins.datalabels.align = 'end'; ${chartCode}`
+                        `"use strict"; Chart.register(ChartDataLabels); Chart.defaults.plugins.datalabels.display = true; Chart.defaults.plugins.datalabels.color = '#333'; Chart.defaults.plugins.datalabels.font = { weight: 'bold' }; Chart.defaults.plugins.datalabels.align = 'end'; ${chartCode}`
                     );
                     executor(sandbox.Chart, sandbox.ctx, sandbox.canvas, sandbox.console);
                 } catch (error) {
@@ -1657,7 +1656,7 @@
         try {
             const executor = new Function(
                 'Chart', 'ctx', 'canvas', 'console',
-                `"use strict"; Chart.defaults.responsive = true; Chart.defaults.maintainAspectRatio = false; Chart.register(ChartDataLabels); Chart.defaults.plugins.datalabels.display = true; Chart.defaults.plugins.datalabels.color = '#666'; Chart.defaults.plugins.datalabels.font = { weight: 'bold' }; Chart.defaults.plugins.datalabels.align = 'end'; ${chartCode}`
+                `"use strict"; Chart.register(ChartDataLabels); Chart.defaults.plugins.datalabels.display = true; Chart.defaults.plugins.datalabels.color = '#333'; Chart.defaults.plugins.datalabels.font = { weight: 'bold' }; Chart.defaults.plugins.datalabels.align = 'end'; ${chartCode}`
             );
             
             const timeout = setTimeout(() => {
