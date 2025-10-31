@@ -1546,6 +1546,8 @@
                     box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
                     display: flex;
                     flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
                 `;
                 
                 const closeBtn = document.createElement('button');
@@ -1586,7 +1588,7 @@
                 const expandedCanvas = document.createElement('canvas');
                 expandedCanvas.id = `expanded-${canvasId}`;
                 expandedCanvas.style.cssText = `
-                    flex: 1;
+                    max-width: 100%;
                     max-height: calc(85vh - 64px);
                 `;
                 
@@ -1611,7 +1613,7 @@
                 try {
                     const executor = new Function(
                         'Chart', 'ctx', 'canvas', 'console',
-                        `"use strict"; Chart.register(ChartDataLabels); Chart.defaults.plugins.datalabels.display = true; Chart.defaults.plugins.datalabels.color = '#333'; Chart.defaults.plugins.datalabels.font = { weight: 'bold' }; Chart.defaults.plugins.datalabels.align = 'end'; ${chartCode}`
+                        `"use strict"; Chart.register(ChartDataLabels); Chart.defaults.plugins.datalabels.display = true; Chart.defaults.plugins.datalabels.color = '#555'; Chart.defaults.plugins.datalabels.font = { weight: 'bold' }; Chart.defaults.plugins.datalabels.align = 'end'; ${chartCode}`
                     );
                     executor(sandbox.Chart, sandbox.ctx, sandbox.canvas, sandbox.console);
                 } catch (error) {
@@ -1656,7 +1658,7 @@
         try {
             const executor = new Function(
                 'Chart', 'ctx', 'canvas', 'console',
-                `"use strict"; Chart.register(ChartDataLabels); Chart.defaults.plugins.datalabels.display = true; Chart.defaults.plugins.datalabels.color = '#333'; Chart.defaults.plugins.datalabels.font = { weight: 'bold' }; Chart.defaults.plugins.datalabels.align = 'end'; ${chartCode}`
+                `"use strict"; Chart.register(ChartDataLabels); Chart.defaults.plugins.datalabels.display = true; Chart.defaults.plugins.datalabels.color = '#555'; Chart.defaults.plugins.datalabels.font = { weight: 'bold' }; Chart.defaults.plugins.datalabels.align = 'end'; ${chartCode}`
             );
             
             const timeout = setTimeout(() => {
