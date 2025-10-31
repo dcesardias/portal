@@ -90,63 +90,71 @@
         chatContainer.id = 'ai-chatbot-container';
         chatContainer.innerHTML = `
             <style>
+                :root {
+                    --ai-primary: linear-gradient(135deg, #6B73FF 0%, #000DFF 100%);
+                    --ai-secondary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    --ai-dark: linear-gradient(135deg, #1a1a2e 0%, #0f0f1e 100%);
+                    --ai-color-primary: #6B73FF;
+                    --ai-text-primary: #1a1a2e;
+                    --ai-bg-secondary: #f7f7fc;
+                    --ai-bg-tertiary: #ededf5;
+                }
+                
                 #ai-chatbot-container {
                     position: fixed;
                     bottom: ${CHATBOT_CONFIG.position.bottom}px;
                     right: ${CHATBOT_CONFIG.position.right}px;
                     z-index: 9999;
-                    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+                    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
                     display: none;
                 }
                 
                 #ai-chat-button {
-                    width: 64px;
-                    height: 64px;
+                    width: 60px;
+                    height: 60px;
                     border-radius: 50%;
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    background: var(--ai-primary);
                     border: none;
                     cursor: pointer;
-                    box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+                    box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.4), 0 4px 6px -2px rgba(99, 102, 241, 0.05);
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     color: white;
-                    font-size: 32px;
-                    transition: all 0.3s ease;
+                    font-size: 28px;
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                     position: relative;
+                    overflow: hidden;
                 }
                 
-                #ai-chat-button::after {
+                #ai-chat-button::before {
                     content: '';
                     position: absolute;
-                    inset: -4px;
-                    border-radius: 50%;
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    width: 100%;
+                    height: 100%;
+                    background: linear-gradient(135deg, #c084fc 0%, #a78bfa 100%);
                     opacity: 0;
                     transition: opacity 0.3s ease;
-                    z-index: -1;
-                    animation: pulse 2s ease-in-out infinite;
-                }
-                
-                @keyframes pulse {
-                    0%, 100% { transform: scale(1); opacity: 0.5; }
-                    50% { transform: scale(1.1); opacity: 0; }
                 }
                 
                 #ai-chat-button:hover {
-                    transform: scale(1.05);
-                    box-shadow: 0 12px 32px rgba(102, 126, 234, 0.5);
+                    transform: scale(1.1) translateY(-2px);
+                    box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.5), 0 4px 6px -2px rgba(99, 102, 241, 0.1);
+                }
+                
+                #ai-chat-button:hover::before {
+                    opacity: 1;
                 }
                 
                 #ai-chat-window {
                     position: absolute;
-                    bottom: 84px;
+                    bottom: 80px;
                     right: 0;
                     width: ${currentWidth}px;
                     height: ${currentHeight}px;
                     background: white;
                     border-radius: 16px;
-                    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                    box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
                     display: none;
                     flex-direction: column;
                     overflow: hidden;
@@ -154,49 +162,49 @@
                     max-width: ${CHATBOT_CONFIG.width.max}px;
                     min-height: ${CHATBOT_CONFIG.height.min}px;
                     max-height: ${CHATBOT_CONFIG.height.max}px;
-                    border: 2px solid rgba(102, 126, 234, 0.2);
+                    border: 1px solid rgba(0,0,0,0.05);
                     resize: none;
                 }
                 
                 #ai-chat-window.show {
                     display: flex;
-                    animation: slideUp 0.3s ease-out;
+                    animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                }
+                
+                @keyframes slideIn {
+                    from {
+                        opacity: 0;
+                        transform: translateY(20px) scale(0.98);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0) scale(1);
+                    }
                 }
                 
                 #ai-chat-window.fullscreen {
                     position: fixed !important;
-                    top: 20px !important;
-                    left: 20px !important;
-                    right: 20px !important;
-                    bottom: 20px !important;
+                    top: 16px !important;
+                    left: 16px !important;
+                    right: 16px !important;
+                    bottom: 16px !important;
                     width: auto !important;
                     height: auto !important;
                     max-width: none !important;
                     max-height: none !important;
-                    border-radius: 12px;
-                }
-                
-                @keyframes slideUp {
-                    from {
-                        opacity: 0;
-                        transform: translateY(20px);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: translateY(0);
-                    }
+                    border-radius: 16px;
                 }
                 
                 .chat-resize-handle {
                     position: absolute;
                     bottom: 0;
                     left: 0;
-                    width: 24px;
-                    height: 24px;
-                    cursor: nw-resize;
-                    background: linear-gradient(45deg, transparent 30%, #999 30%, #999 40%, transparent 40%, transparent 60%, #999 60%, #999 70%, transparent 70%);
-                    border-bottom-left-radius: 12px;
-                    opacity: 0.3;
+                    width: 20px;
+                    height: 20px;
+                    cursor: sw-resize;
+                    background: repeating-linear-gradient(135deg, #d1d5db, #d1d5db 2px, transparent 2px, transparent 4px);
+                    border-bottom-left-radius: 16px;
+                    opacity: 0.4;
                     transition: opacity 0.2s;
                 }
                 
@@ -205,55 +213,77 @@
                 }
                 
                 .chat-resize-handle:hover {
-                    opacity: 0.6;
+                    opacity: 1;
                 }
                 
                 #ai-chat-header {
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    background: var(--ai-dark);
                     color: white;
-                    padding: 20px 24px;
+                    padding: 16px 20px;
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
                     cursor: move;
                     flex-shrink: 0;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+                    position: relative;
+                    overflow: hidden;
+                }
+                
+                #ai-chat-header::before {
+                    content: '';
+                    position: absolute;
+                    top: -50%;
+                    left: -50%;
+                    width: 200%;
+                    height: 200%;
+                    background: radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%);
+                    animation: shimmer 8s linear infinite;
+                }
+                
+                @keyframes shimmer {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
                 }
                 
                 #ai-chat-header h3 {
                     margin: 0;
-                    font-size: 18px;
+                    font-size: 16px;
                     font-weight: 600;
                     display: flex;
                     align-items: center;
-                    gap: 10px;
+                    gap: 8px;
+                    position: relative;
+                    z-index: 1;
                 }
                 
                 .chat-controls {
                     display: flex;
                     align-items: center;
-                    gap: 8px;
+                    gap: 6px;
+                    position: relative;
+                    z-index: 1;
                 }
                 
                 .chat-control-btn {
-                    background: rgba(255,255,255,0.15);
+                    background: rgba(255,255,255,0.1);
                     border: none;
                     color: white;
                     cursor: pointer;
-                    padding: 8px;
-                    width: 36px;
-                    height: 36px;
+                    padding: 0;
+                    width: 32px;
+                    height: 32px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     border-radius: 8px;
-                    transition: all 0.2s;
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                     font-size: 16px;
                     backdrop-filter: blur(10px);
                 }
                 
                 .chat-control-btn:hover {
-                    background: rgba(255,255,255,0.25);
+                    background: rgba(255,255,255,0.2);
                     transform: translateY(-1px);
                 }
                 
@@ -262,31 +292,30 @@
                 }
                 
                 #ai-chat-close {
-                    font-size: 22px;
+                    font-size: 20px;
                 }
                 
                 #ai-chat-messages {
                     flex: 1;
                     overflow-y: auto;
-                    padding: 24px;
-                    background: linear-gradient(to bottom, #f8f9fa 0%, #ffffff 100%);
+                    padding: 20px;
+                    background: linear-gradient(180deg, var(--ai-bg-secondary) 0%, white 100%);
                     display: flex;
                     flex-direction: column;
-                    gap: 20px;
+                    gap: 16px;
                 }
                 
                 #ai-chat-messages::-webkit-scrollbar {
-                    width: 8px;
+                    width: 4px;
                 }
                 
                 #ai-chat-messages::-webkit-scrollbar-track {
-                    background: #f1f1f1;
-                    border-radius: 10px;
+                    background: transparent;
                 }
                 
                 #ai-chat-messages::-webkit-scrollbar-thumb {
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    border-radius: 10px;
+                    background: var(--ai-secondary);
+                    border-radius: 2px;
                 }
                 
                 .ai-message {
@@ -299,7 +328,7 @@
                 @keyframes fadeIn {
                     from {
                         opacity: 0;
-                        transform: translateY(10px);
+                        transform: translateY(8px);
                     }
                     to {
                         opacity: 1;
@@ -312,160 +341,172 @@
                 }
                 
                 .ai-message-avatar {
-                    width: 40px;
-                    height: 40px;
+                    width: 36px;
+                    height: 36px;
                     border-radius: 50%;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    font-size: 20px;
+                    font-size: 18px;
                     flex-shrink: 0;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
                 }
                 
                 .ai-message.user .ai-message-avatar {
-                    background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
+                    background: var(--ai-primary);
                 }
                 
                 .ai-message.bot .ai-message-avatar {
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    background: var(--ai-secondary);
                 }
                 
                 .ai-message-content {
-                    max-width: 75%;
-                    padding: 16px 20px;
-                    border-radius: 16px;
+                    max-width: 80%;
+                    padding: 12px 16px;
+                    border-radius: 12px;
                     word-wrap: break-word;
-                    line-height: 1.6;
-                    font-size: 15px;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+                    line-height: 1.5;
+                    font-size: 14px;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
                 }
                 
                 .ai-message.user .ai-message-content {
-                    background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
+                    background: var(--ai-primary);
                     color: white;
-                    border-bottom-right-radius: 6px;
+                    border-bottom-right-radius: 4px;
                 }
                 
                 .ai-message.bot .ai-message-content {
                     background: white;
                     color: #333;
-                    border-bottom-left-radius: 6px;
-                    border: 1px solid #e0e0e0;
+                    border-bottom-left-radius: 4px;
+                    border: 1px solid var(--ai-bg-tertiary);
                 }
                 
                 details {
-                    margin: 12px 0;
+                    margin: 8px 0;
                     border-radius: 8px;
                     overflow: hidden;
-                    transition: background-color 0.2s;
+                    background: var(--ai-bg-secondary);
+                    border: 1px solid var(--ai-bg-tertiary);
+                    transition: all 0.2s;
                 }
 
                 details:hover {
-                    background: #f0f0f0 !important;
+                    background: var(--ai-bg-tertiary);
                 }
 
                 details[open] {
-                    background: #f0f0f0 !important;
+                    background: var(--ai-bg-secondary);
                 }
 
                 details[open] summary {
-                    margin-bottom: 12px;
-                    padding-bottom: 12px;
-                    border-bottom: 1px solid #dee2e6;
+                    margin-bottom: 8px;
+                    padding-bottom: 8px;
+                    border-bottom: 1px solid var(--ai-bg-tertiary);
                 }
 
                 summary {
-                    padding: 12px;
+                    padding: 12px 16px;
                     border-radius: 8px;
                     cursor: pointer;
                     transition: background-color 0.2s;
                     user-select: none;
                     font-weight: 500;
+                    font-size: 13px;
                 }
 
                 summary:hover {
-                    background: rgba(0, 0, 0, 0.03);
+                    background: rgba(107, 115, 255, 0.05);
                 }
                 
                 .ai-message-content pre {
-                    background: #f5f5f5;
+                    background: var(--ai-bg-secondary);
                     padding: 12px;
                     border-radius: 8px;
                     overflow-x: auto;
-                    margin: 12px 0;
+                    margin: 8px 0;
                     font-size: 13px;
-                    font-family: 'Courier New', monospace;
-                    border: 1px solid #e0e0e0;
+                    font-family: 'Monaco', monospace;
+                    border: 1px solid var(--ai-bg-tertiary);
                 }
                 
                 .ai-message.bot .ai-message-content pre {
-                    background: #f8f9fa;
-                    border: 1px solid #dee2e6;
+                    background: #f9fafb;
+                    border: 1px solid #e5e7eb;
                 }
                 
                 .ai-message-content table {
                     width: 100%;
-                    border-collapse: collapse;
-                    margin: 12px 0;
+                    border-collapse: separate;
+                    border-spacing: 0;
+                    margin: 8px 0;
                     font-size: 13px;
                     background: white;
                     border-radius: 8px;
                     overflow: hidden;
+                    border: 1px solid #e5e7eb;
                 }
                 
                 .ai-message-content th,
                 .ai-message-content td {
-                    padding: 10px 12px;
-                    border: 1px solid #dee2e6;
+                    padding: 8px 12px;
+                    border-bottom: 1px solid #e5e7eb;
                     text-align: left;
                 }
                 
                 .ai-message-content th {
-                    background: linear-gradient(to bottom, #f8f9fa 0%, #e9ecef 100%);
+                    background: #f9fafb;
                     font-weight: 600;
-                    color: #495057;
+                    color: #374151;
+                }
+                
+                .ai-message-content tr:last-child td {
+                    border-bottom: none;
                 }
                 
                 .ai-message-content tr:hover {
-                    background: #f8f9fa;
+                    background: #f3f4f6;
                 }
                 
                 #ai-chat-input-container {
-                    padding: 20px 24px;
+                    padding: 16px 20px;
                     background: white;
-                    border-top: 1px solid #e0e0e0;
+                    border-top: 1px solid #e5e7eb;
                     flex-shrink: 0;
                 }
                 
                 #ai-chat-input-wrapper {
                     display: flex;
-                    gap: 12px;
+                    gap: 8px;
                     align-items: center;
+                    background: var(--ai-bg-secondary);
+                    border-radius: 9999px;
+                    padding: 4px 4px 4px 16px;
+                    transition: all 0.2s;
+                    border: 1px solid #e5e7eb;
+                }
+                
+                #ai-chat-input-wrapper:focus-within {
+                    border-color: var(--ai-color-primary);
+                    box-shadow: 0 0 0 3px rgba(107, 115, 255, 0.1);
                 }
                 
                 #ai-chat-input {
                     flex: 1;
-                    padding: 14px 18px;
-                    border: 2px solid #e0e0e0;
-                    border-radius: 28px;
+                    padding: 10px 0;
+                    border: none;
+                    background: transparent;
                     outline: none;
-                    font-size: 15px;
-                    transition: all 0.2s;
-                    background: #f8f9fa;
-                }
-                
-                #ai-chat-input:focus {
-                    border-color: #667eea;
-                    background: white;
-                    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+                    font-size: 14px;
+                    color: var(--ai-text-primary);
                 }
                 
                 #ai-chat-send {
-                    width: 48px;
-                    height: 48px;
+                    width: 40px;
+                    height: 40px;
                     border-radius: 50%;
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    background: var(--ai-primary);
                     border: none;
                     color: white;
                     cursor: pointer;
@@ -473,13 +514,13 @@
                     align-items: center;
                     justify-content: center;
                     transition: all 0.2s;
-                    font-size: 20px;
-                    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+                    font-size: 18px;
+                    box-shadow: 0 1px 3px rgba(107, 115, 255, 0.3);
                 }
                 
                 #ai-chat-send:hover:not(:disabled) {
                     transform: scale(1.05);
-                    box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+                    box-shadow: 0 2px 4px rgba(107, 115, 255, 0.4);
                 }
                 
                 #ai-chat-send:active:not(:disabled) {
@@ -494,16 +535,16 @@
                 
                 .ai-typing-indicator {
                     display: flex;
-                    gap: 6px;
-                    padding: 14px;
+                    gap: 4px;
+                    padding: 12px;
                 }
                 
                 .ai-typing-dot {
-                    width: 10px;
-                    height: 10px;
+                    width: 8px;
+                    height: 8px;
                     border-radius: 50%;
                     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    animation: typing 1.4s infinite;
+                    animation: typing 1.2s infinite;
                 }
                 
                 .ai-typing-dot:nth-child(2) {
@@ -516,12 +557,12 @@
                 
                 @keyframes typing {
                     0%, 60%, 100% {
-                        opacity: 0.3;
+                        opacity: 0.4;
                         transform: translateY(0);
                     }
                     30% {
                         opacity: 1;
-                        transform: translateY(-12px);
+                        transform: translateY(-6px);
                     }
                 }
                 
@@ -530,17 +571,17 @@
                     top: 50%;
                     left: 50%;
                     transform: translate(-50%, -50%);
-                    background: rgba(0,0,0,0.85);
+                    background: rgba(17,24,39,0.9);
                     color: white;
-                    padding: 8px 16px;
-                    border-radius: 8px;
-                    font-size: 14px;
-                    font-weight: 600;
+                    padding: 6px 12px;
+                    border-radius: 9999px;
+                    font-size: 13px;
+                    font-weight: 500;
                     pointer-events: none;
                     opacity: 0;
                     transition: opacity 0.2s;
                     z-index: 10;
-                    backdrop-filter: blur(10px);
+                    backdrop-filter: blur(8px);
                 }
                 
                 .size-indicator.show {
@@ -549,9 +590,9 @@
                 
                 @media (max-width: 768px) {
                     #ai-chat-window {
-                        width: calc(100vw - 40px) !important;
-                        height: calc(100vh - 120px) !important;
-                        right: 20px !important;
+                        width: calc(100vw - 32px) !important;
+                        height: calc(100vh - 96px) !important;
+                        right: 16px !important;
                         max-width: none !important;
                         max-height: none !important;
                     }
@@ -565,9 +606,21 @@
                     }
                     
                     .ai-message-content {
-                        max-width: 85%;
-                        font-size: 14px;
+                        max-width: 90%;
+                        font-size: 13px;
                     }
+                }
+                
+                /* Melhorias visuais adicionais */
+                .chart-expand-btn {
+                    background: var(--ai-primary) !important;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                }
+                
+                .chart-expand-btn:hover {
+                    transform: scale(1.05);
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
                 }
             </style>
             
@@ -593,7 +646,7 @@
                         <div class="ai-message-content">
                             <strong style="display: block; margin-bottom: 8px; font-size: 16px;">Olá! Sou seu assistente de dados inteligente.</strong>
                             Faça perguntas em linguagem natural e receba análises automáticas dos dados.
-                            <div style="margin-top: 12px; padding: 12px; background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%); border-radius: 8px; font-size: 13px;">
+                            <div style="margin-top: 12px; padding: 12px; background: rgba(107, 115, 255, 0.05); border-radius: 8px; font-size: 13px; border: 1px solid rgba(107, 115, 255, 0.1);">
                                 💡 <strong>Dica:</strong> Você pode redimensionar esta janela arrastando o canto inferior esquerdo, ou usar o botão de tela cheia acima.
                             </div>
                         </div>
@@ -816,15 +869,15 @@
         const selectedResponse = responses[Math.floor(Math.random() * responses.length)];
         
         return `
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; margin-bottom: 16px; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);">
-                <div style="font-size: 17px; font-weight: 600; margin-bottom: 10px;">
+            <div style="background: linear-gradient(135deg, #6B73FF 0%, #000DFF 100%); color: white; padding: 16px; border-radius: 8px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(107, 115, 255, 0.2);">
+                <div style="font-size: 15px; font-weight: 600; margin-bottom: 8px;">
                     ${selectedResponse}
                 </div>
             </div>
             
-            <div style="background: #e3f2fd; padding: 16px; border-radius: 12px; color: #1565c0;">
-                <strong style="font-size: 15px;">💡 Exemplos de perguntas que posso responder:</strong>
-                <ul style="margin: 12px 0; padding-left: 24px; line-height: 2;">
+            <div style="background: #e7f0ff; padding: 12px; border-radius: 8px; color: #0047ab; border: 1px solid #d0e3ff;">
+                <strong style="font-size: 14px;">💡 Exemplos de perguntas que posso responder:</strong>
+                <ul style="margin: 8px 0; padding-left: 20px; line-height: 1.8; font-size: 13px;">
                     <li>Quantos atendimentos foram realizados hoje?</li>
                     <li>Liste os pacientes cadastrados em janeiro</li>
                     <li>Qual o total de consultas por médico este mês?</li>
@@ -833,7 +886,7 @@
                 </ul>
             </div>
             
-            <div style="background: #f0f8ff; padding: 12px; border-radius: 12px; margin-top: 16px; font-size: 13px; color: #0066cc;">
+            <div style="background: #f8fbff; padding: 8px; border-radius: 8px; margin-top: 12px; font-size: 13px; color: #0052d4; border: 1px solid #d6e4ff;">
                 <strong>✨ Dica:</strong> Faça perguntas em linguagem natural. Vou gerar a consulta SQL automaticamente e analisar os resultados para você!
             </div>
         `;
@@ -883,9 +936,9 @@
                 
             if (notUnderstood) {
                 addMessage('bot', `
-                    <div style="background:#fff8e1; padding:16px; border-radius:8px; color:#5d4037;">
+                    <div style="background:#fff7e6; padding:12px; border-radius:8px; color:#d46b08; border:1px solid #ffd591;">
                         Não consegui compreender seu pedido.
-                        <div style="margin-top:12px; font-size:13px; color:#1565c0; background:#e3f2fd; padding:12px; border-radius:8px;">
+                        <div style="margin-top:8px; font-size:13px; color:#0052d4; background:#e7f0ff; padding:8px; border-radius:8px; border:1px solid #d0e3ff;">
                             <strong>Exemplos:</strong><br>
                             • Quantos atendimentos foram realizados hoje?<br>
                             • Liste os pacientes cadastrados em janeiro<br>
@@ -914,7 +967,7 @@
                 errorTitle = 'Serviço indisponível';
             }
             
-            let formattedError = `<div style="color: #d32f2f; padding: 16px; background: #ffebee; border-radius: 8px; margin: 8px 0;">
+            let formattedError = `<div style="color: #c53030; padding: 12px; background: #fff5f5; border-radius: 8px; margin: 8px 0; border:1px solid #fed7d7;">
                 <strong>${errorIcon} ${errorTitle}:</strong><br>
                 ${errorMessage}
             </div>`;
@@ -1095,61 +1148,61 @@
         let response = '';
         
         if (analysis) {
-            response += `<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);">
-                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
-                    <span style="font-size: 28px;">🔍</span>
-                    <strong style="font-size: 18px;">Análise dos Dados</strong>
+            response += `<div style="background: linear-gradient(135deg, #6B73FF 0%, #000DFF 100%); color: white; padding: 16px; border-radius: 8px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(107, 115, 255, 0.2);">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <span style="font-size: 20px;">🔍</span>
+                    <strong style="font-size: 15px;">Análise dos Dados</strong>
                 </div>
-                <div style="font-size: 15px; line-height: 1.8; white-space: pre-wrap;">${analysis}</div>
+                <div style="font-size: 14px; line-height: 1.6; white-space: pre-wrap;">${analysis}</div>
             </div>`;
         }
         
-        response += `<div style="background: #f0f8ff; padding: 12px; border-radius: 8px; margin-bottom: 16px; border-left: 4px solid #0066cc;">
-            <strong style="font-size: 14px;">📝 Sua pergunta:</strong> <span style="font-size: 14px;">${question}</span>
+        response += `<div style="background: #e7f0ff; padding: 8px; border-radius: 8px; margin-bottom: 12px; border-left: 4px solid #6B73FF;">
+            <strong style="font-size: 13px;">📝 Sua pergunta:</strong> <span style="font-size: 13px;">${question}</span>
         </div>`;
         
-        response += `<details style="background: #f8f9fa; padding: 14px; border-radius: 8px; margin-bottom: 16px; cursor: pointer; border: 1px solid #e0e0e0;">
-            <summary style="font-weight: 600; color: #495057; user-select: none; outline: none; font-size: 14px;">
-                <span style="margin-right: 8px;">🔍</span>Consulta SQL gerada
-                <span style="font-size: 12px; color: #6c757d; margin-left: 8px;">(clique para expandir)</span>
+        response += `<details style="background: #f7f7fc; padding: 12px; border-radius: 8px; margin-bottom: 12px; cursor: pointer; border: 1px solid #ededf5;">
+            <summary style="font-weight: 600; color: #1a1a2e; user-select: none; outline: none; font-size: 13px;">
+                <span style="margin-right: 6px;">🔍</span>Consulta SQL gerada
+                <span style="font-size: 12px; color: #6b7280; margin-left: 6px;">(clique para expandir)</span>
             </summary>
-            <pre style="background: #ffffff; padding: 12px; border-radius: 8px; margin-top: 12px; font-size: 13px; border: 1px solid #dee2e6; overflow-x: auto;">${sqlQuery}</pre>
+            <pre style="background: white; padding: 12px; border-radius: 8px; margin-top: 8px; font-size: 13px; border: 1px solid #ededf5; overflow-x: auto;">${sqlQuery}</pre>
         </details>`;
         
         if (!results || results.length === 0) {
-            response += `<div style="background: #fff3cd; padding: 16px; border-radius: 8px; color: #856404; border: 1px solid #ffeaa7;">
+            response += `<div style="background: #fff7e6; padding: 12px; border-radius: 8px; color: #d46b08; border: 1px solid #ffd591;">
                 <strong>⚠️ Nenhum resultado encontrado</strong><br>
-                <span style="font-size: 14px;">A consulta foi executada mas não retornou dados.</span>
+                <span style="font-size: 13px;">A consulta foi executada mas não retornou dados.</span>
             </div>`;
         } else if (results.length === 1 && Object.keys(results[0]).length === 1) {
             const value = Object.values(results[0])[0];
             const key = Object.keys(results[0])[0];
-            response += `<div style="background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%); padding: 20px; border-radius: 12px; color: #155724; text-align: center; border: 2px solid #28a745;">
-                <div style="font-size: 36px; font-weight: bold; margin-bottom: 8px;">${value}</div>
-                <div style="font-size: 16px; font-weight: 500;">${key}</div>
+            response += `<div style="background: linear-gradient(135deg, #d1fae5 0%, #bbf7d0 100%); padding: 16px; border-radius: 8px; color: #065f46; text-align: center; border: 1px solid #34d399;">
+                <div style="font-size: 28px; font-weight: bold; margin-bottom: 4px;">${value}</div>
+                <div style="font-size: 14px; font-weight: 500;">${key}</div>
             </div>`;
         } else {
-            response += `<details style="background: #f8f9fa; padding: 14px; border-radius: 8px; cursor: pointer; border: 1px solid #e0e0e0;">
-                <summary style="font-weight: 600; color: #155724; user-select: none; outline: none; font-size: 14px;">
-                    <span style="margin-right: 8px;">✅</span>${results.length} resultado(s) encontrado(s)
-                    <span style="font-size: 12px; color: #6c757d; margin-left: 8px;">(clique para ver tabela)</span>
+            response += `<details style="background: #f7f7fc; padding: 12px; border-radius: 8px; cursor: pointer; border: 1px solid #ededf5;">
+                <summary style="font-weight: 600; color: #065f46; user-select: none; outline: none; font-size: 13px;">
+                    <span style="margin-right: 6px;">✅</span>${results.length} resultado(s) encontrado(s)
+                    <span style="font-size: 12px; color: #6b7280; margin-left: 6px;">(clique para ver tabela)</span>
                 </summary>
-                <div style="overflow-x: auto; margin-top: 16px;">
-                    <table style="width: 100%; border-collapse: collapse; font-size: 13px; background: white; border-radius: 8px; overflow: hidden;">
+                <div style="overflow-x: auto; margin-top: 12px;">
+                    <table style="width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; background: white; border-radius: 8px; overflow: hidden; border: 1px solid #ededf5;">
                         <thead><tr>`;
             
             Object.keys(results[0]).forEach(key => {
-                response += `<th style="padding: 12px; border: 1px solid #dee2e6; background: linear-gradient(to bottom, #f8f9fa 0%, #e9ecef 100%); font-weight: 600; text-align: left; color: #495057;">${key}</th>`;
+                response += `<th style="padding: 8px 12px; border-bottom: 1px solid #ededf5; background: #f7f7fc; font-weight: 600; text-align: left; color: #1a1a2e;">${key}</th>`;
             });
             
             response += `</tr></thead><tbody>`;
             
             results.slice(0, 20).forEach((row, idx) => {
-                const bgColor = idx % 2 === 0 ? 'white' : '#f8f9fa';
+                const bgColor = idx % 2 === 0 ? 'white' : '#f7f7fc';
                 response += `<tr style="background: ${bgColor};">`;
                 Object.values(row).forEach(value => {
                     const displayValue = value !== null && value !== undefined ? value : '-';
-                    response += `<td style="padding: 10px; border: 1px solid #dee2e6;">${displayValue}</td>`;
+                    response += `<td style="padding: 8px 12px; border-bottom: 1px solid #ededf5;">${displayValue}</td>`;
                 });
                 response += '</tr>';
             });
@@ -1157,7 +1210,7 @@
             response += `</tbody></table>`;
             
             if (results.length > 20) {
-                response += `<div style="margin-top: 12px; font-size: 13px; color: #666; text-align: center; font-style: italic; padding: 8px; background: #f0f0f0; border-radius: 6px;">
+                response += `<div style="margin-top: 8px; font-size: 12px; color: #6b7280; text-align: center; font-style: italic; padding: 6px; background: #ededf5; border-radius: 6px;">
                     Mostrando 20 de ${results.length} resultados
                 </div>`;
             }
@@ -1177,25 +1230,25 @@
                 results: results.slice(0, 50)
             };
             
-            response += `<div style="margin-top: 16px; text-align: center;">
+            response += `<div style="margin-top: 12px; text-align: center;">
                 <button 
                     id="${chartId}" 
-                    style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                    style="background: linear-gradient(135deg, #6B73FF 0%, #000DFF 100%); 
                         color: white; 
                         border: none; 
-                        padding: 12px 24px; 
-                        border-radius: 8px; 
+                        padding: 8px 16px; 
+                        border-radius: 9999px; 
                         cursor: pointer; 
-                        font-size: 14px; 
-                        font-weight: 600;
-                        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+                        font-size: 13px; 
+                        font-weight: 500;
+                        box-shadow: 0 1px 3px rgba(107, 115, 255, 0.3);
                         transition: all 0.2s;"
-                    onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(102, 126, 234, 0.4)'"
-                    onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(102, 126, 234, 0.3)'"
+                    onmouseover="this.style.transform='scale(1.02)'; this.style.boxShadow='0 2px 4px rgba(107, 115, 255, 0.4)'"
+                    onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 1px 3px rgba(107, 115, 255, 0.3)'"
                     onclick="window.generateChartVisualization('${chartId}')">
                     📊 Gerar Visualização Gráfica
                 </button>
-                <div id="${chartId}-container" style="margin-top: 16px;"></div>
+                <div id="${chartId}-container" style="margin-top: 12px;"></div>
             </div>`;
         }
         
@@ -1277,9 +1330,9 @@
         const payload = window.chartDataStore?.[chartId];
         if (!payload) {
             console.error('[COPILOT-CHART] Dados não encontrados no store');
-            container.innerHTML = `<div style="background: #ffebee; padding: 16px; border-radius: 8px; color: #c62828; border: 1px solid #ef5350; margin-top: 12px;">
+            container.innerHTML = `<div style="background: #fff5f5; padding: 12px; border-radius: 8px; color: #c53030; border: 1px solid #fed7d7; margin-top: 8px;">
                 <strong>❌ Erro</strong><br>
-                <span style="font-size: 14px;">Dados não encontrados. Tente novamente.</span>
+                <span style="font-size: 13px;">Dados não encontrados. Tente novamente.</span>
             </div>`;
             return;
         }
@@ -1319,8 +1372,8 @@
             
             const canvasId = `canvas-${chartId}`;
             container.innerHTML = `
-                <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 12px;">
-                    <canvas id="${canvasId}" style="max-height: 500px;"></canvas>
+                <div style="background: white; padding: 16px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-top: 8px;">
+                    <canvas id="${canvasId}" style="max-height: 400px;"></canvas>
                 </div>`;
             
             if (typeof Chart === 'undefined') {
@@ -1338,17 +1391,15 @@
             
         } catch (error) {
             console.error('[COPILOT-CHART] Erro:', error);
-            container.innerHTML = `<div style="background: #ffebee; padding: 16px; border-radius: 8px; color: #c62828; border: 1px solid #ef5350; margin-top: 12px;">
+            container.innerHTML = `<div style="background: #fff5f5; padding: 12px; border-radius: 8px; color: #c53030; border: 1px solid #fed7d7; margin-top: 8px;">
                 <strong>❌ Erro ao gerar visualização</strong><br>
-                <span style="font-size: 14px;">${error.message}</span>
+                <span style="font-size: 13px;">${error.message}</span>
             </div>`;
             button.disabled = false;
             button.innerHTML = originalText;
         }
     };
     
-    // Substitua a função loadChartJS() (linha ~1493) por esta versão:
-
     function loadChartJS() {
         return new Promise((resolve, reject) => {
             if (typeof Chart !== 'undefined') {
@@ -1438,32 +1489,32 @@
             expandBtn.title = 'Expandir gráfico';
             expandBtn.style.cssText = `
                 position: absolute;
-                top: 10px;
-                right: 10px;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                top: 8px;
+                right: 8px;
+                background: linear-gradient(135deg, #6B73FF 0%, #000DFF 100%);
                 color: white;
                 border: none;
-                width: 36px;
-                height: 36px;
-                border-radius: 8px;
+                width: 32px;
+                height: 32px;
+                border-radius: 9999px;
                 cursor: pointer;
-                font-size: 18px;
+                font-size: 16px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 z-index: 10;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+                box-shadow: 0 1px 2px rgba(0,0,0,0.1);
                 transition: all 0.2s;
             `;
             
             expandBtn.onmouseover = () => {
-                expandBtn.style.transform = 'scale(1.1)';
-                expandBtn.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+                expandBtn.style.transform = 'scale(1.05)';
+                expandBtn.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
             };
             
             expandBtn.onmouseout = () => {
                 expandBtn.style.transform = 'scale(1)';
-                expandBtn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+                expandBtn.style.boxShadow = '0 1px 2px rgba(0,0,0,0.1)';
             };
             
             expandBtn.onclick = () => {
@@ -1474,25 +1525,25 @@
                     left: 0;
                     right: 0;
                     bottom: 0;
-                    background: rgba(0,0,0,0.9);
+                    background: rgba(0,0,0,0.8);
                     z-index: 2147483647;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    padding: 40px;
+                    padding: 32px;
                     animation: fadeIn 0.3s;
                 `;
                 
                 const modalContent = document.createElement('div');
                 modalContent.style.cssText = `
                     background: white;
-                    border-radius: 16px;
+                    border-radius: 12px;
                     width: 90vw;
                     height: 85vh;
-                    max-width: 1400px;
+                    max-width: 1200px;
                     position: relative;
-                    padding: 30px;
-                    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+                    padding: 24px;
+                    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
                     display: flex;
                     flex-direction: column;
                 `;
@@ -1502,16 +1553,16 @@
                 closeBtn.title = 'Fechar';
                 closeBtn.style.cssText = `
                     position: absolute;
-                    top: 15px;
-                    right: 15px;
-                    background: #e74c3c;
+                    top: 12px;
+                    right: 12px;
+                    background: #ef4444;
                     color: white;
                     border: none;
-                    width: 40px;
-                    height: 40px;
-                    border-radius: 50%;
+                    width: 36px;
+                    height: 36px;
+                    border-radius: 9999px;
                     cursor: pointer;
-                    font-size: 28px;
+                    font-size: 24px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
@@ -1521,13 +1572,13 @@
                 `;
                 
                 closeBtn.onmouseover = () => {
-                    closeBtn.style.transform = 'scale(1.1)';
-                    closeBtn.style.background = '#c0392b';
+                    closeBtn.style.transform = 'scale(1.05)';
+                    closeBtn.style.background = '#dc2626';
                 };
                 
                 closeBtn.onmouseout = () => {
                     closeBtn.style.transform = 'scale(1)';
-                    closeBtn.style.background = '#e74c3c';
+                    closeBtn.style.background = '#ef4444';
                 };
                 
                 closeBtn.onclick = () => modal.remove();
@@ -1536,7 +1587,8 @@
                 expandedCanvas.id = `expanded-${canvasId}`;
                 expandedCanvas.style.cssText = `
                     flex: 1;
-                    max-height: calc(85vh - 80px);
+                    width: 100%;
+                    height: 100%;
                 `;
                 
                 modalContent.appendChild(closeBtn);
@@ -1560,7 +1612,7 @@
                 try {
                     const executor = new Function(
                         'Chart', 'ctx', 'canvas', 'console',
-                        `"use strict"; ${chartCode}`
+                        `"use strict"; Chart.defaults.responsive = true; Chart.defaults.maintainAspectRatio = false; Chart.register(ChartDataLabels); Chart.defaults.plugins.datalabels.display = true; Chart.defaults.plugins.datalabels.color = '#666'; Chart.defaults.plugins.datalabels.font = { weight: 'bold' }; Chart.defaults.plugins.datalabels.align = 'end'; ${chartCode}`
                     );
                     executor(sandbox.Chart, sandbox.ctx, sandbox.canvas, sandbox.console);
                 } catch (error) {
@@ -1605,7 +1657,7 @@
         try {
             const executor = new Function(
                 'Chart', 'ctx', 'canvas', 'console',
-                `"use strict"; ${chartCode}`
+                `"use strict"; Chart.defaults.responsive = true; Chart.defaults.maintainAspectRatio = false; Chart.register(ChartDataLabels); Chart.defaults.plugins.datalabels.display = true; Chart.defaults.plugins.datalabels.color = '#666'; Chart.defaults.plugins.datalabels.font = { weight: 'bold' }; Chart.defaults.plugins.datalabels.align = 'end'; ${chartCode}`
             );
             
             const timeout = setTimeout(() => {
