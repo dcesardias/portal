@@ -426,6 +426,13 @@
                     <label>Cor de realce do botão do Menu (hover)</label>
                     <input type="color" id="menuHoverColor" value="#2a2d4a">
                 </div>
+                <div class="form-group" style="margin-top:16px;">
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                        <input type="checkbox" id="chatbotEnabledCheckbox" checked style="width:auto;">
+                        <span>Ativar Chatbot (ícone no canto inferior direito)</span>
+                    </label>
+                    <small style="color:#666;display:block;margin-top:4px;">Desmarque para ocultar o ícone/flutuante do assistente de dados para todos os usuários. A URL direta <code>/chatbot</code> continuará funcionando mesmo desativado.</small>
+                </div>
                 <button class="btn btn-admin" onclick="saveConfig()">Salvar Configurações</button>
                 
                 <div style="margin-top: 30px; padding: 15px; background: #fff3cd; border-radius: 4px;">

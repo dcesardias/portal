@@ -81,6 +81,7 @@ window.PortalConfig = {
             menuBgColor: (getEl('menuBgColor')?.value) || '#4A4A4A',
             menuCollapsedBgColor: (getEl('menuCollapsedBgColor')?.value) || '#4A4A4A',
             menuHoverColor: (getEl('menuHoverColor')?.value) || '#2a2d4a',
+            chatbotEnabled: !!(getEl('chatbotEnabledCheckbox')?.checked),
             homeMenuName: (getEl('homeMenuName')?.value) || 'Home',
             homeMenuIcon: (getEl('homeIconInput')?.value) || '🏠',
             logoSize: (getEl('logoSizeInput')?.value) || 32,
@@ -132,6 +133,15 @@ window.PortalConfig = {
             const str = String(v).toLowerCase().trim();
             return str === 'true' || str === '1' || str === 'yes' || str === 'on';
         };
+
+        // Chatbot enabled flag
+        const chatbotEnabledRaw = get('chatbotenabled');
+        if (chatbotEnabledRaw !== undefined) {
+            const enabled = toBool(chatbotEnabledRaw);
+            this.chatbotEnabled = enabled;
+            const chk = document.getElementById('chatbotEnabledCheckbox');
+            if (chk) chk.checked = enabled;
+        }
 
         // Portal name
         const portalName = get('portalname');
@@ -293,6 +303,12 @@ window.PortalConfig = {
             if (chk) chk.checked = bold;
             setVar('--page-desc-weight', bold ? '600' : '400');
         }
+
+        try {
+            // Notificar interessados (ex.: chatbot.js) que as configs foram aplicadas
+            const ev = new CustomEvent('portalConfigUpdated', { detail: settings });
+            window.dispatchEvent(ev);
+        } catch (e) {}
     },
 
     updateLogoPreview(logoUrl) {

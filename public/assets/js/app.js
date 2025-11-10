@@ -43,6 +43,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     try {
         await loadModules();
         
+        // Carregar configurações do portal (cores, fonte, chatbotEnabled etc.)
+        if (window.PortalConfig && typeof window.PortalConfig.loadConfig === 'function') {
+            try { await window.PortalConfig.loadConfig(); } catch (e) { console.warn('Config load failed:', e); }
+        }
+
         // Inicializar cache de dados
         if (window.PortalData) {
             window.PortalData.init();

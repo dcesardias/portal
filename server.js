@@ -35,6 +35,15 @@ if (!fs.existsSync(uploadsDir)) {
 
 app.use('/uploads', express.static('uploads'));
 
+// Rota direta para o Chatbot (URL dedicada)
+app.get(['/chatbot', '/chatbot/'], (req, res) => {
+    try {
+        res.sendFile(path.join(__dirname, 'public', 'chatbot.html'));
+    } catch (e) {
+        res.status(404).send('Chatbot não encontrado');
+    }
+});
+
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         cb(null, 'uploads/');
@@ -2799,6 +2808,18 @@ app.delete('/api/tutorials/:id', authenticateToken, async (req, res) => {
 async function startServer() {
     await initDB();
     await ensurePagesOrderColumn();
+    // Garantir rota /chatbot mesmo se regras de rewrite modificarem a URL
+    // Colocada aqui perto do start para evitar qualquer interferência de outras rotas/middlewares.
+    // Se o IIS reescrever /chatbot -> /public/chatbot, podemos também atender /public/chatbot.
+    const chatbotFile = path.join(__dirname, 'public', 'chatbot.html');
+    app.get(['/chatbot', '/chatbot/', '/public/chatbot', '/public/chatbot/'], (req, res) => {
+        try {
+            return res.sendFile(chatbotFile);
+        } catch (err) {
+            console.error('[CHATBOT ROUTE] Erro ao servir chatbot:', err);
+            return res.status(404).send('Chatbot não encontrado');
+        }
+    });
     app.listen(PORT, HOST, () => {
         console.log(`Servidor rodando em http://${HOST}:${PORT}`);
         console.log(`Acesse: http://localhost:${PORT}`);
