@@ -44,6 +44,51 @@ app.get(['/chatbot', '/chatbot/'], (req, res) => {
     }
 });
 
+// ========================================
+// ROTAS PARA APLICAÇÃO DE CARGA EXCEL
+// ========================================
+
+// Proxy para o backend Python (FastAPI) da aplicação de carga
+const { createProxyMiddleware } = require('http-proxy-middleware');
+
+// Proxy para API do backend Python (assumindo que roda na porta 8000)
+app.use('/api/excel', createProxyMiddleware({
+    target: 'http://localhost:8000',
+    changeOrigin: true,
+    pathRewrite: {
+        '^/api/excel': '/api'
+    },
+    onError: (err, req, res) => {
+        console.error('[EXCEL PROXY] Erro:', err.message);
+        res.status(502).json({ 
+            error: 'Backend Python não está disponível',
+            message: 'Certifique-se de que o servidor FastAPI está rodando na porta 8000'
+        });
+    },
+    logLevel: 'debug'
+}));
+
+// Proxy para WebSocket do backend Python
+app.use('/ws', createProxyMiddleware({
+    target: 'http://localhost:8000',
+    ws: true,
+    changeOrigin: true,
+    logLevel: 'debug'
+}));
+
+// Servir frontend da aplicação Excel
+app.get('/excel', (req, res) => {
+    try {
+        res.sendFile(path.join(__dirname, 'public', 'excel', 'index.html'));
+    } catch (e) {
+        res.status(404).send('Aplicação de carga não encontrada');
+    }
+});
+
+// ========================================
+// FIM ROTAS APLICAÇÃO DE CARGA EXCEL
+// ========================================
+
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         cb(null, 'uploads/');

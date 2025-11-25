@@ -321,9 +321,15 @@ window.PortalIcons = {
                 menu.appendChild(item);
             });
 
-            toggle.addEventListener('click', (e) => {
+            // Remover listeners antigos clonando o elemento
+            const newToggle = toggle.cloneNode(true);
+            toggle.parentNode.replaceChild(newToggle, toggle);
+            
+            newToggle.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                
+                console.log('[Icons] Toggle menuIcon clicado');
                 
                 const isOpen = menu.style.display === 'block';
                 
@@ -333,8 +339,10 @@ window.PortalIcons = {
                 
                 if (isOpen) {
                     menu.style.display = 'none';
+                    console.log('[Icons] Menu fechado');
                 } else {
                     menu.style.display = 'block';
+                    console.log('[Icons] Menu aberto');
                     
                     const closeHandler = (event) => {
                         if (!container.contains(event.target)) {
@@ -359,6 +367,11 @@ window.PortalIcons = {
             const menu = container.querySelector('#pageIconDropdownMenu');
             const toggle = container.querySelector('#pageIconDropdownToggle');
             const selected = container.querySelector('#pageIconDropdownSelected');
+            
+            console.log(`[Icons] buildPageIconPalette - Buscando elementos no container ${idx}`);
+            console.log('[Icons] Menu element:', menu);
+            console.log('[Icons] Toggle element:', toggle);
+            console.log('[Icons] Selected element:', selected);
             
             console.log(`[Icons] PageIcon Container ${idx}:`, {
                 menu: !!menu,
@@ -438,9 +451,15 @@ window.PortalIcons = {
                 menu.appendChild(item);
             });
 
-            toggle.addEventListener('click', (e) => {
+            // Remover listeners antigos clonando o elemento
+            const newToggle = toggle.cloneNode(true);
+            toggle.parentNode.replaceChild(newToggle, toggle);
+            
+            newToggle.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                
+                console.log('[Icons] Toggle pageIcon clicado');
                 
                 const isOpen = menu.style.display === 'block';
                 
@@ -450,8 +469,10 @@ window.PortalIcons = {
                 
                 if (isOpen) {
                     menu.style.display = 'none';
+                    console.log('[Icons] Page menu fechado');
                 } else {
                     menu.style.display = 'block';
+                    console.log('[Icons] Page menu aberto');
                     
                     const closeHandler = (event) => {
                         if (!container.contains(event.target)) {
@@ -476,6 +497,11 @@ window.PortalIcons = {
             const menu = container.querySelector('#homeIconDropdownMenu');
             const toggle = container.querySelector('#homeIconDropdownToggle');
             const selected = container.querySelector('#homeIconDropdownSelected');
+            
+            console.log(`[Icons] buildHomeIconPalette - Buscando elementos no container ${idx}`);
+            console.log('[Icons] Menu element:', menu);
+            console.log('[Icons] Toggle element:', toggle);
+            console.log('[Icons] Selected element:', selected);
             
             console.log(`[Icons] HomeIcon Container ${idx}:`, {
                 menu: !!menu,
@@ -555,9 +581,15 @@ window.PortalIcons = {
                 menu.appendChild(item);
             });
 
-            toggle.addEventListener('click', (e) => {
+            // Remover listeners antigos clonando o elemento
+            const newToggle = toggle.cloneNode(true);
+            toggle.parentNode.replaceChild(newToggle, toggle);
+            
+            newToggle.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                
+                console.log('[Icons] Toggle homeIcon clicado');
                 
                 const isOpen = menu.style.display === 'block';
                 
@@ -567,8 +599,10 @@ window.PortalIcons = {
                 
                 if (isOpen) {
                     menu.style.display = 'none';
+                    console.log('[Icons] Home menu fechado');
                 } else {
                     menu.style.display = 'block';
+                    console.log('[Icons] Home menu aberto');
                     
                     const closeHandler = (event) => {
                         if (!container.contains(event.target)) {
