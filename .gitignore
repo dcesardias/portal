@@ -1,3 +1,5 @@
 /iisnode
-/iisnode
-/iisnode
+/logs
+/__pycache__
+*.log
+*.pyc

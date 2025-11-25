@@ -1,6 +1,20 @@
 # install-service.ps1
 # Script para instalar o backend Python da aplicação de carga como serviço Windows
 
+<#
+Uso:
+    .\install-excel-service.ps1
+    .\install-excel-service.ps1 -BackendPathOverride "C:\caminho\para\backend"
+
+Você também pode definir a variável de ambiente EXCEL_BACKEND_PATH para evitar editar o script:
+    $env:EXCEL_BACKEND_PATH = 'C:\caminho\para\backend'
+    .\install-excel-service.ps1
+#>
+
+param(
+        [string]$BackendPathOverride = $env:EXCEL_BACKEND_PATH
+)
+
 Write-Host "=== Instalação do Serviço CargaExcel Backend ===" -ForegroundColor Cyan
 
 # Verificar se está executando como Administrador
@@ -13,7 +27,18 @@ if (-not $isAdmin) {
 }
 
 # Caminhos
-$backendPath = "C:\Users\dcesar\OneDrive - AACD\Documentos\GitHub\carga_adp\backend"
+$defaultBackendPath = "C:\Users\dcesar\OneDrive - AACD\Documentos\GitHub\carga_adp\backend"
+
+# Se o usuário forneceu um caminho via parâmetro ou variável de ambiente, use-o.
+if ($BackendPathOverride) {
+    # Não falhar automaticamente se o caminho não existir — só avisar. O script
+    # continuará e Test-Path verificará os arquivos específicos depois.
+    Write-Host "ℹ️  Usando BackendPathOverride: $BackendPathOverride" -ForegroundColor Cyan
+    $backendPath = $BackendPathOverride
+} else {
+    $backendPath = $defaultBackendPath
+}
+
 $pythonExe = "$backendPath\venv\Scripts\python.exe"
 $mainPy = "$backendPath\main.py"
 $serviceName = "CargaExcel_Backend"

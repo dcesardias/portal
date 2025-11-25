@@ -10,6 +10,14 @@ Clique com botão direito no **PowerShell** e selecione **"Executar como Adminis
 
 ```powershell
 cd "C:\Users\dcesar\OneDrive - AACD\Documentos\GitHub\portal"
+# Opção A: usar o caminho padrão embutido no script
+.\install-excel-service.ps1
+
+# Opção B: passar um caminho personalizado sem editar o script
+.\install-excel-service.ps1 -BackendPathOverride "C:\caminho\para\carga_adp\backend"
+
+# Opção C: exportar variável de ambiente e executar
+$env:EXCEL_BACKEND_PATH = 'C:\caminho\para\carga_adp\backend'
 .\install-excel-service.ps1
 ```
 
