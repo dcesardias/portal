@@ -1,0 +1,918 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/excel/database.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sistema de Carga de Dados</title>
+    <!-- Configuração de URLs para integração no portal -->
+    <script src="/excel/config.js"></script>
+    <script type="module" crossorigin src="/excel/index-B_FJmS8A.js"></script>
+    <link rel="stylesheet" crossorigin href="/excel/index-DScDQ4JP.css">
+  </head>
+  <body>
+    <div id="root"></div>
+    
+    <!-- Script para integrar Tabela Temporária na segunda coluna -->
+    <script>
+      let tempCurrentFile = null;
+      let tempAnalysisData = null;
+      
+      // Monitora quando "Tabela Temporária" é selecionada
+      window.addEventListener('DOMContentLoaded', () => {
+        const checkInterval = setInterval(() => {
+          const root = document.getElementById('root');
+          if (!root) return;
+          
+          // Procura por cliques em elementos que possam ser a tabela TABELA_TEMPORARIA
+          const observer = new MutationObserver(() => {
+            // Procura pela segunda coluna (área de upload/config)
+            const containers = root.querySelectorAll('div');
+            containers.forEach(container => {
+              // Verifica se este container tem conteúdo relacionado a upload
+              const hasUploadContent = container.innerHTML && (
+                container.innerHTML.includes('Carga Completa') ||
+                container.innerHTML.includes('Carga Incremental') ||
+                container.innerHTML.includes('upload') ||
+                container.innerHTML.includes('Arraste')
+              );
+              
+              if (hasUploadContent && !container.querySelector('#temp-table-name-input')) {
+                // Verifica se TABELA_TEMPORARIA está selecionada checando elementos visíveis
+                const allText = root.innerText || '';
+                if (allText.includes('Tabela Temporária') || allText.includes('TABELA_TEMPORARIA')) {
+                  injectTemporaryTableUI(container);
+                }
+              }
+            });
+          });
+          
+          observer.observe(root, { childList: true, subtree: true });
+          
+          // Também observa cliques
+          root.addEventListener('click', (e) => {
+            setTimeout(() => {
+              const allText = root.innerText || '';
+              if (allText.includes('Tabela Temporária')) {
+                const containers = root.querySelectorAll('div');
+                containers.forEach(container => {
+                  const hasUploadContent = container.innerHTML && (
+                    container.innerHTML.includes('upload') ||
+                    container.innerHTML.includes('Arraste') ||
+                    container.innerHTML.includes('Selecione')
+                  );
+                  if (hasUploadContent && !container.querySelector('#temp-table-name-input')) {
+                    injectTemporaryTableUI(container);
+                  }
+                });
+              }
+            }, 100);
+          });
+          
+        }, 1000);
+      });
+      
+      function injectTemporaryTableUI(container) {
+        // Limpa o conteúdo atual
+        container.innerHTML = '';
+        
+        // Cria a UI personalizada para tabela temporária
+        const tempUI = document.createElement('div');
+        tempUI.id = 'temp-table-custom-content';
+        tempUI.innerHTML = `
+          <style>
+            #temp-table-custom-content {
+              padding: 20px;
+            }
+            #temp-table-custom-content h3 {
+              color: #667eea;
+              margin-bottom: 20px;
+              font-size: 1.5em;
+            }
+            #temp-table-custom-content .form-group {
+              margin-bottom: 20px;
+            }
+            #temp-table-custom-content label {
+              display: block;
+              margin-bottom: 8px;
+              font-weight: 600;
+              color: #333;
+            }
+            #temp-table-custom-content input[type="text"] {
+              width: 100%;
+              padding: 12px;
+              border: 2px solid #667eea;
+              border-radius: 8px;
+              font-size: 1em;
+              box-sizing: border-box;
+            }
+            #temp-table-custom-content .upload-area {
+              border: 3px dashed #667eea;
+              border-radius: 15px;
+              padding: 40px;
+              text-align: center;
+              background: #f8f9ff;
+              cursor: pointer;
+              transition: all 0.3s;
+              margin-bottom: 20px;
+            }
+            #temp-table-custom-content .upload-area:hover {
+              border-color: #764ba2;
+              background: #f0f1ff;
+              transform: scale(1.02);
+            }
+            #temp-table-custom-content .upload-area.dragover {
+              border-color: #764ba2;
+              background: #e8e9ff;
+            }
+            #temp-table-custom-content .upload-icon {
+              font-size: 3em;
+              margin-bottom: 15px;
+            }
+            #temp-table-custom-content .btn-upload {
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              color: white;
+              border: none;
+              padding: 12px 30px;
+              border-radius: 8px;
+              font-size: 1em;
+              cursor: pointer;
+              transition: transform 0.2s;
+              margin-top: 15px;
+            }
+            #temp-table-custom-content .btn-upload:hover {
+              transform: translateY(-2px);
+              box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+            }
+            #temp-table-custom-content .btn-upload:disabled {
+              opacity: 0.5;
+              cursor: not-allowed;
+            }
+            #temp-table-custom-content input[type="file"] {
+              display: none;
+            }
+            #temp-table-custom-content .alert {
+              padding: 12px;
+              border-radius: 8px;
+              margin-bottom: 15px;
+              display: none;
+            }
+            #temp-table-custom-content .alert.success {
+              background: #d4edda;
+              color: #155724;
+              border: 1px solid #c3e6cb;
+            }
+            #temp-table-custom-content .alert.error {
+              background: #f8d7da;
+              color: #721c24;
+              border: 1px solid #f5c6cb;
+            }
+            #temp-table-custom-content .progress-bar {
+              width: 100%;
+              height: 25px;
+              background: #eee;
+              border-radius: 15px;
+              overflow: hidden;
+              margin-bottom: 15px;
+              display: none;
+            }
+            #temp-table-custom-content .progress-fill {
+              height: 100%;
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              width: 0%;
+              transition: width 0.3s;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              color: white;
+              font-weight: bold;
+              font-size: 0.9em;
+            }
+          </style>
+          
+          <h3>📊 Tabela Temporária</h3>
+          
+          <div class="alert" id="temp-inline-alert"></div>
+          <div class="progress-bar" id="temp-inline-progress">
+            <div class="progress-fill" id="temp-inline-progress-fill">0%</div>
+          </div>
+          
+          <div class="form-group">
+            <label for="temp-table-name-input">Nome da Tabela:</label>
+            <input 
+              type="text" 
+              id="temp-table-name-input" 
+              placeholder="Digite o nome (será criada como TEMP_SeuNome)"
+            />
+            <small style="color: #666; display: block; margin-top: 5px;">
+              Use apenas letras, números e underscore (_)
+            </small>
+          </div>
+          
+          <div class="form-group">
+            <label>Arquivo Excel:</label>
+            <div class="upload-area" id="temp-inline-upload-area">
+              <div class="upload-icon">📁</div>
+              <h4 style="margin: 0 0 10px 0;">Arraste seu arquivo Excel aqui</h4>
+              <p style="margin: 10px 0;">ou</p>
+              <button class="btn-upload" onclick="document.getElementById('temp-inline-file-input').click()">
+                Selecionar Arquivo
+              </button>
+              <input type="file" id="temp-inline-file-input" accept=".xlsx,.xls">
+              <p style="margin-top: 15px; color: #999; font-size: 0.9em;">
+                Formatos aceitos: .xlsx, .xls
+              </p>
+            </div>
+            <div id="temp-file-info" style="display: none; padding: 10px; background: #e8f5e9; border-radius: 8px; margin-top: 10px;">
+              <strong>Arquivo selecionado:</strong> <span id="temp-file-name"></span>
+            </div>
+          </div>
+          
+          <button class="btn-upload" id="temp-load-btn" onclick="window.loadTemporaryTable()" style="width: 100%;" disabled>
+            Carregar Excel no Banco
+          </button>
+        `;
+        
+        container.appendChild(tempUI);
+        
+        // Configura eventos
+        const uploadArea = document.getElementById('temp-inline-upload-area');
+        const fileInput = document.getElementById('temp-inline-file-input');
+        const loadBtn = document.getElementById('temp-load-btn');
+        const tableNameInput = document.getElementById('temp-table-name-input');
+        
+        uploadArea.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+          uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+          e.preventDefault();
+          uploadArea.classList.remove('dragover');
+          const files = e.dataTransfer.files;
+          if (files.length > 0) {
+            handleTempFileSelection(files[0]);
+          }
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+          if (e.target.files.length > 0) {
+            handleTempFileSelection(e.target.files[0]);
+          }
+        });
+        
+        tableNameInput.addEventListener('input', () => {
+          checkCanLoad();
+        });
+        
+        function checkCanLoad() {
+          const hasFile = tempCurrentFile !== null;
+          const hasName = tableNameInput.value.trim().length > 0;
+          loadBtn.disabled = !(hasFile && hasName);
+        }
+        
+        function handleTempFileSelection(file) {
+          if (!file.name.match(/\.(xlsx|xls)$/i)) {
+            showInlineAlert('Por favor, selecione um arquivo Excel válido (.xlsx ou .xls)', 'error');
+            return;
+          }
+          
+          tempCurrentFile = file;
+          document.getElementById('temp-file-name').textContent = file.name;
+          document.getElementById('temp-file-info').style.display = 'block';
+          
+          // Sugere nome baseado no arquivo
+          if (!tableNameInput.value) {
+            const suggestedName = file.name.replace(/\.(xlsx|xls)$/i, '').replace(/[^a-zA-Z0-9_]/g, '_');
+            tableNameInput.value = suggestedName;
+          }
+          
+          checkCanLoad();
+        }
+      }
+      
+      function showInlineAlert(message, type = 'error') {
+        const alert = document.getElementById('temp-inline-alert');
+        if (!alert) return;
+        alert.textContent = message;
+        alert.className = `alert ${type}`;
+        alert.style.display = 'block';
+        setTimeout(() => {
+          alert.style.display = 'none';
+        }, 5000);
+      }
+      
+      function setInlineProgress(percent) {
+        const progressBar = document.getElementById('temp-inline-progress');
+        const progressFill = document.getElementById('temp-inline-progress-fill');
+        if (!progressBar || !progressFill) return;
+        progressBar.style.display = 'block';
+        progressFill.style.width = percent + '%';
+        progressFill.textContent = Math.round(percent) + '%';
+      }
+      
+      function hideInlineProgress() {
+        const progressBar = document.getElementById('temp-inline-progress');
+        if (progressBar) progressBar.style.display = 'none';
+      }
+      
+      window.loadTemporaryTable = async function() {
+        const tableNameInput = document.getElementById('temp-table-name-input');
+        const tableName = tableNameInput.value.trim();
+        const loadBtn = document.getElementById('temp-load-btn');
+        
+        if (!tableName) {
+          showInlineAlert('Por favor, digite um nome para a tabela', 'error');
+          return;
+        }
+        
+        if (!/^[a-zA-Z0-9_]+$/.test(tableName)) {
+          showInlineAlert('Nome da tabela deve conter apenas letras, números e underscore', 'error');
+          return;
+        }
+        
+        if (!tempCurrentFile) {
+          showInlineAlert('Por favor, selecione um arquivo Excel', 'error');
+          return;
+        }
+        
+        loadBtn.disabled = true;
+        showInlineAlert('Carregando dados no banco...', 'success');
+        setInlineProgress(10);
+        
+        const formData = new FormData();
+        formData.append('file', tempCurrentFile);
+        formData.append('table_name', tableName);
+        
+        try {
+          setInlineProgress(30);
+          const response = await fetch('/api/excel/load-custom-excel', {
+            method: 'POST',
+            body: formData
+          });
+          
+          setInlineProgress(80);
+          
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || response.statusText);
+          }
+          
+          const result = await response.json();
+          setInlineProgress(100);
+          showInlineAlert(`✅ Sucesso! Tabela ${result.table_name} criada com ${result.rows_inserted || result.rows_loaded || 'N'} linhas`, 'success');
+          
+          // Limpa após 3 segundos
+          setTimeout(() => {
+            tempCurrentFile = null;
+            tableNameInput.value = '';
+            document.getElementById('temp-inline-file-input').value = '';
+            document.getElementById('temp-file-info').style.display = 'none';
+            loadBtn.disabled = true;
+            hideInlineProgress();
+          }, 3000);
+          
+        } catch (error) {
+          console.error('Erro:', error);
+          showInlineAlert('Erro ao carregar dados: ' + error.message, 'error');
+          loadBtn.disabled = false;
+          hideInlineProgress();
+        }
+      };
+    </script>
+  </body>
+      <style>
+        #temp-table-modal {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0, 0, 0, 0.7);
+          z-index: 10000;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+        }
+        
+        #temp-table-modal .modal-container {
+          background: white;
+          border-radius: 20px;
+          max-width: 900px;
+          width: 100%;
+          max-height: 90vh;
+          overflow-y: auto;
+          padding: 40px;
+          position: relative;
+        }
+        
+        #temp-table-modal .modal-close {
+          position: absolute;
+          top: 20px;
+          right: 20px;
+          background: #f44336;
+          color: white;
+          border: none;
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          font-size: 24px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: transform 0.2s;
+        }
+        
+        #temp-table-modal .modal-close:hover {
+          transform: scale(1.1);
+        }
+        
+        #temp-table-modal h1 {
+          color: #667eea;
+          margin-bottom: 10px;
+          font-size: 2em;
+        }
+        
+        #temp-table-modal .subtitle {
+          color: #666;
+          margin-bottom: 30px;
+        }
+        
+        #temp-table-modal .upload-section {
+          border: 3px dashed #667eea;
+          border-radius: 15px;
+          padding: 40px;
+          text-align: center;
+          margin-bottom: 30px;
+          background: #f8f9ff;
+          cursor: pointer;
+          transition: all 0.3s;
+        }
+        
+        #temp-table-modal .upload-section:hover {
+          border-color: #764ba2;
+          background: #f0f1ff;
+        }
+        
+        #temp-table-modal .upload-section.dragover {
+          border-color: #764ba2;
+          background: #e8e9ff;
+          transform: scale(1.02);
+        }
+        
+        #temp-table-modal .upload-icon {
+          font-size: 4em;
+          margin-bottom: 20px;
+        }
+        
+        #temp-table-modal input[type="file"] {
+          display: none;
+        }
+        
+        #temp-table-modal .btn {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          border: none;
+          padding: 12px 30px;
+          border-radius: 8px;
+          font-size: 1em;
+          cursor: pointer;
+          transition: transform 0.2s;
+          margin-top: 15px;
+        }
+        
+        #temp-table-modal .btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        #temp-table-modal .btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        
+        #temp-table-modal .analysis-section {
+          display: none;
+          margin-top: 30px;
+        }
+        
+        #temp-table-modal .stats {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 15px;
+          margin-bottom: 30px;
+        }
+        
+        #temp-table-modal .stat-card {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          padding: 20px;
+          border-radius: 10px;
+          text-align: center;
+        }
+        
+        #temp-table-modal .stat-value {
+          font-size: 2em;
+          font-weight: bold;
+          margin-bottom: 5px;
+        }
+        
+        #temp-table-modal .stat-label {
+          opacity: 0.9;
+        }
+        
+        #temp-table-modal .columns-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 20px;
+          overflow: hidden;
+          border-radius: 10px;
+        }
+        
+        #temp-table-modal .columns-table th {
+          background: #667eea;
+          color: white;
+          padding: 15px;
+          text-align: left;
+        }
+        
+        #temp-table-modal .columns-table td {
+          padding: 12px 15px;
+          border-bottom: 1px solid #eee;
+        }
+        
+        #temp-table-modal .columns-table tr:hover {
+          background: #f8f9ff;
+        }
+        
+        #temp-table-modal select {
+          width: 100%;
+          padding: 8px;
+          border: 2px solid #667eea;
+          border-radius: 5px;
+          font-size: 0.9em;
+        }
+        
+        #temp-table-modal .table-name-input {
+          width: 100%;
+          padding: 12px;
+          border: 2px solid #667eea;
+          border-radius: 8px;
+          font-size: 1em;
+          margin-bottom: 20px;
+        }
+        
+        #temp-table-modal .alert {
+          padding: 15px;
+          border-radius: 8px;
+          margin-bottom: 20px;
+          display: none;
+        }
+        
+        #temp-table-modal .alert.success {
+          background: #d4edda;
+          color: #155724;
+          border: 1px solid #c3e6cb;
+        }
+        
+        #temp-table-modal .alert.error {
+          background: #f8d7da;
+          color: #721c24;
+          border: 1px solid #f5c6cb;
+        }
+        
+        #temp-table-modal .progress-bar {
+          width: 100%;
+          height: 30px;
+          background: #eee;
+          border-radius: 15px;
+          overflow: hidden;
+          margin-bottom: 20px;
+          display: none;
+        }
+        
+        #temp-table-modal .progress-fill {
+          height: 100%;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          width: 0%;
+          transition: width 0.3s;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          font-weight: bold;
+        }
+        
+        #temp-table-modal .back-btn {
+          background: #6c757d;
+          margin-right: 10px;
+        }
+        
+        #temp-table-modal .sample-values {
+          font-size: 0.85em;
+          color: #666;
+          font-style: italic;
+        }
+      </style>
+      
+      <div class="modal-container">
+        <button class="modal-close" onclick="window.closeTempTableModal()">×</button>
+        
+        <h1>📊 Tabela Temporária</h1>
+        <p class="subtitle">Faça upload de um arquivo Excel e crie uma tabela temporária no banco de dados</p>
+
+        <div class="alert" id="temp-alert"></div>
+        <div class="progress-bar" id="temp-progressBar">
+          <div class="progress-fill" id="temp-progressFill">0%</div>
+        </div>
+
+        <div class="upload-section" id="temp-uploadSection">
+          <div class="upload-icon">📁</div>
+          <h3>Arraste seu arquivo Excel aqui</h3>
+          <p>ou</p>
+          <button class="btn" onclick="document.getElementById('temp-fileInput').click()">Selecionar Arquivo</button>
+          <input type="file" id="temp-fileInput" accept=".xlsx,.xls">
+          <p style="margin-top: 15px; color: #999;">Formatos aceitos: .xlsx, .xls</p>
+        </div>
+
+        <div class="analysis-section" id="temp-analysisSection">
+          <h2 style="color: #667eea; margin-bottom: 20px;">📊 Análise do Arquivo</h2>
+          
+          <div class="stats" id="temp-stats"></div>
+
+          <h3 style="color: #667eea; margin-bottom: 15px;">Configure as Colunas:</h3>
+          <table class="columns-table" id="temp-columnsTable">
+            <thead>
+              <tr>
+                <th>Coluna</th>
+                <th>Tipo Detectado</th>
+                <th>Tipo SQL</th>
+                <th>Valores de Exemplo</th>
+              </tr>
+            </thead>
+            <tbody id="temp-columnsBody"></tbody>
+          </table>
+
+          <h3 style="color: #667eea; margin-bottom: 15px;">Nome da Tabela:</h3>
+          <input type="text" class="table-name-input" id="temp-tableName" placeholder="Digite o nome (será criada como TEMP_SeuNome)">
+
+          <div style="text-align: center;">
+            <button class="btn back-btn" onclick="window.resetTempUpload()">← Voltar</button>
+            <button class="btn" id="temp-loadBtn" onclick="window.loadTempExcel()">Carregar Excel no Banco</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Botão Fixo Tabela Temporária -->
+    <button id="temp-table-fixed-btn" onclick="window.openTempTableModal()" style="
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 9999;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 16px 28px;
+      border-radius: 50px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 600;
+      box-shadow: 0 4px 20px rgba(102, 126, 234, 0.5);
+      transition: all 0.3s ease;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    ">
+      📊 Tabela Temporária
+    </button>
+    
+    <!-- Script Tabela Temporária -->
+    <script>
+      let tempCurrentFile = null;
+      let tempAnalysisData = null;
+      
+      window.openTempTableModal = function() {
+        document.getElementById('temp-table-modal').style.display = 'flex';
+        window.resetTempUpload();
+      };
+      
+      window.closeTempTableModal = function() {
+        document.getElementById('temp-table-modal').style.display = 'none';
+        window.resetTempUpload();
+      };
+      
+      window.addEventListener('DOMContentLoaded', () => {
+        const uploadSection = document.getElementById('temp-uploadSection');
+        const fixedBtn = document.getElementById('temp-table-fixed-btn');
+        
+        // Hover effect no botão fixo
+        fixedBtn.addEventListener('mouseenter', () => {
+          fixedBtn.style.transform = 'translateY(-3px) scale(1.05)';
+          fixedBtn.style.boxShadow = '0 6px 25px rgba(102, 126, 234, 0.7)';
+        });
+        
+        fixedBtn.addEventListener('mouseleave', () => {
+          fixedBtn.style.transform = 'translateY(0) scale(1)';
+          fixedBtn.style.boxShadow = '0 4px 20px rgba(102, 126, 234, 0.5)';
+        });
+        
+        uploadSection.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          uploadSection.classList.add('dragover');
+        });
+        
+        uploadSection.addEventListener('dragleave', () => {
+          uploadSection.classList.remove('dragover');
+        });
+        
+        uploadSection.addEventListener('drop', (e) => {
+          e.preventDefault();
+          uploadSection.classList.remove('dragover');
+          const files = e.dataTransfer.files;
+          if (files.length > 0) {
+            window.handleTempFile(files[0]);
+          }
+        });
+        
+        document.getElementById('temp-fileInput').addEventListener('change', (e) => {
+          if (e.target.files.length > 0) {
+            window.handleTempFile(e.target.files[0]);
+          }
+        });
+      });
+      
+      window.showTempAlert = function(message, type = 'error') {
+        const alert = document.getElementById('temp-alert');
+        alert.textContent = message;
+        alert.className = `alert ${type}`;
+        alert.style.display = 'block';
+        setTimeout(() => {
+          alert.style.display = 'none';
+        }, 5000);
+      };
+      
+      window.setTempProgress = function(percent) {
+        const progressBar = document.getElementById('temp-progressBar');
+        const progressFill = document.getElementById('temp-progressFill');
+        progressBar.style.display = 'block';
+        progressFill.style.width = percent + '%';
+        progressFill.textContent = Math.round(percent) + '%';
+      };
+      
+      window.hideTempProgress = function() {
+        document.getElementById('temp-progressBar').style.display = 'none';
+      };
+      
+      window.handleTempFile = async function(file) {
+        if (!file.name.match(/\.(xlsx|xls)$/i)) {
+          window.showTempAlert('Por favor, selecione um arquivo Excel válido (.xlsx ou .xls)');
+          return;
+        }
+        
+        tempCurrentFile = file;
+        window.showTempAlert('Analisando arquivo...', 'success');
+        window.setTempProgress(30);
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        try {
+          const response = await fetch('/api/excel/analyze-excel', {
+            method: 'POST',
+            body: formData
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Erro ao analisar arquivo: ${response.statusText}`);
+          }
+          
+          tempAnalysisData = await response.json();
+          window.setTempProgress(100);
+          window.displayTempAnalysis(tempAnalysisData);
+          window.hideTempProgress();
+        } catch (error) {
+          console.error('Erro:', error);
+          window.showTempAlert('Erro ao analisar arquivo: ' + error.message);
+          window.hideTempProgress();
+        }
+      };
+      
+      window.displayTempAnalysis = function(data) {
+        const statsHtml = `
+          <div class="stat-card">
+            <div class="stat-value">${data.rows}</div>
+            <div class="stat-label">Linhas</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">${data.columns.length}</div>
+            <div class="stat-label">Colunas</div>
+          </div>
+        `;
+        document.getElementById('temp-stats').innerHTML = statsHtml;
+        
+        const columnsHtml = data.columns.map((col, index) => `
+          <tr>
+            <td><strong>${col.name}</strong></td>
+            <td>${col.pandas_type}</td>
+            <td>
+              <select id="temp-sqlType_${index}">
+                <option value="INT" ${col.sql_type === 'INT' ? 'selected' : ''}>INT</option>
+                <option value="BIGINT" ${col.sql_type === 'BIGINT' ? 'selected' : ''}>BIGINT</option>
+                <option value="FLOAT" ${col.sql_type === 'FLOAT' ? 'selected' : ''}>FLOAT</option>
+                <option value="DATETIME" ${col.sql_type === 'DATETIME' ? 'selected' : ''}>DATETIME</option>
+                <option value="DATE" ${col.sql_type === 'DATE' ? 'selected' : ''}>DATE</option>
+                <option value="BIT" ${col.sql_type === 'BIT' ? 'selected' : ''}>BIT (0/1)</option>
+                <option value="NVARCHAR(50)" ${col.sql_type === 'NVARCHAR(50)' ? 'selected' : ''}>NVARCHAR(50)</option>
+                <option value="NVARCHAR(100)" ${col.sql_type === 'NVARCHAR(100)' ? 'selected' : ''}>NVARCHAR(100)</option>
+                <option value="NVARCHAR(255)" ${col.sql_type === 'NVARCHAR(255)' ? 'selected' : ''}>NVARCHAR(255)</option>
+                <option value="NVARCHAR(MAX)" ${col.sql_type === 'NVARCHAR(MAX)' ? 'selected' : ''}>NVARCHAR(MAX)</option>
+              </select>
+            </td>
+            <td class="sample-values">${col.sample_values.slice(0, 3).join(', ')}</td>
+          </tr>
+        `).join('');
+        document.getElementById('temp-columnsBody').innerHTML = columnsHtml;
+        
+        const suggestedName = tempCurrentFile.name.replace(/\.(xlsx|xls)$/i, '').replace(/[^a-zA-Z0-9_]/g, '_');
+        document.getElementById('temp-tableName').value = suggestedName;
+        
+        document.getElementById('temp-uploadSection').style.display = 'none';
+        document.getElementById('temp-analysisSection').style.display = 'block';
+      };
+      
+      window.loadTempExcel = async function() {
+        const tableName = document.getElementById('temp-tableName').value.trim();
+        
+        if (!tableName) {
+          window.showTempAlert('Por favor, digite um nome para a tabela');
+          return;
+        }
+        
+        if (!/^[a-zA-Z0-9_]+$/.test(tableName)) {
+          window.showTempAlert('Nome da tabela deve conter apenas letras, números e underscore');
+          return;
+        }
+        
+        const columns = tempAnalysisData.columns.map((col, index) => ({
+          name: col.name,
+          sql_type: document.getElementById(`temp-sqlType_${index}`).value
+        }));
+        
+        const loadBtn = document.getElementById('temp-loadBtn');
+        loadBtn.disabled = true;
+        window.showTempAlert('Carregando dados no banco...', 'success');
+        window.setTempProgress(0);
+        
+        const formData = new FormData();
+        formData.append('file', tempCurrentFile);
+        formData.append('table_name', tableName);
+        formData.append('columns', JSON.stringify(columns));
+        
+        try {
+          const response = await fetch('/api/excel/load-custom-excel', {
+            method: 'POST',
+            body: formData
+          });
+          
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || response.statusText);
+          }
+          
+          const result = await response.json();
+          window.setTempProgress(100);
+          window.showTempAlert(`✅ Sucesso! Tabela ${result.table_name} criada com ${result.rows_inserted} linhas`, 'success');
+          
+          setTimeout(() => {
+            window.closeTempTableModal();
+          }, 3000);
+          
+        } catch (error) {
+          console.error('Erro:', error);
+          window.showTempAlert('Erro ao carregar dados: ' + error.message);
+          loadBtn.disabled = false;
+        } finally {
+          window.hideTempProgress();
+        }
+      };
+      
+      window.resetTempUpload = function() {
+        tempCurrentFile = null;
+        tempAnalysisData = null;
+        document.getElementById('temp-fileInput').value = '';
+        document.getElementById('temp-uploadSection').style.display = 'block';
+        document.getElementById('temp-analysisSection').style.display = 'none';
+        document.getElementById('temp-loadBtn').disabled = false;
+        window.hideTempProgress();
+      };
+    </script>
+  </body>
+</html>

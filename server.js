@@ -48,47 +48,18 @@ app.get(['/chatbot', '/chatbot/'], (req, res) => {
 // ROTAS PARA APLICAÇÃO DE CARGA EXCEL
 // ========================================
 
-// Proxy para o backend Python (FastAPI) da aplicação de carga
-const { createProxyMiddleware } = require('http-proxy-middleware');
+const XLSX = require('xlsx');
 
-// Proxy para API do backend Python (assumindo que roda na porta 8000)
-app.use('/api/excel', createProxyMiddleware({
-    target: 'http://localhost:8000',
-    changeOrigin: true,
-    pathRewrite: {
-        '^/api/excel': '/api'
-    },
-    onError: (err, req, res) => {
-        console.error('[EXCEL PROXY] Erro:', err.message);
-        res.status(502).json({ 
-            error: 'Backend Python não está disponível',
-            message: 'Certifique-se de que o servidor FastAPI está rodando na porta 8000'
-        });
-    },
-    logLevel: 'debug'
-}));
-
-// Proxy para WebSocket do backend Python
-const wsProxy = createProxyMiddleware({
-    target: 'http://localhost:8000',
-    ws: true,
-    changeOrigin: true,
-    logLevel: 'debug',
-    onError: (err, req, res) => {
-        console.error('[WS PROXY] Erro:', err.message);
-    },
-    onProxyReqWs: (proxyReq, req, socket, options, head) => {
-        console.log('[WS PROXY] WebSocket request:', req.url);
-    },
-    onOpen: (proxySocket) => {
-        console.log('[WS PROXY] WebSocket opened');
-    },
-    onClose: (res, socket, head) => {
-        console.log('[WS PROXY] WebSocket closed');
-    }
-});
-
-app.use('/ws', wsProxy);
+// Mapeamento de tabelas disponíveis para carga
+const TABELAS_DISPONIVEIS = {
+    'AFASTAMENTO': { nome: 'Afastamentos', descricao: 'Dados de afastamentos de funcionários', icone: '🏥' },
+    'FERIAS': { nome: 'Férias', descricao: 'Registros de férias', icone: '🏖️' },
+    'MATRICULA': { nome: 'Matrículas', descricao: 'Dados de matrículas de funcionários', icone: '👤' },
+    'MOVIMENTO_PESSOAL': { nome: 'Movimento Pessoal', descricao: 'Movimentações de pessoal', icone: '📋' },
+    'MOVIMENTO_PESSOAL_CC': { nome: 'Movimento Pessoal CC', descricao: 'Movimentações de pessoal - Centro de Custo', icone: '💼' },
+    'ADP_BENEFICIOS': { nome: 'ADP Benefícios', descricao: 'Dados de benefícios ADP', icone: '🎁' },
+    'ADP_MOTIVO_RESCISAO': { nome: 'ADP Motivo Rescisão', descricao: 'Motivos de rescisão ADP', icone: '📄' }
+};
 
 // Servir frontend da aplicação Excel
 app.get('/excel', (req, res) => {
@@ -99,12 +70,365 @@ app.get('/excel', (req, res) => {
     }
 });
 
-// Servir página de Tabela Temporária
-app.get('/excel/temp-table', (req, res) => {
+// Listar tabelas disponíveis
+app.get('/api/excel/tabelas', (req, res) => {
+    res.json({ tabelas: TABELAS_DISPONIVEIS });
+});
+
+// Obter informações de uma tabela específica
+app.get('/api/excel/tabelas/:tabela/info', async (req, res) => {
+    const { tabela } = req.params;
+    
+    if (!TABELAS_DISPONIVEIS[tabela]) {
+        return res.status(404).json({ error: 'Tabela não encontrada' });
+    }
+    
     try {
-        res.sendFile(path.join(__dirname, 'public', 'excel', 'temp-table.html'));
+        if (!poolFonte || !poolFonte.connected) {
+            return res.status(503).json({ error: 'Banco Fonte não conectado' });
+        }
+        
+        const result = await poolFonte.request()
+            .input('tabela', sql.NVarChar, tabela)
+            .query(`SELECT COUNT(*) as total FROM dbo.${tabela}`);
+        
+        res.json({
+            tabela: tabela,
+            info: TABELAS_DISPONIVEIS[tabela],
+            total_registros: result.recordset[0].total
+        });
+    } catch (err) {
+        console.error('Erro ao obter info da tabela:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Baixar modelo Excel de uma tabela
+app.get('/api/excel/modelo/:tabela', async (req, res) => {
+    const { tabela } = req.params;
+    
+    if (!TABELAS_DISPONIVEIS[tabela]) {
+        return res.status(404).json({ error: 'Tabela não encontrada' });
+    }
+    
+    try {
+        if (!poolFonte || !poolFonte.connected) {
+            return res.status(503).json({ error: 'Banco Fonte não conectado' });
+        }
+        
+        // Obter estrutura da tabela
+        const schemaResult = await poolFonte.request().query(`
+            SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_NAME = '${tabela}'
+            ORDER BY ORDINAL_POSITION
+        `);
+        
+        const columns = schemaResult.recordset.filter(col => col.COLUMN_NAME !== 'Id');
+        
+        // Criar workbook com XLSX
+        const workbook = XLSX.utils.book_new();
+        
+        // Criar dados de exemplo (header + 1 linha de exemplo)
+        const headers = columns.map(c => c.COLUMN_NAME);
+        const exampleRow = columns.map(c => {
+            switch (c.DATA_TYPE.toLowerCase()) {
+                case 'int':
+                case 'bigint':
+                    return 123;
+                case 'decimal':
+                case 'float':
+                case 'money':
+                    return 123.45;
+                case 'datetime':
+                case 'datetime2':
+                case 'date':
+                    return '2025-01-01';
+                case 'bit':
+                    return 1;
+                default:
+                    return 'Exemplo';
+            }
+        });
+        
+        const worksheetData = [headers, exampleRow];
+        const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+        
+        // Ajustar largura das colunas
+        worksheet['!cols'] = headers.map(() => ({ wch: 15 }));
+        
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Dados');
+        
+        // Gerar buffer
+        const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+        
+        // Enviar arquivo
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="Modelo_${tabela}.xlsx"`);
+        res.send(buffer);
+        
+    } catch (err) {
+        console.error('Erro ao gerar modelo:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Configuração do multer para upload de arquivos Excel
+const excelStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const excelUploads = path.join(__dirname, 'uploads', 'excel');
+        if (!fs.existsSync(excelUploads)) {
+            fs.mkdirSync(excelUploads, { recursive: true });
+        }
+        cb(null, excelUploads);
+    },
+    filename: (req, file, cb) => {
+        const ext = path.extname(file.originalname);
+        cb(null, `upload-${Date.now()}${ext}`);
+    }
+});
+
+const uploadExcel = multer({
+    storage: excelStorage,
+    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+    fileFilter: (req, file, cb) => {
+        const ext = path.extname(file.originalname).toLowerCase();
+        if (ext === '.xlsx' || ext === '.xls') {
+            cb(null, true);
+        } else {
+            cb(new Error('Apenas arquivos Excel (.xlsx ou .xls) são permitidos'));
+        }
+    }
+});
+
+// Função auxiliar para converter tipos de dados
+function convertToSqlType(value, sqlType) {
+    if (value === null || value === undefined || value === '') {
+        return null;
+    }
+    
+    try {
+        switch (sqlType) {
+            case 'int':
+                return parseInt(value);
+            case 'bigint':
+                return parseInt(value);
+            case 'float':
+            case 'decimal':
+                return parseFloat(value);
+            case 'datetime':
+            case 'datetime2':
+            case 'date':
+                if (value instanceof Date) return value;
+                const dateValue = new Date(value);
+                return isNaN(dateValue.getTime()) ? null : dateValue;
+            default:
+                return String(value);
+        }
     } catch (e) {
-        res.status(404).send('Página de tabela temporária não encontrada');
+        return null;
+    }
+}
+
+// Upload e processamento de arquivo Excel para tabela predefinida
+app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, res) => {
+    const { tabela } = req.params;
+    const tipoCarga = req.body.tipo_carga || 'completa';
+    
+    if (!TABELAS_DISPONIVEIS[tabela]) {
+        return res.status(404).json({ error: 'Tabela não encontrada' });
+    }
+    
+    if (!req.file) {
+        return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+    }
+    
+    try {
+        if (!poolFonte || !poolFonte.connected) {
+            return res.status(503).json({ error: 'Banco Fonte não conectado' });
+        }
+        
+        // Ler arquivo Excel
+        const workbook = XLSX.readFile(req.file.path);
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const data = XLSX.utils.sheet_to_json(worksheet, { defval: null });
+        
+        if (data.length === 0) {
+            fs.unlinkSync(req.file.path); // Remove arquivo
+            return res.status(400).json({ error: 'Arquivo Excel vazio' });
+        }
+        
+        // Obter estrutura da tabela
+        const schemaResult = await poolFonte.request().query(`
+            SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_NAME = '${tabela}'
+            ORDER BY ORDINAL_POSITION
+        `);
+        
+        const columns = schemaResult.recordset.filter(col => col.COLUMN_NAME !== 'Id');
+        const columnNames = columns.map(c => c.COLUMN_NAME);
+        
+        // Limpar tabela se for carga completa
+        if (tipoCarga === 'completa') {
+            await poolFonte.request().query(`DELETE FROM dbo.${tabela}`);
+        }
+        
+        // Inserir dados em lotes
+        const batchSize = 1000;
+        let totalInserted = 0;
+        
+        for (let i = 0; i < data.length; i += batchSize) {
+            const batch = data.slice(i, i + batchSize);
+            const transaction = new sql.Transaction(poolFonte);
+            
+            await transaction.begin();
+            
+            try {
+                for (const row of batch) {
+                    const request = new sql.Request(transaction);
+                    const values = [];
+                    const params = [];
+                    
+                    columns.forEach((col, idx) => {
+                        const paramName = `param${idx}`;
+                        const value = convertToSqlType(row[col.COLUMN_NAME], col.DATA_TYPE);
+                        
+                        request.input(paramName, value);
+                        params.push(`@${paramName}`);
+                    });
+                    
+                    const insertQuery = `INSERT INTO dbo.${tabela} (${columnNames.map(c => `[${c}]`).join(',')}) VALUES (${params.join(',')})`;
+                    await request.query(insertQuery);
+                    totalInserted++;
+                }
+                
+                await transaction.commit();
+            } catch (err) {
+                await transaction.rollback();
+                throw err;
+            }
+        }
+        
+        // Remove arquivo temporário
+        fs.unlinkSync(req.file.path);
+        
+        res.json({
+            success: true,
+            message: `${tipoCarga === 'completa' ? 'Carga completa' : 'Carga incremental'} concluída`,
+            total_inserido: totalInserted,
+            tabela: tabela
+        });
+        
+    } catch (err) {
+        console.error('Erro no upload:', err);
+        if (req.file && fs.existsSync(req.file.path)) {
+            fs.unlinkSync(req.file.path);
+        }
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Upload para tabela temporária customizada
+app.post('/api/excel/upload-temp', uploadExcel.single('file'), async (req, res) => {
+    const tableName = req.body.table_name;
+    
+    if (!tableName || !/^[a-zA-Z0-9_]+$/.test(tableName)) {
+        return res.status(400).json({ error: 'Nome de tabela inválido' });
+    }
+    
+    const fullTableName = tableName.startsWith('TEMP_') ? tableName : `TEMP_${tableName}`;
+    
+    if (!req.file) {
+        return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+    }
+    
+    try {
+        if (!poolFonte || !poolFonte.connected) {
+            return res.status(503).json({ error: 'Banco Fonte não conectado' });
+        }
+        
+        // Ler arquivo Excel
+        const workbook = XLSX.readFile(req.file.path);
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const data = XLSX.utils.sheet_to_json(worksheet, { defval: null });
+        
+        if (data.length === 0) {
+            fs.unlinkSync(req.file.path);
+            return res.status(400).json({ error: 'Arquivo Excel vazio' });
+        }
+        
+        // Analisar colunas do Excel
+        const excelColumns = Object.keys(data[0]);
+        
+        // Dropar tabela se existir
+        await poolFonte.request().query(`
+            IF OBJECT_ID('dbo.${fullTableName}', 'U') IS NOT NULL
+                DROP TABLE dbo.${fullTableName}
+        `);
+        
+        // Criar tabela
+        const columnDefs = excelColumns.map(col => {
+            const cleanName = col.replace(/[^a-zA-Z0-9_]/g, '_');
+            return `[${cleanName}] NVARCHAR(MAX) NULL`;
+        });
+        
+        await poolFonte.request().query(`
+            CREATE TABLE dbo.${fullTableName} (
+                Id INT IDENTITY(1,1) PRIMARY KEY,
+                ${columnDefs.join(',\n')},
+                DataCarga DATETIME DEFAULT GETDATE()
+            )
+        `);
+        
+        // Inserir dados
+        let totalInserted = 0;
+        const transaction = new sql.Transaction(poolFonte);
+        await transaction.begin();
+        
+        try {
+            for (const row of data) {
+                const request = new sql.Request(transaction);
+                const params = [];
+                const values = [];
+                
+                excelColumns.forEach((col, idx) => {
+                    const cleanName = col.replace(/[^a-zA-Z0-9_]/g, '_');
+                    const paramName = `param${idx}`;
+                    request.input(paramName, row[col] !== null && row[col] !== undefined ? String(row[col]) : null);
+                    params.push(`@${paramName}`);
+                    values.push(cleanName);
+                });
+                
+                const insertQuery = `INSERT INTO dbo.${fullTableName} (${values.map(v => `[${v}]`).join(',')}) VALUES (${params.join(',')})`;
+                await request.query(insertQuery);
+                totalInserted++;
+            }
+            
+            await transaction.commit();
+        } catch (err) {
+            await transaction.rollback();
+            throw err;
+        }
+        
+        // Remove arquivo temporário
+        fs.unlinkSync(req.file.path);
+        
+        res.json({
+            success: true,
+            message: `Tabela ${fullTableName} criada com sucesso`,
+            table_name: fullTableName,
+            rows_inserted: totalInserted
+        });
+        
+    } catch (err) {
+        console.error('Erro no upload temp:', err);
+        if (req.file && fs.existsSync(req.file.path)) {
+            fs.unlinkSync(req.file.path);
+        }
+        res.status(500).json({ error: err.message });
     }
 });
 
@@ -178,18 +502,41 @@ const config = {
     }
 };
 
+// Configuração para o banco Fonte (sistema de carga Excel)
+const configFonte = {
+    user: process.env.DB_USER || 'servicedw',
+    password: process.env.DB_PASS || '@aacdservice',
+    server: process.env.DB_SERVER || 'SERVER55\\DW',
+    database: 'Fonte',
+    options: {
+        encrypt: false,
+        trustServerCertificate: true,
+        requestTimeout: 90000
+    }
+};
+
 let pool;
+let poolFonte;
 
 async function initDB() {
     try {
         pool = await sql.connect(config);
-        console.log('Conectado ao SQL Server');
+        console.log('Conectado ao SQL Server (PowerBIPortal)');
         sql.on('error', err => {
             console.error('mssql global error:', err);
         });
     } catch (err) {
         console.error('Erro ao conectar ao SQL Server:', err);
         pool = null;
+    }
+    
+    // Conecta ao banco Fonte para sistema de carga
+    try {
+        poolFonte = await new sql.ConnectionPool(configFonte).connect();
+        console.log('Conectado ao SQL Server (Fonte)');
+    } catch (err) {
+        console.error('Erro ao conectar ao banco Fonte:', err);
+        poolFonte = null;
     }
 }
 
