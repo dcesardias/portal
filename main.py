@@ -543,6 +543,199 @@ async def health_check():
     except Exception as e:
         return {"status": "unhealthy", "database": "disconnected", "error": str(e)}
 
+# ========================================
+# ROTAS PARA TABELA TEMPORÁRIA (EXCEL CUSTOMIZADO)
+# ========================================
+
+@app.post("/api/analyze-excel")
+async def analyze_excel(file: UploadFile = File(...)):
+    """Analisa um arquivo Excel e retorna informações sobre colunas e tipos de dados"""
+    try:
+        contents = await file.read()
+        file_buf = io.BytesIO(contents)
+        
+        # Tenta ler o arquivo
+        try:
+            df = pd.read_excel(file_buf, engine='openpyxl')
+        except:
+            try:
+                file_buf.seek(0)
+                df = pd.read_excel(file_buf, engine='xlrd')
+            except:
+                raise HTTPException(status_code=400, detail="Não foi possível ler o arquivo Excel")
+        
+        if df.empty:
+            raise HTTPException(status_code=400, detail="O arquivo Excel está vazio")
+        
+        # Analisa as colunas
+        columns_info = []
+        for col in df.columns:
+            # Detecta o tipo de dado
+            sample_values = df[col].dropna().head(10).tolist()
+            dtype = str(df[col].dtype)
+            
+            # Inferir tipo SQL
+            sql_type = "NVARCHAR(255)"
+            if 'int' in dtype:
+                sql_type = "INT"
+            elif 'float' in dtype:
+                sql_type = "FLOAT"
+            elif 'datetime' in dtype or 'date' in dtype:
+                sql_type = "DATETIME"
+            elif 'bool' in dtype:
+                sql_type = "BIT"
+            else:
+                # Para strings, tenta detectar o tamanho máximo
+                max_len = df[col].astype(str).str.len().max()
+                if pd.notna(max_len) and max_len > 0:
+                    sql_type = f"NVARCHAR({min(int(max_len * 1.5), 4000)})"
+            
+            columns_info.append({
+                "name": str(col),
+                "pandas_type": dtype,
+                "sql_type": sql_type,
+                "sample_values": [str(v) for v in sample_values[:3]],
+                "null_count": int(df[col].isnull().sum()),
+                "total_count": len(df)
+            })
+        
+        return {
+            "success": True,
+            "filename": file.filename,
+            "rows": len(df),
+            "columns": columns_info
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Erro ao analisar Excel")
+        raise HTTPException(status_code=500, detail=f"Erro ao analisar arquivo: {str(e)}")
+
+@app.post("/api/load-custom-excel")
+async def load_custom_excel(
+    file: UploadFile = File(...),
+    table_name: str = None,
+    columns_config: str = None
+):
+    """Carrega um Excel customizado em uma tabela temporária"""
+    try:
+        if not table_name:
+            raise HTTPException(status_code=400, detail="Nome da tabela é obrigatório")
+        
+        # Valida nome da tabela (previne SQL injection)
+        if not table_name.replace('_', '').isalnum():
+            raise HTTPException(status_code=400, detail="Nome da tabela deve conter apenas letras, números e underscore")
+        
+        # Garante que é uma tabela temporária
+        if not table_name.startswith('TEMP_'):
+            table_name = f"TEMP_{table_name}"
+        
+        contents = await file.read()
+        file_buf = io.BytesIO(contents)
+        
+        # Lê o arquivo
+        try:
+            df = pd.read_excel(file_buf, engine='openpyxl')
+        except:
+            try:
+                file_buf.seek(0)
+                df = pd.read_excel(file_buf, engine='xlrd')
+            except:
+                raise HTTPException(status_code=400, detail="Não foi possível ler o arquivo Excel")
+        
+        if df.empty:
+            raise HTTPException(status_code=400, detail="O arquivo Excel está vazio")
+        
+        # Parse da configuração de colunas (se fornecida)
+        columns_map = {}
+        if columns_config:
+            import json
+            columns_map = json.loads(columns_config)
+        
+        # Conecta ao banco
+        conn_str = get_connection_string()
+        conn = pyodbc.connect(conn_str)
+        cursor = conn.cursor()
+        
+        try:
+            # Verifica se a tabela já existe e deleta
+            cursor.execute(f"""
+                IF OBJECT_ID('dbo.{table_name}', 'U') IS NOT NULL
+                    DROP TABLE dbo.{table_name}
+            """)
+            conn.commit()
+            
+            # Cria a estrutura da tabela baseado nas colunas
+            create_columns = []
+            for col in df.columns:
+                col_name = str(col).strip().replace(' ', '_').replace('-', '_')
+                sql_type = columns_map.get(col, "NVARCHAR(255)")
+                create_columns.append(f"[{col_name}] {sql_type} NULL")
+            
+            create_table_sql = f"""
+                CREATE TABLE dbo.{table_name} (
+                    Id INT IDENTITY(1,1) PRIMARY KEY,
+                    {', '.join(create_columns)},
+                    DataCarga DATETIME DEFAULT GETDATE()
+                )
+            """
+            
+            cursor.execute(create_table_sql)
+            conn.commit()
+            
+            # Renomeia colunas do DataFrame
+            df.columns = [str(col).strip().replace(' ', '_').replace('-', '_') for col in df.columns]
+            
+            # Insere os dados em lotes
+            batch_size = 1000
+            total_rows = len(df)
+            inserted = 0
+            
+            for start_idx in range(0, total_rows, batch_size):
+                end_idx = min(start_idx + batch_size, total_rows)
+                batch_df = df.iloc[start_idx:end_idx]
+                
+                for _, row in batch_df.iterrows():
+                    cols = ', '.join([f'[{col}]' for col in batch_df.columns])
+                    placeholders = ', '.join(['?' for _ in batch_df.columns])
+                    insert_sql = f"INSERT INTO dbo.{table_name} ({cols}) VALUES ({placeholders})"
+                    
+                    values = []
+                    for col in batch_df.columns:
+                        val = row[col]
+                        if pd.isna(val):
+                            values.append(None)
+                        else:
+                            values.append(val)
+                    
+                    cursor.execute(insert_sql, values)
+                    inserted += 1
+                
+                conn.commit()
+            
+            cursor.close()
+            conn.close()
+            
+            return {
+                "success": True,
+                "message": f"Dados carregados com sucesso na tabela {table_name}",
+                "table_name": table_name,
+                "rows_inserted": inserted
+            }
+            
+        except Exception as e:
+            conn.rollback()
+            cursor.close()
+            conn.close()
+            raise HTTPException(status_code=500, detail=f"Erro ao criar/carregar tabela: {str(e)}")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Erro ao carregar Excel customizado")
+        raise HTTPException(status_code=500, detail=f"Erro ao processar arquivo: {str(e)}")
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -69,12 +69,26 @@ app.use('/api/excel', createProxyMiddleware({
 }));
 
 // Proxy para WebSocket do backend Python
-app.use('/ws', createProxyMiddleware({
+const wsProxy = createProxyMiddleware({
     target: 'http://localhost:8000',
     ws: true,
     changeOrigin: true,
-    logLevel: 'debug'
-}));
+    logLevel: 'debug',
+    onError: (err, req, res) => {
+        console.error('[WS PROXY] Erro:', err.message);
+    },
+    onProxyReqWs: (proxyReq, req, socket, options, head) => {
+        console.log('[WS PROXY] WebSocket request:', req.url);
+    },
+    onOpen: (proxySocket) => {
+        console.log('[WS PROXY] WebSocket opened');
+    },
+    onClose: (res, socket, head) => {
+        console.log('[WS PROXY] WebSocket closed');
+    }
+});
+
+app.use('/ws', wsProxy);
 
 // Servir frontend da aplicação Excel
 app.get('/excel', (req, res) => {
@@ -82,6 +96,15 @@ app.get('/excel', (req, res) => {
         res.sendFile(path.join(__dirname, 'public', 'excel', 'index.html'));
     } catch (e) {
         res.status(404).send('Aplicação de carga não encontrada');
+    }
+});
+
+// Servir página de Tabela Temporária
+app.get('/excel/temp-table', (req, res) => {
+    try {
+        res.sendFile(path.join(__dirname, 'public', 'excel', 'temp-table.html'));
+    } catch (e) {
+        res.status(404).send('Página de tabela temporária não encontrada');
     }
 });
 
@@ -2865,9 +2888,19 @@ async function startServer() {
             return res.status(404).send('Chatbot não encontrado');
         }
     });
-    app.listen(PORT, HOST, () => {
+    const server = app.listen(PORT, HOST, () => {
         console.log(`Servidor rodando em http://${HOST}:${PORT}`);
         console.log(`Acesse: http://localhost:${PORT}`);
+    });
+
+    // Habilitar upgrade de WebSocket
+    server.on('upgrade', (request, socket, head) => {
+        console.log('[SERVER] Upgrade request para:', request.url);
+        if (request.url.startsWith('/ws')) {
+            wsProxy.upgrade(request, socket, head);
+        } else {
+            socket.destroy();
+        }
     });
 }
 

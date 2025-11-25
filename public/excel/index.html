@@ -12,5 +12,51 @@
   </head>
   <body>
     <div id="root"></div>
+    
+    <!-- Botão Tabela Temporária -->
+    <script>
+      window.addEventListener('DOMContentLoaded', () => {
+        // Aguarda o React renderizar
+        setTimeout(() => {
+          if (document.getElementById('temp-table-btn')) return;
+          
+          const button = document.createElement('a');
+          button.id = 'temp-table-btn';
+          button.href = '/excel/temp-table';
+          button.innerHTML = '📊 Tabela Temporária';
+          button.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          `;
+          
+          button.addEventListener('mouseenter', () => {
+            button.style.transform = 'translateY(-2px)';
+            button.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.6)';
+          });
+          
+          button.addEventListener('mouseleave', () => {
+            button.style.transform = 'translateY(0)';
+            button.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.4)';
+          });
+          
+          document.body.appendChild(button);
+        }, 1000);
+      });
+    </script>
   </body>
 </html>
