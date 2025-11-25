@@ -235,12 +235,24 @@ window.PortalIcons = {
     },
 
     buildIconPalette() {
-        // ...existing buildIconPalette logic from original...
-        document.querySelectorAll('#iconDropdown').forEach(container => {
+        const containers = document.querySelectorAll('#iconDropdown');
+        console.log('[Icons] buildIconPalette - Containers encontrados:', containers.length);
+        
+        containers.forEach((container, idx) => {
             const menu = container.querySelector('#iconDropdownMenu');
             const toggle = container.querySelector('#iconDropdownToggle');
             const selected = container.querySelector('#iconDropdownSelected');
-            if (!menu || !toggle || !selected) return;
+            
+            console.log(`[Icons] Container ${idx}:`, {
+                menu: !!menu,
+                toggle: !!toggle,
+                selected: !!selected
+            });
+            
+            if (!menu || !toggle || !selected) {
+                console.warn(`[Icons] ⚠️ Container ${idx} incompleto - pulando`);
+                return;
+            }
 
             menu.innerHTML = '';
 
@@ -340,11 +352,24 @@ window.PortalIcons = {
     },
 
     buildPageIconPalette() {
-        document.querySelectorAll('#pageIconDropdown').forEach(container => {
+        const containers = document.querySelectorAll('#pageIconDropdown');
+        console.log('[Icons] buildPageIconPalette - Containers encontrados:', containers.length);
+        
+        containers.forEach((container, idx) => {
             const menu = container.querySelector('#pageIconDropdownMenu');
             const toggle = container.querySelector('#pageIconDropdownToggle');
             const selected = container.querySelector('#pageIconDropdownSelected');
-            if (!menu || !toggle || !selected) return;
+            
+            console.log(`[Icons] PageIcon Container ${idx}:`, {
+                menu: !!menu,
+                toggle: !!toggle,
+                selected: !!selected
+            });
+            
+            if (!menu || !toggle || !selected) {
+                console.warn(`[Icons] ⚠️ PageIcon Container ${idx} incompleto - pulando`);
+                return;
+            }
 
             menu.innerHTML = '';
 
@@ -444,11 +469,24 @@ window.PortalIcons = {
     },
 
     buildHomeIconPalette() {
-        document.querySelectorAll('#homeIconDropdown').forEach(container => {
+        const containers = document.querySelectorAll('#homeIconDropdown');
+        console.log('[Icons] buildHomeIconPalette - Containers encontrados:', containers.length);
+        
+        containers.forEach((container, idx) => {
             const menu = container.querySelector('#homeIconDropdownMenu');
             const toggle = container.querySelector('#homeIconDropdownToggle');
             const selected = container.querySelector('#homeIconDropdownSelected');
-            if (!menu || !toggle || !selected) return;
+            
+            console.log(`[Icons] HomeIcon Container ${idx}:`, {
+                menu: !!menu,
+                toggle: !!toggle,
+                selected: !!selected
+            });
+            
+            if (!menu || !toggle || !selected) {
+                console.warn(`[Icons] ⚠️ HomeIcon Container ${idx} incompleto - pulando`);
+                return;
+            }
 
             menu.innerHTML = '';
 

@@ -57,6 +57,35 @@
     let isFullscreen = false;
     let chatContainer = null;
     let savedPosition = null;
+    let forcedMode = false; // Forçar exibição via URL dedicada
+
+    function isForcedMode() {
+        try {
+            const p = (location.pathname || '').toLowerCase();
+            if (
+                p === '/chatbot' ||
+                p.endsWith('/chatbot') ||
+                p.endsWith('/chatbot.html') ||
+                p.endsWith('/public/chatbot') ||
+                p.endsWith('/public/chatbot/')
+            ) return true;
+            const url = new URL(window.location.href);
+            if (url.searchParams.get('chatbot') === '1') return true;
+        } catch (_) {}
+        return false;
+    }
+
+    function isChatbotEnabledByConfig() {
+        // Padrão: habilitado se não houver configuração
+        const enabled = (window.PortalConfig && typeof window.PortalConfig.chatbotEnabled !== 'undefined')
+            ? !!window.PortalConfig.chatbotEnabled
+            : true;
+        return enabled;
+    }
+
+    function isChatbotAllowed() {
+        return forcedMode || isChatbotEnabledByConfig();
+    }
     
     function isOnHomeScreen() {
         const homeView = document.getElementById('homeView');
@@ -73,7 +102,7 @@
     function toggleChatbotVisibility() {
         if (!chatContainer) return;
         
-        const shouldShow = isOnHomeScreen();
+        const shouldShow = forcedMode ? true : isOnHomeScreen();
         chatContainer.style.display = shouldShow ? 'block' : 'none';
         
         if (!shouldShow) {
@@ -1682,6 +1711,15 @@
     
     function initChatbot() {
         try {
+            forcedMode = isForcedMode();
+
+            if (!isChatbotAllowed()) {
+                // Se já existe, remove
+                const existing = document.getElementById('ai-chatbot-container');
+                if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+                return; // Não inicializa quando desabilitado
+            }
+
             if (!document.getElementById('ai-chatbot-container')) {
                 createChatbotHTML();
             }
@@ -1689,6 +1727,11 @@
             
             setTimeout(() => {
                 toggleChatbotVisibility();
+                if (forcedMode) {
+                    // Abrir automaticamente a janela do chat na URL dedicada
+                    const chatWindow = document.getElementById('ai-chat-window');
+                    if (chatWindow) chatWindow.classList.add('show');
+                }
             }, 1000);
             
         } catch (e) {
@@ -1707,6 +1750,26 @@
     window.addEventListener('load', () => {
         if (!document.getElementById('ai-chat-button')) {
             try { initChatbot(); } catch (e) {}
+        }
+    });
+
+    // Reagir a atualizações de configuração vindas do painel admin
+    window.addEventListener('portalConfigUpdated', () => {
+        try {
+            forcedMode = isForcedMode();
+            const allowed = isChatbotAllowed();
+            const existing = document.getElementById('ai-chatbot-container');
+            if (allowed && !existing) {
+                createChatbotHTML();
+                initializeEvents();
+                toggleChatbotVisibility();
+            } else if (!allowed && existing) {
+                existing.remove();
+            } else if (allowed && existing) {
+                toggleChatbotVisibility();
+            }
+        } catch (e) {
+            console.warn('[CHATBOT] Falha ao aplicar config:', e);
         }
     });
 

@@ -60,13 +60,13 @@ window.PortalAdmin = {
                 console.log('[Admin] Inicializando paletas de ícones...');
                 if (typeof window.PortalIcons.buildAllPalettes === 'function') {
                     window.PortalIcons.buildAllPalettes();
-                    console.log('[Admin] Paletas de ícones inicializadas');
+                    console.log('[Admin] ✅ Paletas de ícones inicializadas');
                 } else {
-                    console.warn('[Admin] PortalIcons.buildAllPalettes não é uma função');
+                    console.warn('[Admin] ⚠️ PortalIcons.buildAllPalettes não é uma função');
                 }
-            }, 200);
+            }, 500);
         } else {
-            console.warn('[Admin] PortalIcons não está disponível');
+            console.warn('[Admin] ⚠️ PortalIcons não está disponível');
         }
         
         const sidebarLogo = document.getElementById('sidebarLogo');
@@ -2531,6 +2531,17 @@ window.switchTab = (tab, event) => {
     if (tab === 'dictionary' && window.PortalAdmin) {
         console.log('Dictionary tab activated, loading dictionaries...');
         window.PortalAdmin.loadDataDictionaries();
+    }
+    
+    // NOVO: Reconstruir dropdowns de ícones ao trocar para abas que os usam
+    if ((tab === 'pages' || tab === 'menu' || tab === 'config') && window.PortalIcons) {
+        setTimeout(() => {
+            console.log('[Admin] Reconstruindo paletas de ícones para aba:', tab);
+            if (typeof window.PortalIcons.buildAllPalettes === 'function') {
+                window.PortalIcons.buildAllPalettes();
+                console.log('[Admin] ✅ Paletas reconstruídas');
+            }
+        }, 100);
     }
 };
 

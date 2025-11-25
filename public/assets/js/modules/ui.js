@@ -38,9 +38,7 @@ window.PortalUI = {
             window.PortalSearch.setupSearch();
         }
         
-        if (window.PortalIcons) {
-            window.PortalIcons.buildAllPalettes();
-        }
+        // NÃO chamar buildAllPalettes aqui - será chamado quando o admin panel abrir
     },
 
     setupThemeToggle() {
