@@ -6,27 +6,13 @@
     <title>Sistema de Carga - Excel</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/assets/css/portal.css">
+    <link rel="stylesheet" href="/assets/css/admin-shared.css">
     <style>
-        /* Estilos modernos inspirados no React original */
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        @keyframes slideIn {
-            from { transform: translateX(-20px); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-        }
-
+        /* Excel Upload Page - Custom Styles */
         .excel-container {
             display: flex;
             height: 100vh;
-            background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
+            background: var(--admin-bg-page);
             position: relative;
             overflow: hidden;
         }
@@ -39,75 +25,76 @@
             width: 200%;
             height: 200%;
             background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-            animation: pulse 15s ease-in-out infinite;
+            animation: adminPulse 15s ease-in-out infinite;
             pointer-events: none;
         }
 
         .excel-sidebar {
-            width: 380px;
-            background: rgba(255, 255, 255, 0.98);
+            width: 340px;
+            background: var(--admin-bg-sidebar);
             backdrop-filter: blur(10px);
-            box-shadow: 4px 0 30px rgba(0, 0, 0, 0.15);
+            box-shadow: 4px 0 30px rgba(0, 0, 0, 0.12);
             display: flex;
             flex-direction: column;
             overflow: hidden;
             z-index: 10;
-            animation: slideIn 0.4s ease-out;
+            animation: adminSlideIn 0.4s ease-out;
         }
 
         .excel-header {
-            padding: 30px 24px;
-            background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
-            color: white;
-            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
+            padding: var(--admin-spacing-xl) var(--admin-spacing-xl);
+            background: var(--admin-primary-gradient);
+            color: var(--admin-text-inverse);
+            box-shadow: 0 4px 20px rgba(0, 102, 204, 0.3);
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            gap: var(--admin-spacing-lg);
         }
 
         .excel-header h1 {
-            font-size: 24px;
-            font-weight: 700;
-            color: white;
+            font-size: var(--admin-font-size-xl);
+            font-weight: var(--admin-font-weight-bold);
+            color: var(--admin-text-inverse);
             margin: 0;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: var(--admin-spacing-md);
         }
 
         .excel-header p {
-            font-size: 14px;
+            font-size: var(--admin-font-size-base);
             color: rgba(255, 255, 255, 0.9);
-            font-weight: 400;
+            font-weight: var(--admin-font-weight-normal);
             margin: 0;
         }
 
-        .btn-admin {
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            border: 2px solid rgba(255, 255, 255, 0.4);
-            padding: 10px 20px;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 600;
+        .btn-header-link {
+            background: rgba(255, 255, 255, 0.15);
+            color: var(--admin-text-inverse);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            padding: var(--admin-spacing-md) var(--admin-spacing-lg);
+            border-radius: var(--admin-border-radius);
+            font-size: var(--admin-font-size-base);
+            font-weight: var(--admin-font-weight-semibold);
             cursor: pointer;
-            transition: all 0.3s;
-            display: flex;
+            transition: all var(--admin-transition);
+            display: inline-flex;
             align-items: center;
-            gap: 8px;
+            gap: var(--admin-spacing-sm);
             text-decoration: none;
+            width: fit-content;
         }
 
-        .btn-admin:hover {
-            background: rgba(255, 255, 255, 0.3);
-            border-color: rgba(255, 255, 255, 0.6);
+        .btn-header-link:hover {
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.5);
             transform: translateY(-2px);
         }
 
         .search-container {
-            padding: 16px 24px;
-            background: rgba(255, 255, 255, 0.95);
-            border-bottom: 1px solid rgba(102, 126, 234, 0.1);
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.98);
+            border-bottom: 1px solid var(--admin-border-color);
         }
 
         .search-box {
@@ -116,45 +103,45 @@
         }
 
         .search-box input {
-            width: 100%;
-            padding: 12px 15px 12px 38px !important;
-            border: 2px solid #e1e8f0;
-            border-radius: 8px;
+            width: calc(100% - 28px);
+            padding: 8px 12px 8px 32px;
+            border: 1px solid var(--admin-border-color);
+            border-radius: 6px;
             font-size: 13px;
-            transition: all 0.3s ease;
-            background: white;
-            box-sizing: border-box;
+            transition: all var(--admin-transition);
+            background: var(--admin-bg-input);
         }
 
         .search-box input:focus {
             outline: none;
-            border-color: #0066cc;
-            box-shadow: inset 0 0 0 1px #0066cc;
+            border-color: var(--admin-primary);
+            box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
         }
 
         .search-box .search-icon {
             position: absolute;
-            left: 12px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #0066cc;
-            font-size: 15px;
-        }
-
-        .search-box .clear-icon {
-            position: absolute;
-            right: 16px;
+            left: 10px;
             top: 50%;
             transform: translateY(-50%);
             color: #999;
             font-size: 14px;
+            pointer-events: none;
+        }
+
+        .search-box .clear-icon {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--admin-text-muted);
+            font-size: 12px;
             cursor: pointer;
             display: none;
-            transition: color 0.2s ease;
+            transition: color var(--admin-transition);
         }
 
         .search-box .clear-icon:hover {
-            color: #0066cc;
+            color: var(--admin-primary);
         }
 
         .search-box input:not(:placeholder-shown) ~ .clear-icon {
@@ -164,7 +151,7 @@
         .tables-list {
             flex: 1;
             overflow-y: auto;
-            padding: 16px 12px 40px 12px;
+            padding: var(--admin-spacing-lg) var(--admin-spacing-md) var(--admin-spacing-3xl) var(--admin-spacing-md);
         }
 
         .tables-list::-webkit-scrollbar {
@@ -172,30 +159,30 @@
         }
 
         .tables-list::-webkit-scrollbar-track {
-            background: #f1f1f1;
+            background: var(--admin-gray-100);
         }
 
         .tables-list::-webkit-scrollbar-thumb {
-            background: #0066cc;
+            background: var(--admin-primary);
             border-radius: 3px;
         }
 
-        /* Grupos de tabelas */
+        /* Table Groups */
         .table-group {
-            margin-bottom: 10px;
+            margin-bottom: var(--admin-spacing-md);
         }
 
         .table-group-header {
-            background: white;
-            border: 2px solid transparent;
-            border-radius: 12px;
-            padding: 16px;
+            background: var(--admin-bg-card);
+            border: 2px solid var(--admin-border-color);
+            border-radius: var(--admin-border-radius);
+            padding: var(--admin-spacing-md) var(--admin-spacing-lg);
             cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all var(--admin-transition-slow);
             display: flex;
-            align-items: flex-start;
-            gap: 14px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            align-items: center;
+            gap: var(--admin-spacing-md);
+            box-shadow: var(--admin-shadow-sm);
             position: relative;
             overflow: hidden;
         }
@@ -207,15 +194,14 @@
             top: 0;
             height: 100%;
             width: 4px;
-            background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
+            background: var(--admin-primary-gradient);
             transform: scaleY(0);
-            transition: transform 0.3s ease;
+            transition: transform var(--admin-transition);
         }
 
         .table-group-header:hover {
-            transform: translateX(4px);
-            box-shadow: 0 4px 16px rgba(102, 126, 234, 0.25);
-            border-color: #0066cc;
+            box-shadow: var(--admin-shadow);
+            border-color: var(--admin-primary);
         }
 
         .table-group-header:hover::before {
@@ -225,14 +211,14 @@
         .table-group.expanded .table-group-header {
             border-bottom-left-radius: 0;
             border-bottom-right-radius: 0;
-            margin-bottom: 0;
+            border-bottom-color: transparent;
         }
 
         .group-arrow {
             margin-left: auto;
-            transition: transform 0.3s ease;
-            color: #0066cc;
-            font-size: 14px;
+            transition: transform var(--admin-transition);
+            color: var(--admin-primary);
+            font-size: var(--admin-font-size-base);
         }
 
         .table-group.expanded .group-arrow {
@@ -242,37 +228,38 @@
         .table-group-content {
             max-height: 0;
             overflow: hidden;
-            transition: max-height 0.25s ease-in-out, padding 0.25s ease-in-out;
-            background: rgba(102, 126, 234, 0.03);
-            border: 2px solid #0066cc;
-            border-top: none;
-            border-bottom-left-radius: 12px;
-            border-bottom-right-radius: 12px;
-            padding: 0 12px 0 12px;
+            transition: max-height var(--admin-transition), padding var(--admin-transition);
+            background: rgba(0, 102, 204, 0.03);
+            border: none;
+            border-radius: 0 0 var(--admin-border-radius) var(--admin-border-radius);
+            padding: 0 var(--admin-spacing-sm);
+            margin-top: -2px;
         }
 
         .table-group.expanded .table-group-content {
-            padding: 12px 12px 20px 12px;
+            padding: var(--admin-spacing-sm) var(--admin-spacing-sm) var(--admin-spacing-md) var(--admin-spacing-sm);
+            border: 2px solid var(--admin-border-color);
+            border-top: none;
         }
 
         .table-item {
-            background: white;
-            border: 2px solid transparent;
-            border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 10px;
+            background: var(--admin-bg-card);
+            border: 2px solid var(--admin-border-color);
+            border-radius: var(--admin-border-radius);
+            padding: var(--admin-spacing-md) var(--admin-spacing-lg);
+            margin-bottom: var(--admin-spacing-sm);
             cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all var(--admin-transition-slow);
             display: flex;
-            align-items: flex-start;
-            gap: 14px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            align-items: center;
+            gap: var(--admin-spacing-md);
+            box-shadow: var(--admin-shadow-sm);
             position: relative;
             overflow: hidden;
         }
 
         .table-item.group-item {
-            margin-bottom: 8px;
+            margin-bottom: var(--admin-spacing-xs);
             box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
         }
 
@@ -287,15 +274,14 @@
             top: 0;
             height: 100%;
             width: 4px;
-            background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
+            background: var(--admin-primary-gradient);
             transform: scaleY(0);
-            transition: transform 0.3s ease;
+            transition: transform var(--admin-transition);
         }
 
         .table-item:hover {
-            transform: translateX(4px);
-            box-shadow: 0 4px 16px rgba(102, 126, 234, 0.25);
-            border-color: #0066cc;
+            box-shadow: var(--admin-shadow);
+            border-color: var(--admin-primary);
         }
 
         .table-item:hover::before {
@@ -303,11 +289,11 @@
         }
 
         .table-item.active {
-            background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
-            color: white;
-            border-color: #0066cc;
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-            transform: translateX(6px) scale(1.02);
+            background: var(--admin-primary-gradient);
+            color: var(--admin-text-inverse);
+            border-color: var(--admin-primary);
+            box-shadow: var(--admin-shadow-primary);
+            transform: translateX(6px) scale(1.01);
         }
 
         .table-item.active::before {
@@ -315,40 +301,55 @@
             background: rgba(255, 255, 255, 0.3);
         }
 
+        /* Estilos comuns para ícone, info, nome e desc - usados tanto no grupo quanto nos items */
+        .table-group-header .table-icon,
         .table-item .table-icon {
-            font-size: 22px;
+            font-size: 18px;
             flex-shrink: 0;
+            width: 24px;
+            text-align: center;
         }
 
+        .table-group-header .table-info,
         .table-item .table-info {
             flex: 1;
+            min-width: 0;
         }
 
+        .table-group-header .table-name,
         .table-item .table-name {
             font-weight: 600;
             font-size: 14px;
-            margin-bottom: 3px;
+            margin-bottom: 2px;
+            color: #333;
         }
 
+        .table-group-header .table-desc,
         .table-item .table-desc {
             font-size: 12px;
-            opacity: 0.85;
+            color: #666;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .table-item.active .table-name {
+            color: white;
         }
 
         .table-item.active .table-desc {
-            opacity: 0.95;
+            color: rgba(255, 255, 255, 0.9);
         }
 
         .table-item .table-count {
             font-size: 11px;
-            margin-top: 4px;
+            margin-top: 2px;
             font-weight: 600;
-            opacity: 0.7;
-            transition: opacity 0.3s ease;
+            color: #999;
         }
 
         .table-item.active .table-count {
-            opacity: 0.9;
+            color: rgba(255, 255, 255, 0.8);
         }
 
         .excel-main {
@@ -362,8 +363,8 @@
         .excel-content {
             flex: 1;
             overflow-y: auto;
-            padding: 40px;
-            animation: fadeIn 0.5s ease-out;
+            padding: var(--admin-spacing-2xl);
+            animation: adminFadeIn 0.5s ease-out;
         }
 
         .excel-content::-webkit-scrollbar {
@@ -385,39 +386,39 @@
             align-items: center;
             justify-content: center;
             flex-direction: column;
-            color: rgba(255, 255, 255, 0.8);
+            color: rgba(255, 255, 255, 0.85);
         }
 
         .upload-area.empty .empty-icon {
-            font-size: 80px;
-            margin-bottom: 20px;
-            opacity: 0.6;
-            animation: pulse 3s ease-in-out infinite;
+            font-size: 64px;
+            margin-bottom: var(--admin-spacing-xl);
+            opacity: 0.7;
+            animation: adminPulse 3s ease-in-out infinite;
         }
 
         .upload-area.empty .empty-text {
-            font-size: 20px;
-            font-weight: 500;
+            font-size: var(--admin-font-size-lg);
+            font-weight: var(--admin-font-weight-medium);
             text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
 
         .upload-content {
             max-width: 800px;
             margin: 0 auto;
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
-            animation: fadeIn 0.5s ease-out;
+            background: var(--admin-bg-card);
+            border-radius: var(--admin-border-radius-xl);
+            padding: var(--admin-spacing-2xl);
+            box-shadow: var(--admin-shadow-lg);
+            animation: adminFadeIn 0.5s ease-out;
         }
 
         .upload-content h2 {
-            font-size: 28px;
-            font-weight: 700;
-            margin-bottom: 24px;
+            font-size: var(--admin-font-size-2xl);
+            font-weight: var(--admin-font-weight-bold);
+            margin-bottom: var(--admin-spacing-xl);
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: var(--admin-spacing-md);
         }
 
         .upload-content h2 .icon-emoji {
@@ -425,81 +426,82 @@
         }
 
         .upload-content h2 .title-text {
-            background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
+            background: var(--admin-primary-gradient);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
 
         .info-card {
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%);
-            border: 2px solid rgba(102, 126, 234, 0.2);
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 24px;
-            transition: all 0.3s ease;
+            background: linear-gradient(135deg, rgba(0, 102, 204, 0.08) 0%, rgba(102, 126, 234, 0.08) 100%);
+            border: 2px solid rgba(0, 102, 204, 0.15);
+            border-radius: var(--admin-border-radius);
+            padding: var(--admin-spacing-xl);
+            margin-bottom: var(--admin-spacing-xl);
+            transition: all var(--admin-transition);
         }
 
         .info-card:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.15);
+            box-shadow: 0 6px 20px rgba(0, 102, 204, 0.15);
         }
 
         .info-card h3 {
-            font-size: 16px;
-            font-weight: 600;
-            color: #0066cc;
-            margin-bottom: 10px;
+            font-size: var(--admin-font-size-md);
+            font-weight: var(--admin-font-weight-semibold);
+            color: var(--admin-primary);
+            margin-bottom: var(--admin-spacing-sm);
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: var(--admin-spacing-sm);
         }
 
         .info-card p {
-            font-size: 14px;
-            color: #555;
+            font-size: var(--admin-font-size-base);
+            color: var(--admin-text-secondary);
             line-height: 1.6;
         }
 
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: var(--admin-spacing-lg);
         }
 
         .form-group label {
             display: block;
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--text-color);
-            margin-bottom: 8px;
+            font-size: var(--admin-font-size-sm);
+            font-weight: var(--admin-font-weight-semibold);
+            color: var(--admin-text-primary);
+            margin-bottom: var(--admin-spacing-sm);
         }
 
         .form-group input[type="text"],
         .form-group select {
             width: 100%;
-            padding: 10px 12px;
-            font-size: 14px;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            background: var(--content-bg);
-            color: var(--text-color);
-            transition: all 0.2s;
+            padding: var(--admin-spacing-md) var(--admin-spacing-lg);
+            font-size: var(--admin-font-size-base);
+            border: 2px solid var(--admin-border-color);
+            border-radius: var(--admin-border-radius);
+            background: var(--admin-bg-input);
+            color: var(--admin-text-primary);
+            transition: all var(--admin-transition);
+            box-sizing: border-box;
         }
 
         .form-group input[type="text"]:focus,
         .form-group select:focus {
             outline: none;
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(0,102,204,0.1);
+            border-color: var(--admin-primary);
+            box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
         }
 
         .dropzone {
-            border: 3px dashed rgba(102, 126, 234, 0.3);
-            border-radius: 16px;
-            padding: 50px 30px;
+            border: 3px dashed rgba(0, 102, 204, 0.25);
+            border-radius: var(--admin-border-radius-lg);
+            padding: var(--admin-spacing-2xl) var(--admin-spacing-xl);
             text-align: center;
             cursor: pointer;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.03) 0%, rgba(118, 75, 162, 0.03) 100%);
+            transition: all var(--admin-transition-slow);
+            background: linear-gradient(135deg, rgba(0, 102, 204, 0.02) 0%, rgba(102, 126, 234, 0.02) 100%);
             position: relative;
             overflow: hidden;
         }
@@ -511,75 +513,75 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
+            background: var(--admin-primary-gradient);
             opacity: 0;
-            transition: opacity 0.3s ease;
+            transition: opacity var(--admin-transition);
         }
 
         .dropzone:hover {
-            border-color: #0066cc;
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%);
+            border-color: var(--admin-primary);
+            background: linear-gradient(135deg, rgba(0, 102, 204, 0.06) 0%, rgba(102, 126, 234, 0.06) 100%);
             transform: translateY(-4px);
-            box-shadow: 0 12px 30px rgba(102, 126, 234, 0.2);
+            box-shadow: 0 12px 30px rgba(0, 102, 204, 0.2);
         }
 
         .dropzone:hover::before {
-            opacity: 0.05;
+            opacity: 0.03;
         }
 
         .dropzone.dragover {
-            border-color: #0052a3;
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%);
+            border-color: var(--admin-primary-dark);
+            background: linear-gradient(135deg, rgba(0, 102, 204, 0.12) 0%, rgba(102, 126, 234, 0.12) 100%);
             transform: scale(1.02);
         }
 
         .dropzone.dragover::before {
-            opacity: 0.1;
+            opacity: 0.08;
         }
 
         .dropzone .upload-icon {
-            font-size: 56px;
-            background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
+            font-size: 48px;
+            background: var(--admin-primary-gradient);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
-            margin-bottom: 16px;
+            margin-bottom: var(--admin-spacing-lg);
             position: relative;
             z-index: 1;
         }
 
         .dropzone .upload-text {
-            font-size: 16px;
-            color: #333;
-            margin-bottom: 8px;
-            font-weight: 600;
+            font-size: var(--admin-font-size-md);
+            color: var(--admin-text-primary);
+            margin-bottom: var(--admin-spacing-sm);
+            font-weight: var(--admin-font-weight-semibold);
             position: relative;
             z-index: 1;
         }
 
         .dropzone .upload-hint {
-            font-size: 13px;
-            color: #777;
+            font-size: var(--admin-font-size-sm);
+            color: var(--admin-text-muted);
             position: relative;
             z-index: 1;
         }
 
         .file-info {
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%);
-            border: 2px solid rgba(102, 126, 234, 0.3);
-            border-radius: 12px;
-            padding: 18px;
-            margin-top: 20px;
+            background: linear-gradient(135deg, rgba(0, 102, 204, 0.08) 0%, rgba(102, 126, 234, 0.08) 100%);
+            border: 2px solid rgba(0, 102, 204, 0.2);
+            border-radius: var(--admin-border-radius);
+            padding: var(--admin-spacing-lg);
+            margin-top: var(--admin-spacing-lg);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            animation: fadeIn 0.4s ease-out;
-            transition: all 0.3s ease;
+            animation: adminFadeIn 0.4s ease-out;
+            transition: all var(--admin-transition);
         }
 
         .file-info:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.15);
+            box-shadow: 0 6px 20px rgba(0, 102, 204, 0.15);
         }
 
         .file-info .file-details {
@@ -587,58 +589,58 @@
         }
 
         .file-info .file-name {
-            font-size: 15px;
-            font-weight: 600;
-            color: #0066cc;
-            margin-bottom: 6px;
+            font-size: var(--admin-font-size-md);
+            font-weight: var(--admin-font-weight-semibold);
+            color: var(--admin-primary);
+            margin-bottom: var(--admin-spacing-xs);
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: var(--admin-spacing-sm);
         }
 
         .file-info .file-size {
-            font-size: 13px;
-            color: #777;
+            font-size: var(--admin-font-size-sm);
+            color: var(--admin-text-muted);
         }
 
         .file-info .remove-btn {
             background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
-            color: white;
+            color: var(--admin-text-inverse);
             border: none;
-            padding: 8px 16px;
-            border-radius: 8px;
+            padding: var(--admin-spacing-sm) var(--admin-spacing-lg);
+            border-radius: var(--admin-border-radius);
             cursor: pointer;
-            font-size: 13px;
-            font-weight: 600;
-            transition: all 0.3s ease;
+            font-size: var(--admin-font-size-sm);
+            font-weight: var(--admin-font-weight-semibold);
+            transition: all var(--admin-transition);
             display: flex;
             align-items: center;
-            gap: 6px;
-            box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+            gap: var(--admin-spacing-xs);
+            box-shadow: var(--admin-shadow-danger);
         }
 
         .file-info .remove-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(220, 53, 69, 0.5);
+            box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4);
         }
 
         .btn-group {
             display: flex;
-            gap: 10px;
-            margin-top: 24px;
+            gap: var(--admin-spacing-md);
+            margin-top: var(--admin-spacing-xl);
         }
 
         .btn {
-            padding: 14px 28px;
-            font-size: 15px;
-            font-weight: 600;
+            padding: var(--admin-spacing-md) var(--admin-spacing-xl);
+            font-size: var(--admin-font-size-md);
+            font-weight: var(--admin-font-weight-semibold);
             border: none;
-            border-radius: 10px;
+            border-radius: var(--admin-border-radius);
             cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all var(--admin-transition-slow);
             display: inline-flex;
             align-items: center;
-            gap: 8px;
+            gap: var(--admin-spacing-sm);
             position: relative;
             overflow: hidden;
         }
@@ -651,9 +653,9 @@
             width: 0;
             height: 0;
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.2);
             transform: translate(-50%, -50%);
-            transition: width 0.6s, height 0.6s;
+            transition: width 0.5s, height 0.5s;
         }
 
         .btn:hover::before {
@@ -662,15 +664,14 @@
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
-            color: white;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-            position: relative;
+            background: var(--admin-primary-gradient);
+            color: var(--admin-text-inverse);
+            box-shadow: var(--admin-shadow-primary);
         }
 
         .btn-primary:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: 0 6px 25px rgba(102, 126, 234, 0.6);
+            box-shadow: 0 6px 25px rgba(0, 102, 204, 0.4);
         }
 
         .btn-primary:active:not(:disabled) {
@@ -678,7 +679,7 @@
         }
 
         .btn-primary:disabled {
-            background: #ccc;
+            background: var(--admin-gray-400);
             cursor: not-allowed;
             opacity: 0.6;
             box-shadow: none;
@@ -687,22 +688,22 @@
         .progress-bar {
             width: 100%;
             height: 12px;
-            background: rgba(102, 126, 234, 0.1);
+            background: rgba(0, 102, 204, 0.1);
             border-radius: 20px;
             overflow: hidden;
-            margin-top: 24px;
+            margin-top: var(--admin-spacing-xl);
             display: none;
             box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
         }
 
         .progress-bar.active {
             display: block;
-            animation: fadeIn 0.3s ease-out;
+            animation: adminFadeIn 0.3s ease-out;
         }
 
         .progress-fill {
             height: 100%;
-            background: linear-gradient(90deg, #0066cc 0%, #0052a3 100%);
+            background: var(--admin-primary-gradient);
             width: 0%;
             transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
             border-radius: 20px;
@@ -718,142 +719,137 @@
             bottom: 0;
             right: 0;
             background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-            animation: shimmer 2s infinite;
-        }
-
-        @keyframes shimmer {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
+            animation: adminShimmer 2s infinite;
         }
 
         .progress-text {
-            font-size: 13px;
-            color: #0066cc;
-            margin-top: 10px;
+            font-size: var(--admin-font-size-sm);
+            color: var(--admin-primary);
+            margin-top: var(--admin-spacing-sm);
             text-align: center;
-            font-weight: 600;
+            font-weight: var(--admin-font-weight-semibold);
         }
 
         .alert {
-            padding: 16px 20px;
-            border-radius: 12px;
-            margin-bottom: 24px;
-            font-size: 14px;
+            padding: var(--admin-spacing-lg) var(--admin-spacing-xl);
+            border-radius: var(--admin-border-radius);
+            margin-bottom: var(--admin-spacing-xl);
+            font-size: var(--admin-font-size-base);
             display: none;
-            font-weight: 500;
-            animation: fadeIn 0.4s ease-out;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            font-weight: var(--admin-font-weight-medium);
+            animation: adminFadeIn 0.4s ease-out;
+            box-shadow: var(--admin-shadow-sm);
         }
 
         .alert.show {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: var(--admin-spacing-md);
         }
 
         .alert-success {
             background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
             color: #155724;
-            border: 2px solid #28a745;
+            border: 2px solid var(--admin-success);
         }
 
         .alert-success::before {
             content: '✓';
-            font-size: 20px;
+            font-size: 16px;
             font-weight: bold;
         }
 
         .alert-error {
             background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
             color: #721c24;
-            border: 2px solid #dc3545;
+            border: 2px solid var(--admin-danger);
         }
 
         .alert-error::before {
             content: '✕';
-            font-size: 20px;
+            font-size: 16px;
             font-weight: bold;
         }
 
         .alert-info {
             background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
             color: #0c5460;
-            border: 2px solid #17a2b8;
+            border: 2px solid var(--admin-info);
         }
 
         .alert-info::before {
             content: 'ℹ';
-            font-size: 20px;
+            font-size: 16px;
             font-weight: bold;
         }
 
         .download-model-section {
-            margin-bottom: 20px;
+            margin-bottom: var(--admin-spacing-lg);
         }
 
         .btn-download {
-            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-            color: white;
-            padding: 12px 24px;
-            font-size: 14px;
-            font-weight: 600;
+            background: var(--admin-success-gradient);
+            color: var(--admin-text-inverse);
+            padding: var(--admin-spacing-md) var(--admin-spacing-xl);
+            font-size: var(--admin-font-size-base);
+            font-weight: var(--admin-font-weight-semibold);
             border: none;
-            border-radius: 10px;
+            border-radius: var(--admin-border-radius);
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all var(--admin-transition);
             display: inline-flex;
             align-items: center;
-            gap: 10px;
-            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+            gap: var(--admin-spacing-md);
+            box-shadow: var(--admin-shadow-success);
         }
 
         .btn-download:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 25px rgba(40, 167, 69, 0.5);
+            box-shadow: 0 6px 25px rgba(40, 167, 69, 0.4);
         }
 
         .btn-group-toggle {
             display: flex;
-            gap: 12px;
-            margin-top: 12px;
-            margin-bottom: 12px;
+            gap: var(--admin-spacing-md);
+            margin-top: var(--admin-spacing-md);
+            margin-bottom: var(--admin-spacing-md);
         }
 
         .btn-toggle {
             flex: 1;
-            padding: 16px 20px;
-            font-size: 15px;
-            font-weight: 600;
-            border: 3px solid rgba(102, 126, 234, 0.2);
-            border-radius: 12px;
-            background: white;
-            color: #0066cc;
+            padding: var(--admin-spacing-lg) var(--admin-spacing-xl);
+            font-size: var(--admin-font-size-md);
+            font-weight: var(--admin-font-weight-semibold);
+            border: 3px solid rgba(0, 102, 204, 0.15);
+            border-radius: var(--admin-border-radius);
+            background: var(--admin-bg-card);
+            color: var(--admin-primary);
             cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all var(--admin-transition-slow);
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 10px;
+            gap: var(--admin-spacing-md);
             position: relative;
         }
 
         .btn-toggle:hover {
-            border-color: #0066cc;
+            border-color: var(--admin-primary);
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.2);
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+            box-shadow: 0 6px 20px rgba(0, 102, 204, 0.15);
+            background: linear-gradient(135deg, rgba(0, 102, 204, 0.04) 0%, rgba(102, 126, 234, 0.04) 100%);
         }
 
         .btn-toggle.active {
-            background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
-            color: white;
-            border-color: #0066cc;
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+            background: var(--admin-primary-gradient);
+            color: var(--admin-text-inverse);
+            border-color: var(--admin-primary);
+            box-shadow: var(--admin-shadow-primary);
             transform: scale(1.02);
         }
 
         .btn-toggle.active i {
-            color: white;
+            color: var(--admin-text-inverse);
         }
 
         .btn-toggle i {
@@ -863,13 +859,40 @@
 
         .hint-text {
             display: block;
-            font-size: 12px;
-            color: var(--text-secondary);
-            margin-top: 6px;
+            font-size: var(--admin-font-size-xs);
+            color: var(--admin-text-muted);
+            margin-top: var(--admin-spacing-xs);
         }
 
         input[type="file"] {
             display: none;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .excel-sidebar {
+                width: 100%;
+                position: fixed;
+                left: -100%;
+                z-index: 100;
+                transition: left var(--admin-transition);
+            }
+            
+            .excel-sidebar.show {
+                left: 0;
+            }
+            
+            .excel-content {
+                padding: var(--admin-spacing-lg);
+            }
+            
+            .upload-content {
+                padding: var(--admin-spacing-xl);
+            }
+            
+            .btn-group-toggle {
+                flex-direction: column;
+            }
         }
     </style>
 </head>
@@ -877,21 +900,25 @@
     <div class="excel-container">
         <div class="excel-sidebar">
             <div class="excel-header">
-                <h1>📊 Sistema de Carga</h1>
-                <p>Selecione uma tabela</p>
-                <a href="/excel/admin" class="btn-admin" title="Gerenciar Grupos e Tabelas">
+                <h1><i class="fas fa-table"></i> Sistema de Carga</h1>
+                <p>Selecione uma tabela para iniciar</p>
+<button class="btn-header-link" onclick="window.location.href='/excel/admin.html'" title="Gerenciar Grupos e Tabelas">
                     <i class="fas fa-cog"></i>
-                    Admin
-                </a>
+                    Administração
+                </button>
+                <button class="btn-header-link" onclick="window.close(); window.opener ? null : window.location.href='/'" title="Voltar ao Portal">
+                    <i class="fas fa-arrow-left"></i>
+                    Voltar
+                </button>
             </div>
             <div class="search-container">
                 <div class="search-box">
-                    <i class="fas fa-search search-icon" style="left: 12px; font-size: 15px;"></i>
-                    <input type="text" id="searchInput" placeholder="Pesquisar..." style="padding: 12px 15px 12px 38px !important; font-size: 13px !important;">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" id="searchInput" placeholder="Buscar tabelas...">
                     <i class="fas fa-times clear-icon" id="clearSearch"></i>
                 </div>
             </div>
-            <div class="tables-list" id="tablesList"></div>
+            <div class="tables-list admin-scrollbar" id="tablesList"></div>
         </div>
 
         <div class="excel-main">
@@ -904,6 +931,37 @@
         </div>
     </div>
 
+    <script>
+        // Verificar se usuário está logado como admin
+        (function() {
+            const token = localStorage.getItem('authToken');
+            if (!token) {
+                alert('Acesso negado. Faça login como administrador.');
+                window.location.href = '/';
+                return;
+            }
+            
+            // Verificar se token é válido
+            fetch('/api/verify-token', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            })
+            .then(res => {
+                if (!res.ok) throw new Error('Token inválido');
+                return res.json();
+            })
+            .then(data => {
+                if (!data.user || !data.user.isAdmin) {
+                    alert('Acesso negado. Apenas administradores podem acessar.');
+                    window.location.href = '/';
+                }
+            })
+            .catch(() => {
+                alert('Sessão expirada. Faça login novamente.');
+                localStorage.removeItem('authToken');
+                window.location.href = '/';
+            });
+        })();
+    </script>
     <script src="app.js"></script>
 </body>
 </html>

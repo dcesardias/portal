@@ -1152,27 +1152,27 @@ window.PortalAdmin = {
                 let columnsHtml = '';
                 if (table.columns && table.columns.length > 0) {
                     columnsHtml = `
-                        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                        <table style="width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 12px;">
                             <thead>
                                 <tr style="background: #f1f3f4;">
-                                    <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Coluna</th>
-                                    <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Tipo</th>
-                                    <th style="padding: 8px; text-align: left; border: 1px solid #ddd; max-width: 300px;">Descrição</th>
-                                    <th style="padding: 8px; text-align: center; border: 1px solid #ddd; width: 120px;">Ações</th>
+                                    <th style="padding: 5px 8px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Coluna</th>
+                                    <th style="padding: 5px 8px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Tipo</th>
+                                    <th style="padding: 5px 8px; text-align: left; border: 1px solid #ddd; max-width: 250px; font-size: 11px;">Descrição</th>
+                                    <th style="padding: 5px 8px; text-align: center; border: 1px solid #ddd; width: 80px; font-size: 11px;">Ações</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 ${table.columns.map((col) => {
-                                    const displayDesc = (col.description || '-').length > 100 
-                                        ? (col.description || '').substring(0, 97) + '...' 
+                                    const displayDesc = (col.description || '-').length > 80 
+                                        ? (col.description || '').substring(0, 77) + '...' 
                                         : (col.description || '-');
                                     
                                     return `
                                     <tr>
-                                        <td style="padding: 8px; border: 1px solid #ddd; font-weight: 600;">${this.escapeHtml(col.name)}</td>
-                                        <td style="padding: 8px; border: 1px solid #ddd; font-family: monospace; background: #f8f9fa;">${this.escapeHtml(col.type)}</td>
-                                        <td style="padding: 8px; border: 1px solid #ddd; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${this.escapeHtml(col.description || '-')}">${this.escapeHtml(displayDesc)}</td>
-                                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">
+                                        <td style="padding: 4px 8px; border: 1px solid #ddd; font-weight: 600; font-size: 12px;">${this.escapeHtml(col.name)}</td>
+                                        <td style="padding: 4px 8px; border: 1px solid #ddd; font-family: monospace; background: #f8f9fa; font-size: 11px;">${this.escapeHtml(col.type)}</td>
+                                        <td style="padding: 4px 8px; border: 1px solid #ddd; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px;" title="${this.escapeHtml(col.description || '-')}">${this.escapeHtml(displayDesc)}</td>
+                                        <td style="padding: 4px 8px; border: 1px solid #ddd; text-align: center;">
                                             <button class="btn-small btn-edit btn-edit-column" 
                                                     data-dict-id="${dictData.id}" 
                                                     data-table-id="${table.id}" 
@@ -1200,49 +1200,49 @@ window.PortalAdmin = {
                     : (table.description || '');
                 
                 tablesHtml += `
-                    <div class="table-card" style="margin-bottom: 20px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
-                        <div class="table-header" style="background: #f8f9fa; padding: 15px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center;">
+                    <div class="table-card" style="margin-bottom: 10px; border: 1px solid #ddd; border-radius: 6px; overflow: hidden;">
+                        <div class="table-header" style="background: #f8f9fa; padding: 8px 12px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center;">
                             <div style="flex: 1; min-width: 0;">
-                                <h4 style="margin: 0; color: #333;">${this.escapeHtml(table.name)}</h4>
-                                ${table.description ? `<p style="margin: 5px 0 0 0; color: #666; font-size: 14px; overflow: hidden; text-overflow: ellipsis;" title="${this.escapeHtml(table.description)}">${this.escapeHtml(displayTableDesc)}</p>` : ''}
-                                <small style="color: #999;">ID: ${table.id} | ${table.columns ? table.columns.length : 0} coluna(s)</small>
+                                <h4 style="margin: 0; color: #333; font-size: 14px;">${this.escapeHtml(table.name)}</h4>
+                                ${table.description ? `<p style="margin: 2px 0 0 0; color: #666; font-size: 12px; overflow: hidden; text-overflow: ellipsis;" title="${this.escapeHtml(table.description)}">${this.escapeHtml(displayTableDesc)}</p>` : ''}
+                                <small style="color: #999; font-size: 11px;">ID: ${table.id} | ${table.columns ? table.columns.length : 0} coluna(s)</small>
                             </div>
-                            <div style="flex-shrink: 0; margin-left: 15px;">
-                                <button class="btn-small" style="background: #4CAF50; color: white;" onclick="event.stopPropagation(); window.PortalAdmin.showCreateColumnForm(${dictData.id}, ${table.id})">+ Coluna</button>
-                                <button class="btn-small btn-edit btn-edit-table" 
+                            <div style="flex-shrink: 0; margin-left: 10px; display: flex; gap: 4px;">
+                                <button class="btn-small" style="background: #4CAF50; color: white; padding: 4px 8px; font-size: 11px;" onclick="event.stopPropagation(); window.PortalAdmin.showCreateColumnForm(${dictData.id}, ${table.id})">+ Coluna</button>
+                                <button class="btn-small btn-edit btn-edit-table" style="padding: 4px 8px; font-size: 11px;"
                                         data-dict-id="${dictData.id}" 
                                         data-table-id="${table.id}" 
                                         data-table-name="${this.escapeHtml(table.name || '')}" 
-                                        data-table-desc="${this.escapeHtml(table.description || '')}">✏️ Editar</button>
-                                <button class="btn-small btn-delete btn-delete-table" 
+                                        data-table-desc="${this.escapeHtml(table.description || '')}">✏️</button>
+                                <button class="btn-small btn-delete btn-delete-table" style="padding: 4px 8px; font-size: 11px;"
                                         data-dict-id="${dictData.id}" 
                                         data-table-id="${table.id}" 
-                                        data-table-name="${this.escapeHtml(table.name || '')}">🗑️ Excluir</button>
+                                        data-table-name="${this.escapeHtml(table.name || '')}">🗑️</button>
                             </div>
                         </div>
-                        <div class="table-columns" style="padding: 15px;">
+                        <div class="table-columns" style="padding: 8px;">
                             ${columnsHtml}
                         </div>
                     </div>
                 `;
             });
         } else {
-            tablesHtml = '<p style="text-align: center; color: #666; font-style: italic; padding: 40px;">Nenhuma tabela definida neste dicionário</p>';
+            tablesHtml = '<p style="text-align: center; color: #666; font-style: italic; padding: 20px;">Nenhuma tabela definida neste dicionário</p>';
         }
         
         modal.innerHTML = `
-            <div class="modal-content" style="max-width: 900px; max-height: 90vh;">
+            <div class="modal-content" style="max-width: 900px; max-height: 80vh;">
                 <div class="modal-header">
                     <div>
-                        <h3>📋 Estrutura: ${this.escapeHtml(dictData.name)}</h3>
-                        ${dictData.description ? `<p style="margin: 5px 0 0 0; color: #666;">${this.escapeHtml(dictData.description)}</p>` : ''}
+                        <h3 style="font-size: 16px; margin: 0;">📋 Estrutura: ${this.escapeHtml(dictData.name)}</h3>
+                        ${dictData.description ? `<p style="margin: 2px 0 0 0; color: #666; font-size: 12px;">${this.escapeHtml(dictData.description)}</p>` : ''}
                     </div>
                     <button type="button" class="modal-close" onclick="window.PortalAdmin.closeDictionaryStructureManager()">×</button>
                 </div>
-                <div class="modal-body" style="max-height: calc(90vh - 140px); overflow-y: auto;">
-                    <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
-                        <div style="display: flex; gap: 15px; align-items: center; padding: 15px; background: #e3f2fd; border-radius: 8px; flex: 1; margin-right: 15px;">
-                            <div>
+                <div class="modal-body" style="max-height: calc(80vh - 100px); overflow-y: auto;">
+                    <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                        <div style="display: flex; gap: 12px; align-items: center; padding: 8px 12px; background: #e3f2fd; border-radius: 6px; flex: 1; min-width: 200px;">
+                            <div style="font-size: 12px;">
                                 <span style="font-weight: 600; color: #1565c0;">Status:</span>
                                 <span style="color: ${dictData.isActive ? '#2e7d32' : '#d32f2f'};">
                                     ${dictData.isActive ? '✅ Ativo' : '❌ Inativo'}
@@ -1280,24 +1280,29 @@ window.PortalAdmin = {
                 #dictionaryStructureModal .modal-content {
                     background: white !important; 
                     color: #333 !important;
-                    border-radius: 8px; width: 90%;
-                    max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+                    border-radius: 8px; width: 85%;
+                    max-width: 900px;
+                    max-height: 80vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.2);
                 }
                 #dictionaryStructureModal .modal-header {
-                    padding: 20px; border-bottom: 1px solid #eee;
+                    padding: 12px 16px; border-bottom: 1px solid #eee;
                     display: flex; justify-content: space-between; align-items: center;
                     background-color: #f8f9fa !important;
+                    position: sticky; top: 0; z-index: 10;
                 }
                 #dictionaryStructureModal .modal-header h3 { 
                     margin: 0; 
-                    color: #333 !important; 
+                    color: #333 !important;
+                    font-size: 16px;
                 }
                 #dictionaryStructureModal .modal-header p {
                     color: #666 !important;
+                    font-size: 12px;
+                    margin: 0;
                 }
                 #dictionaryStructureModal .modal-close {
-                    background: none; border: none; font-size: 24px; cursor: pointer;
-                    color: #999 !important; padding: 0; width: 30px; height: 30px;
+                    background: none; border: none; font-size: 20px; cursor: pointer;
+                    color: #999 !important; padding: 0; width: 28px; height: 28px;
                     display: flex; align-items: center; justify-content: center;
                     border-radius: 50%;
                 }
@@ -1306,46 +1311,56 @@ window.PortalAdmin = {
                     color: #333 !important; 
                 }
                 #dictionaryStructureModal .modal-body { 
-                    padding: 20px; 
+                    padding: 12px 16px; 
                     background: white !important;
                 }
                 #dictionaryStructureModal .modal-footer {
-                    padding: 20px; border-top: 1px solid #eee;
-                    display: flex; justify-content: flex-end; gap: 10px;
+                    padding: 10px 16px; border-top: 1px solid #eee;
+                    display: flex; justify-content: flex-end; gap: 8px;
                     background-color: #f8f9fa !important;
+                    position: sticky; bottom: 0; z-index: 10;
                 }
                 #dictionaryStructureModal .btn-primary {
                     background: #0066cc !important; color: white !important; border: none;
-                    padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 14px;
+                    padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 13px;
                 }
                 #dictionaryStructureModal .btn-primary:hover { background: #0052a3 !important; }
                 #dictionaryStructureModal .btn-secondary {
                     background: #6c757d !important; color: white !important; border: none;
-                    padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 14px;
+                    padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 13px;
                 }
                 #dictionaryStructureModal .btn-secondary:hover { background: #545b62 !important; }
                 #dictionaryStructureModal .table-card {
                     background: white !important;
                     border: 1px solid #ddd !important;
+                    margin-bottom: 8px;
                 }
                 #dictionaryStructureModal .table-header {
                     background: #f8f9fa !important;
                     border-bottom: 1px solid #ddd !important;
+                    padding: 8px 12px !important;
                 }
                 #dictionaryStructureModal .table-header h4 {
                     color: #333 !important;
+                    font-size: 14px !important;
+                    margin: 0 !important;
                 }
                 #dictionaryStructureModal .table-header p {
                     color: #666 !important;
+                    font-size: 12px !important;
+                    margin: 2px 0 0 0 !important;
                 }
                 #dictionaryStructureModal .table-header small {
                     color: #999 !important;
+                    font-size: 11px !important;
                 }
                 #dictionaryStructureModal .table-columns {
                     background: white !important;
+                    padding: 8px !important;
                 }
                 #dictionaryStructureModal table {
                     background: white !important;
+                    font-size: 12px !important;
                 }
                 #dictionaryStructureModal thead {
                     background: #f1f3f4 !important;
@@ -1354,11 +1369,15 @@ window.PortalAdmin = {
                     color: #333 !important;
                     background: #f1f3f4 !important;
                     border: 1px solid #ddd !important;
+                    padding: 6px 8px !important;
+                    font-size: 11px !important;
                 }
                 #dictionaryStructureModal td {
                     color: #333 !important;
                     background: white !important;
                     border: 1px solid #ddd !important;
+                    padding: 4px 8px !important;
+                    font-size: 12px !important;
                 }
                 #dictionaryStructureModal tr:hover td {
                     background: #f8f9fa !important;
@@ -1367,6 +1386,8 @@ window.PortalAdmin = {
                     background: white !important;
                     color: #333 !important;
                     border: 1px solid #ddd !important;
+                    padding: 4px 8px !important;
+                    font-size: 11px !important;
                 }
                 #dictionaryStructureModal .btn-small:hover {
                     background: #f5f5f5 !important;

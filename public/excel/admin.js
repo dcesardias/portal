@@ -96,9 +96,9 @@ function renderGroups() {
             <td><code>${group.Code}</code></td>
             <td>${group.Name}</td>
             <td>${group.Description || '-'}</td>
-            <td style="font-size: 24px;">${group.Icon || '📁'}</td>
+            <td style="font-size: 20px;">${group.Icon || '📁'}</td>
             <td><span class="badge badge-primary">${group.TotalTables || 0}</span></td>
-            <td class="actions">
+            <td>
                 <button class="btn btn-primary" onclick="editGroup(${group.Id})">
                     <i class="fas fa-edit"></i> Editar
                 </button>
@@ -151,7 +151,7 @@ function renderTables() {
                     ? '<i class="fas fa-check-circle" style="color: #28a745;"></i> Sim' 
                     : '<i class="fas fa-times-circle" style="color: #dc3545;"></i> Não'}
             </td>
-            <td class="actions">
+            <td>
                 <button class="btn btn-primary" onclick="editTable(${table.Id})">
                     <i class="fas fa-edit"></i> Editar
                 </button>

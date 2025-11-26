@@ -61,32 +61,9 @@ const TABELAS_DISPONIVEIS = {
     'ADP_MOTIVO_RESCISAO': { nome: 'ADP Motivo Rescisão', descricao: 'Motivos de rescisão ADP', icone: '📄' }
 };
 
-// Servir frontend da aplicação Excel
-app.get('/excel', (req, res) => {
-    try {
-        res.sendFile(path.join(__dirname, 'public', 'excel', 'index.html'));
-    } catch (e) {
-        res.status(404).send('Aplicação de carga não encontrada');
-    }
-});
-
-// Servir página de administração Excel
-app.get('/excel/admin', (req, res) => {
-    try {
-        res.sendFile(path.join(__dirname, 'public', 'excel', 'admin.html'));
-    } catch (e) {
-        res.status(404).send('Página de administração não encontrada');
-    }
-});
-
-// Servir página de teste de API
-app.get('/excel/test-api', (req, res) => {
-    try {
-        res.sendFile(path.join(__dirname, 'public', 'excel', 'test-api.html'));
-    } catch (e) {
-        res.status(404).send('Página de teste não encontrada');
-    }
-});
+// ROTAS REMOVIDAS - Acesso apenas via painel admin
+// As páginas /excel e /excel/admin agora são acessadas apenas pelo painel administrativo
+// usando window.open() com URLs diretas para os arquivos HTML
 
 // Listar tabelas disponíveis (busca do banco de dados)
 app.get('/api/excel/tabelas', async (req, res) => {
