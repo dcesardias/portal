@@ -293,6 +293,8 @@ async function showTableModal(tableId = null) {
     // Carregar grupos no dropdown
     await loadGroupsDropdown();
     
+    const fileUploadSection = document.querySelector('.form-group:has(#tableModelFile)');
+    
     if (tableId) {
         const table = tables.find(t => t.Id === tableId);
         if (!table) return;
@@ -306,13 +308,20 @@ async function showTableModal(tableId = null) {
         document.getElementById('tableIcon').value = table.Icon || '';
         document.getElementById('tableGroup').value = table.GroupId || '';
         
-        // Limpar info de arquivo
-        document.getElementById('fileInfo').classList.remove('show');
+        // Ocultar seção de upload de arquivo na edição
+        if (fileUploadSection) {
+            fileUploadSection.style.display = 'none';
+        }
     } else {
         document.getElementById('tableModalTitle').textContent = 'Nova Tabela';
         document.getElementById('tableForm').reset();
         document.getElementById('tableName').disabled = false;
         document.getElementById('fileInfo').classList.remove('show');
+        
+        // Mostrar seção de upload na criação
+        if (fileUploadSection) {
+            fileUploadSection.style.display = 'block';
+        }
     }
     
     document.getElementById('tableModal').classList.add('show');
@@ -321,8 +330,17 @@ async function showTableModal(tableId = null) {
 // Fechar modal de tabela
 function closeTableModal() {
     document.getElementById('tableModal').classList.remove('show');
-    document.getElementById('tableForm').reset();
-    document.getElementById('fileInfo').classList.remove('show');
+    
+    const tableForm = document.getElementById('tableForm');
+    if (tableForm) {
+        tableForm.reset();
+    }
+    
+    const fileInfo = document.getElementById('fileInfo');
+    if (fileInfo) {
+        fileInfo.classList.remove('show');
+    }
+    
     currentEditingTable = null;
 }
 
@@ -355,6 +373,7 @@ async function loadGroupsDropdown() {
 async function saveTable() {
     const modalContent = document.querySelector('#tableModal .modal-content');
     const originalContent = modalContent.innerHTML;
+    let eventSource = null;
     
     try {
         const token = localStorage.getItem('token');
@@ -385,16 +404,56 @@ async function saveTable() {
             formData.append('modelFile', fileInput.files[0]);
         }
         
-        // Mostrar indicador de progresso
+        // Mostrar barra de progresso
         if (!isEdit) {
+            const sessionId = Date.now().toString();
+            formData.append('sessionId', sessionId);
+            
             modalContent.innerHTML = `
-                <div style="text-align: center; padding: 60px 20px;">
-                    <i class="fas fa-spinner fa-spin" style="font-size: 48px; color: #0066cc; margin-bottom: 20px;"></i>
-                    <h3 style="color: #0066cc; margin-bottom: 10px;">Processando...</h3>
-                    <p style="color: #666; font-size: 14px;">Criando tabela e inserindo dados do modelo</p>
-                    <p style="color: #999; font-size: 12px; margin-top: 10px;">Isso pode levar alguns momentos</p>
+                <div style="text-align: center; padding: 40px 30px;">
+                    <i class="fas fa-database" style="font-size: 42px; color: #0066cc; margin-bottom: 20px;"></i>
+                    <h3 style="color: #0066cc; margin-bottom: 15px;">Criando Tabela</h3>
+                    <p id="progressMessage" style="color: #666; font-size: 14px; margin-bottom: 20px;">Iniciando...</p>
+                    
+                    <div style="width: 100%; background: #e0e0e0; border-radius: 10px; height: 24px; overflow: hidden; margin-bottom: 10px;">
+                        <div id="progressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #0066cc 0%, #0052a3 100%); transition: width 0.3s ease; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 12px;"></div>
+                    </div>
+                    
+                    <p id="progressDetails" style="color: #999; font-size: 12px;">0%</p>
                 </div>
             `;
+            
+            // Conectar ao SSE para receber progresso
+            console.log('[SSE] Conectando ao servidor com sessionId:', sessionId);
+            eventSource = new EventSource(`/api/excel/table-definitions/progress/${sessionId}`);
+            
+            eventSource.onopen = () => {
+                console.log('[SSE] Conexão estabelecida');
+            };
+            
+            eventSource.onmessage = (event) => {
+                console.log('[SSE] Mensagem recebida:', event.data);
+                const data = JSON.parse(event.data);
+                const progressBar = document.getElementById('progressBar');
+                const progressMessage = document.getElementById('progressMessage');
+                const progressDetails = document.getElementById('progressDetails');
+                
+                if (progressBar && progressMessage && progressDetails) {
+                    progressBar.style.width = `${data.progress}%`;
+                    progressBar.textContent = `${data.progress}%`;
+                    progressMessage.textContent = data.message;
+                    
+                    if (data.current && data.total) {
+                        progressDetails.textContent = `${data.current.toLocaleString()} / ${data.total.toLocaleString()} linhas (${data.progress}%)`;
+                    } else {
+                        progressDetails.textContent = `${data.progress}%`;
+                    }
+                }
+            };
+            
+            eventSource.onerror = (error) => {
+                console.error('[SSE] Erro na conexão:', error);
+            };
         }
         
         const url = isEdit 
@@ -423,14 +482,28 @@ async function saveTable() {
         }
         
         const result = await response.json();
+        
+        // Fechar EventSource se existir
+        if (eventSource) {
+            eventSource.close();
+        }
+        
         showAlert(result.message || `Tabela ${isEdit ? 'atualizada' : 'criada'} com sucesso!`, 'success');
         closeTableModal();
         await loadTables();
     } catch (err) {
         console.error('Erro ao salvar tabela:', err);
+        
+        // Fechar EventSource se existir
+        if (eventSource) {
+            eventSource.close();
+        }
+        
         // Restaurar conteúdo original em caso de erro
-        modalContent.innerHTML = originalContent;
-        showAlert(err.message, 'error');
+        setTimeout(() => {
+            modalContent.innerHTML = originalContent;
+            showAlert(err.message, 'error');
+        }, 300);
     }
 }
 

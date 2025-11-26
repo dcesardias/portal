@@ -157,23 +157,34 @@ app.get('/api/excel/tabelas', async (req, res) => {
 app.get('/api/excel/tabelas/:tabela/info', async (req, res) => {
     const { tabela } = req.params;
     
-    if (!TABELAS_DISPONIVEIS[tabela]) {
-        return res.status(404).json({ error: 'Tabela não encontrada' });
-    }
-    
     try {
+        // Buscar definição da tabela no banco PowerBIPortal
+        const tableDefResult = await pool.request()
+            .input('tableName', sql.VarChar(100), tabela)
+            .query('SELECT * FROM TableDefinitions WHERE TableName = @tableName AND IsActive = 1');
+        
+        if (tableDefResult.recordset.length === 0) {
+            return res.status(404).json({ error: 'Tabela não encontrada' });
+        }
+        
+        const tableDef = tableDefResult.recordset[0];
+        
         if (!poolFonte || !poolFonte.connected) {
             return res.status(503).json({ error: 'Banco Fonte não conectado' });
         }
         
-        const result = await poolFonte.request()
-            .input('tabela', sql.NVarChar, tabela)
-            .query(`SELECT COUNT(*) as total FROM dbo.${tabela}`);
+        // Contar registros na tabela
+        const countResult = await poolFonte.request()
+            .query(`SELECT COUNT(*) as total FROM dbo.[${tabela}]`);
         
         res.json({
             tabela: tabela,
-            info: TABELAS_DISPONIVEIS[tabela],
-            total_registros: result.recordset[0].total
+            info: {
+                nome: tableDef.DisplayName,
+                descricao: tableDef.Description,
+                icon: tableDef.Icon
+            },
+            total_registros: countResult.recordset[0].total
         });
     } catch (err) {
         console.error('Erro ao obter info da tabela:', err);
@@ -185,11 +196,24 @@ app.get('/api/excel/tabelas/:tabela/info', async (req, res) => {
 app.get('/api/excel/modelo/:tabela', async (req, res) => {
     const { tabela } = req.params;
     
-    if (!TABELAS_DISPONIVEIS[tabela]) {
-        return res.status(404).json({ error: 'Tabela não encontrada' });
-    }
-    
     try {
+        // Buscar definição da tabela no banco PowerBIPortal
+        const tableDefResult = await pool.request()
+            .input('tableName', sql.VarChar(100), tabela)
+            .query('SELECT * FROM TableDefinitions WHERE TableName = @tableName AND IsActive = 1');
+        
+        if (tableDefResult.recordset.length === 0) {
+            return res.status(404).json({ error: 'Tabela não encontrada' });
+        }
+        
+        const tableDef = tableDefResult.recordset[0];
+        
+        // Se existe arquivo modelo salvo, retornar ele
+        if (tableDef.ModelFilePath && fs.existsSync(path.join(__dirname, 'public', tableDef.ModelFilePath))) {
+            return res.download(path.join(__dirname, 'public', tableDef.ModelFilePath), `${tabela}_modelo.xlsx`);
+        }
+        
+        // Caso contrário, gerar modelo dinamicamente
         if (!poolFonte || !poolFonte.connected) {
             return res.status(503).json({ error: 'Banco Fonte não conectado' });
         }
@@ -312,6 +336,7 @@ function convertToSqlType(value, sqlType) {
 app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, res) => {
     const { tabela } = req.params;
     const tipoCarga = req.body.tipo_carga || 'completa';
+    const sessionId = req.body.sessionId || Date.now().toString();
     
     // Verificar se tabela existe no banco de dados
     let tableExists = false;
@@ -338,6 +363,8 @@ app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, re
             return res.status(503).json({ error: 'Banco Fonte não conectado' });
         }
         
+        sendProgress(sessionId, { stage: 'reading', message: 'Lendo arquivo Excel...', progress: 5 });
+        
         // Ler arquivo Excel
         const workbook = XLSX.readFile(req.file.path);
         const sheetName = workbook.SheetNames[0];
@@ -345,9 +372,12 @@ app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, re
         const data = XLSX.utils.sheet_to_json(worksheet, { defval: null });
         
         if (data.length === 0) {
-            fs.unlinkSync(req.file.path); // Remove arquivo
+            fs.unlinkSync(req.file.path);
+            sendProgress(sessionId, { stage: 'error', message: 'Arquivo vazio', progress: 0 });
             return res.status(400).json({ error: 'Arquivo Excel vazio' });
         }
+        
+        sendProgress(sessionId, { stage: 'read', message: `${data.length} linhas encontradas`, progress: 10 });
         
         // Obter estrutura da tabela
         const schemaResult = await poolFonte.request().query(`
@@ -362,12 +392,16 @@ app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, re
         
         // Limpar tabela se for carga completa
         if (tipoCarga === 'completa') {
+            sendProgress(sessionId, { stage: 'cleaning', message: 'Limpando tabela...', progress: 15 });
             await poolFonte.request().query(`DELETE FROM dbo.${tabela}`);
+            sendProgress(sessionId, { stage: 'cleaned', message: 'Tabela limpa', progress: 20 });
         }
         
         // Inserir dados em lotes
         const batchSize = 1000;
         let totalInserted = 0;
+        
+        sendProgress(sessionId, { stage: 'inserting', message: `Iniciando inserção de ${data.length} linhas...`, progress: 25, total: data.length });
         
         for (let i = 0; i < data.length; i += batchSize) {
             const batch = data.slice(i, i + batchSize);
@@ -392,6 +426,18 @@ app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, re
                     const insertQuery = `INSERT INTO dbo.${tabela} (${columnNames.map(c => `[${c}]`).join(',')}) VALUES (${params.join(',')})`;
                     await request.query(insertQuery);
                     totalInserted++;
+                    
+                    // Enviar progresso a cada 100 linhas
+                    if (totalInserted % 100 === 0 || totalInserted === data.length) {
+                        const percentComplete = 25 + Math.floor((totalInserted / data.length) * 70);
+                        sendProgress(sessionId, {
+                            stage: 'inserting',
+                            message: `Inserindo dados: ${totalInserted}/${data.length} linhas`,
+                            progress: percentComplete,
+                            current: totalInserted,
+                            total: data.length
+                        });
+                    }
                 }
                 
                 await transaction.commit();
@@ -404,11 +450,23 @@ app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, re
         // Remove arquivo temporário
         fs.unlinkSync(req.file.path);
         
+        sendProgress(sessionId, { stage: 'completed', message: 'Upload concluído com sucesso!', progress: 100, total_inserido: totalInserted });
+        
+        // Fechar conexão SSE
+        setTimeout(() => {
+            const client = progressClients.get(sessionId);
+            if (client) {
+                client.end();
+                progressClients.delete(sessionId);
+            }
+        }, 1000);
+        
         res.json({
             success: true,
             message: `${tipoCarga === 'completa' ? 'Carga completa' : 'Carga incremental'} concluída`,
             total_inserido: totalInserted,
-            tabela: tabela
+            tabela: tabela,
+            sessionId
         });
         
     } catch (err) {
@@ -650,9 +708,74 @@ app.get('/api/excel/table-definitions', async (req, res) => {
     }
 });
 
+// Armazenar clientes SSE para progresso
+const progressClients = new Map();
+
+// Rota SSE para progresso de upload
+app.get('/api/excel/upload/progress/:sessionId', (req, res) => {
+    const { sessionId } = req.params;
+    
+    console.log(`[SSE UPLOAD] Cliente conectado com sessionId: ${sessionId}`);
+    
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+    
+    progressClients.set(sessionId, res);
+    console.log(`[SSE UPLOAD] Total de clientes conectados: ${progressClients.size}`);
+    
+    res.write(`data: ${JSON.stringify({ stage: 'connected', message: 'Conectado ao servidor', progress: 0 })}\n\n`);
+    
+    req.on('close', () => {
+        console.log(`[SSE UPLOAD] Cliente desconectado: ${sessionId}`);
+        progressClients.delete(sessionId);
+    });
+});
+
+// Rota SSE para progresso de criação de tabela
+app.get('/api/excel/table-definitions/progress/:sessionId', (req, res) => {
+    const { sessionId } = req.params;
+    
+    console.log(`[SSE] Cliente conectado com sessionId: ${sessionId}`);
+    
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+    
+    progressClients.set(sessionId, res);
+    console.log(`[SSE] Total de clientes conectados: ${progressClients.size}`);
+    
+    // Enviar mensagem inicial
+    res.write(`data: ${JSON.stringify({ stage: 'connected', message: 'Conectado ao servidor', progress: 0 })}\n\n`);
+    
+    req.on('close', () => {
+        console.log(`[SSE] Cliente desconectado: ${sessionId}`);
+        progressClients.delete(sessionId);
+    });
+});
+
+// Função para enviar progresso
+function sendProgress(sessionId, data) {
+    const client = progressClients.get(sessionId);
+    console.log(`[SSE] Tentando enviar para sessionId ${sessionId}. Cliente encontrado:`, !!client);
+    if (client) {
+        try {
+            client.write(`data: ${JSON.stringify(data)}\n\n`);
+            console.log(`[SSE] Enviado: ${data.message} (${data.progress}%)`);
+        } catch (err) {
+            console.error(`[SSE] Erro ao enviar:`, err.message);
+        }
+    } else {
+        console.log(`[SSE] Clientes ativos:`, Array.from(progressClients.keys()));
+    }
+}
+
 // Criar nova definição de tabela
 app.post('/api/excel/table-definitions', uploadExcel.single('modelFile'), async (req, res) => {
     console.log('[API] POST /api/excel/table-definitions - Acesso público');
+    const sessionId = req.body.sessionId || Date.now().toString();
     
     try {
         const { tableName, displayName, description, icon, groupId } = req.body;
@@ -701,7 +824,8 @@ app.post('/api/excel/table-definitions', uploadExcel.single('modelFile'), async 
             .query('SELECT Id FROM TableDefinitions WHERE TableName = @tableName AND IsActive = 1');
         
         if (existingTable.recordset.length > 0) {
-            throw new Error('Já existe uma tabela com este nome');
+            sendProgress(sessionId, { stage: 'error', message: 'Tabela já existe', progress: 0 });
+            return res.status(400).json({ error: 'Já existe uma tabela com este nome' });
         }
         
         // Criar a tabela no banco Fonte
@@ -717,8 +841,10 @@ app.post('/api/excel/table-definitions', uploadExcel.single('modelFile'), async 
         `;
         
         console.log('[CRIAR TABELA] SQL:', createTableSQL);
+        sendProgress(sessionId, { stage: 'creating', message: 'Criando estrutura da tabela...', progress: 0 });
         await poolFonte.request().query(createTableSQL);
         console.log(`[CRIAR TABELA] Tabela ${tableName} criada com sucesso no banco Fonte`);
+        sendProgress(sessionId, { stage: 'created', message: 'Tabela criada com sucesso', progress: 5 });
         
         // Inserir dados do modelo na tabela
         if (data.length > 1) {
@@ -726,6 +852,7 @@ app.post('/api/excel/table-definitions', uploadExcel.single('modelFile'), async 
             
             if (dataRows.length > 0) {
                 console.log(`[INSERIR DADOS] Inserindo ${dataRows.length} linhas na tabela ${tableName}`);
+                sendProgress(sessionId, { stage: 'inserting', message: `Preparando inserção de ${dataRows.length} linhas...`, progress: 10, total: dataRows.length });
                 
                 for (let i = 0; i < dataRows.length; i++) {
                     const row = dataRows[i];
@@ -753,9 +880,17 @@ app.post('/api/excel/table-definitions', uploadExcel.single('modelFile'), async 
                     
                     await poolFonte.request().query(insertSQL);
                     
-                    // Log de progresso a cada 1000 linhas
-                    if ((i + 1) % 1000 === 0 || i === dataRows.length - 1) {
-                        console.log(`[PROGRESSO] ${i + 1}/${dataRows.length} linhas inseridas`);
+                    // Enviar progresso a cada 100 linhas ou no final
+                    if ((i + 1) % 100 === 0 || i === dataRows.length - 1) {
+                        const percentComplete = 10 + Math.floor(((i + 1) / dataRows.length) * 85);
+                        sendProgress(sessionId, {
+                            stage: 'inserting',
+                            message: `Inserindo dados: ${i + 1}/${dataRows.length} linhas`,
+                            progress: percentComplete,
+                            current: i + 1,
+                            total: dataRows.length
+                        });
+                        console.log(`[PROGRESSO] ${i + 1}/${dataRows.length} linhas inseridas (${percentComplete}%)`);
                     }
                 }
                 
@@ -783,9 +918,21 @@ app.post('/api/excel/table-definitions', uploadExcel.single('modelFile'), async 
                      @modelFileName, @modelFilePath, @columnDefinitions)
             `);
         
+        sendProgress(sessionId, { stage: 'completed', message: 'Tabela criada e dados inseridos com sucesso!', progress: 100 });
+        
+        // Fechar conexão SSE
+        setTimeout(() => {
+            const client = progressClients.get(sessionId);
+            if (client) {
+                client.end();
+                progressClients.delete(sessionId);
+            }
+        }, 1000);
+        
         res.status(201).json({
             ...result.recordset[0],
-            message: 'Tabela criada e dados do modelo inseridos com sucesso'
+            message: 'Tabela criada e dados do modelo inseridos com sucesso',
+            sessionId
         });
     } catch (err) {
         console.error('[ERRO] Erro ao criar tabela:', err);
@@ -892,18 +1039,58 @@ app.put('/api/excel/table-definitions/:id', uploadExcel.single('modelFile'), asy
     }
 });
 
-// Excluir definição de tabela (soft delete)
+// Excluir definição de tabela (delete permanente + drop da tabela)
 app.delete('/api/excel/table-definitions/:id', async (req, res) => {
     console.log('[API] DELETE /api/excel/table-definitions/:id - Acesso público');
     
     try {
+        // Buscar informações da tabela antes de deletar
+        const tableResult = await pool.request()
+            .input('id', sql.Int, req.params.id)
+            .query('SELECT TableName, ModelFilePath FROM TableDefinitions WHERE Id = @id');
+        
+        if (tableResult.recordset.length === 0) {
+            return res.status(404).json({ error: 'Tabela não encontrada' });
+        }
+        
+        const { TableName, ModelFilePath } = tableResult.recordset[0];
+        
+        // 1. Dropar tabela física no banco Fonte
+        try {
+            console.log(`[DELETE] Dropando tabela ${TableName} no banco Fonte`);
+            await poolFonte.request().query(`DROP TABLE IF EXISTS [dbo].[${TableName}]`);
+            console.log(`[DELETE] Tabela ${TableName} dropada com sucesso`);
+        } catch (dropErr) {
+            console.error(`[DELETE] Erro ao dropar tabela ${TableName}:`, dropErr.message);
+            // Continua mesmo se falhar (tabela pode não existir)
+        }
+        
+        // 2. Deletar arquivo modelo se existir
+        if (ModelFilePath) {
+            const filePath = path.join(__dirname, 'public', ModelFilePath);
+            if (fs.existsSync(filePath)) {
+                try {
+                    fs.unlinkSync(filePath);
+                    console.log(`[DELETE] Arquivo modelo deletado: ${ModelFilePath}`);
+                } catch (fileErr) {
+                    console.error(`[DELETE] Erro ao deletar arquivo:`, fileErr.message);
+                }
+            }
+        }
+        
+        // 3. Deletar registro do PowerBIPortal
         await pool.request()
             .input('id', sql.Int, req.params.id)
-            .query('UPDATE TableDefinitions SET IsActive = 0 WHERE Id = @id');
+            .query('DELETE FROM TableDefinitions WHERE Id = @id');
         
-        res.json({ success: true });
+        console.log(`[DELETE] Definição da tabela ${TableName} deletada do PowerBIPortal`);
+        
+        res.json({ 
+            success: true, 
+            message: `Tabela ${TableName} excluída permanentemente` 
+        });
     } catch (err) {
-        console.error('Erro ao excluir tabela:', err);
+        console.error('[DELETE] Erro ao excluir tabela:', err);
         res.status(500).json({ error: err.message });
     }
 });

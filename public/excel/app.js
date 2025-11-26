@@ -486,13 +486,23 @@ async function handleUpload() {
     const uploadBtn = document.getElementById('uploadBtn');
     const progressBar = document.getElementById('progressBar');
     const progressFill = document.getElementById('progressFill');
+    const progressText = document.getElementById('progressText');
     
     uploadBtn.disabled = true;
     progressBar.classList.add('active');
+    if (progressText) {
+        progressText.style.display = 'block';
+        progressText.style.color = '#0066cc';
+    }
+    
+    let eventSource = null;
     
     try {
         const formData = new FormData();
         formData.append('file', selectedFile);
+        
+        const sessionId = Date.now().toString();
+        formData.append('sessionId', sessionId);
         
         let url, successMessage;
         
@@ -506,38 +516,51 @@ async function handleUpload() {
             formData.append('tipo_carga', tipoCarga);
             url = `/api/excel/upload/${currentTable}`;
             successMessage = `Upload concluído com sucesso!`;
+            
+            // Conectar ao SSE para progresso em tempo real
+            eventSource = new EventSource(`/api/excel/upload/progress/${sessionId}`);
+            
+            eventSource.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                progressFill.style.width = `${data.progress}%`;
+                
+                if (progressText) {
+                    if (data.current && data.total) {
+                        progressText.textContent = `${data.message} (${data.progress}%)`;
+                    } else {
+                        progressText.textContent = data.message;
+                    }
+                }
+            };
+            
+            eventSource.onerror = (error) => {
+                console.error('[SSE] Erro na conexão:', error);
+            };
         }
-        
-        // Mostrar progresso
-        const progressText = document.getElementById('progressText');
-        if (progressText) progressText.style.display = 'block';
-        
-        let progress = 0;
-        const progressInterval = setInterval(() => {
-            progress += 10;
-            if (progress <= 90) {
-                progressFill.style.width = progress + '%';
-            }
-        }, 200);
         
         const response = await fetch(url, {
             method: 'POST',
             body: formData
         });
         
-        clearInterval(progressInterval);
-        progressFill.style.width = '100%';
+        if (eventSource) {
+            eventSource.close();
+        }
         
         const result = await response.json();
         
         if (response.ok) {
-            const progressText = document.getElementById('progressText');
             if (progressText) {
                 progressText.textContent = 'Concluído!';
                 progressText.style.color = '#28a745';
             }
             
             showAlert(successMessage + ` (${result.total_inserido || result.rows_inserted} registros)`, 'success');
+            
+            // Atualizar contagem de registros se não for tabela temporária
+            if (currentTable !== 'TABELA_TEMPORARIA') {
+                await updateTableCount(currentTable);
+            }
             
             // Reset
             setTimeout(() => {
@@ -558,11 +581,44 @@ async function handleUpload() {
         
     } catch (error) {
         console.error('Erro no upload:', error);
+        
+        if (eventSource) {
+            eventSource.close();
+        }
+        
         showAlert('Erro no upload: ' + error.message, 'error');
         progressBar.classList.remove('active');
-        const progressText = document.getElementById('progressText');
         if (progressText) progressText.style.display = 'none';
         uploadBtn.disabled = false;
+    }
+}
+
+// Atualizar contagem de registros de uma tabela
+async function updateTableCount(tableName) {
+    try {
+        const response = await fetch(`/api/excel/tabelas/${tableName}/info`);
+        if (!response.ok) return;
+        
+        const data = await response.json();
+        
+        // Atualizar o contador na lista de tabelas
+        const countElement = document.querySelector(`[data-table="${tableName}"] .table-count`);
+        if (countElement && data.total_registros !== undefined) {
+            countElement.textContent = formatNumber(data.total_registros) + ' registros';
+            countElement.style.opacity = '1';
+            
+            // Adicionar animação de destaque
+            countElement.style.transition = 'all 0.3s';
+            countElement.style.color = '#28a745';
+            countElement.style.fontWeight = '700';
+            
+            setTimeout(() => {
+                countElement.style.color = '';
+                countElement.style.fontWeight = '';
+            }, 2000);
+        }
+    } catch (error) {
+        console.error('Erro ao atualizar contagem:', error);
     }
 }
 
