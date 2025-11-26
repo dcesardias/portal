@@ -1134,7 +1134,7 @@
     }
     
     async function executeQuery(sqlQuery) {
-        const authToken = localStorage.getItem('authToken');
+        const authToken = sessionStorage.getItem('authToken');
         
         try {
             const response = await fetch('/api/chat/query', {

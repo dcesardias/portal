@@ -3,7 +3,7 @@ console.log('=== Portal Power BI Starting ===');
 // Configurações globais
 window.PortalApp = {
     API_URL: '/api',
-    authToken: localStorage.getItem('authToken'),
+    authToken: sessionStorage.getItem('authToken'),
     currentUser: null,
     isAdmin: false,
     menuData: [],

@@ -1239,7 +1239,7 @@ window.PortalAdmin = {
                     </div>
                     <button type="button" class="modal-close" onclick="window.PortalAdmin.closeDictionaryStructureManager()">×</button>
                 </div>
-                <div class="modal-body" style="max-height: calc(80vh - 100px); overflow-y: auto;">
+                <div class="modal-body">
                     <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
                         <div style="display: flex; gap: 12px; align-items: center; padding: 8px 12px; background: #e3f2fd; border-radius: 6px; flex: 1; min-width: 200px;">
                             <div style="font-size: 12px;">
@@ -1282,13 +1282,17 @@ window.PortalAdmin = {
                     color: #333 !important;
                     border-radius: 8px; width: 85%;
                     max-width: 900px;
-                    max-height: 80vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+                    max-height: 80vh; 
+                    overflow: hidden;
+                    display: flex;
+                    flex-direction: column;
+                    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
                 }
                 #dictionaryStructureModal .modal-header {
                     padding: 12px 16px; border-bottom: 1px solid #eee;
                     display: flex; justify-content: space-between; align-items: center;
                     background-color: #f8f9fa !important;
-                    position: sticky; top: 0; z-index: 10;
+                    flex-shrink: 0;
                 }
                 #dictionaryStructureModal .modal-header h3 { 
                     margin: 0; 
@@ -1313,12 +1317,15 @@ window.PortalAdmin = {
                 #dictionaryStructureModal .modal-body { 
                     padding: 12px 16px; 
                     background: white !important;
+                    overflow-y: auto;
+                    flex: 1;
+                    min-height: 0;
                 }
                 #dictionaryStructureModal .modal-footer {
                     padding: 10px 16px; border-top: 1px solid #eee;
                     display: flex; justify-content: flex-end; gap: 8px;
                     background-color: #f8f9fa !important;
-                    position: sticky; bottom: 0; z-index: 10;
+                    flex-shrink: 0;
                 }
                 #dictionaryStructureModal .btn-primary {
                     background: #0066cc !important; color: white !important; border: none;

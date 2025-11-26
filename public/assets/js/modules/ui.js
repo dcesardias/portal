@@ -80,6 +80,26 @@ window.PortalUI = {
                 }
             });
         }
+        
+        // Permitir login com Enter nos campos de usuário e senha
+        const loginUsername = document.getElementById('loginUsername');
+        const loginPassword = document.getElementById('loginPassword');
+        
+        const handleEnterKey = (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (window.PortalAuth) {
+                    window.PortalAuth.doLogin();
+                }
+            }
+        };
+        
+        if (loginUsername) {
+            loginUsername.addEventListener('keypress', handleEnterKey);
+        }
+        if (loginPassword) {
+            loginPassword.addEventListener('keypress', handleEnterKey);
+        }
     },
 
     setupMenuTypeSelect() {

@@ -2198,7 +2198,7 @@ class TutorialBuilderApp {
         }
 
         try {
-            const token = localStorage.getItem('authToken');
+            const token = sessionStorage.getItem('authToken');
             if (!token) {
                 this.showToast('❌ Você precisa estar logado como admin', 'error');
                 return;

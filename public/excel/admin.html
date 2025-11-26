@@ -735,7 +735,7 @@
     <script>
         // Verificar se usuário está logado como admin
         (function() {
-            const token = localStorage.getItem('authToken');
+            const token = sessionStorage.getItem('authToken');
             if (!token) {
                 alert('Acesso negado. Faça login como administrador.');
                 window.location.href = '/';
@@ -758,7 +758,7 @@
             })
             .catch(() => {
                 alert('Sessão expirada. Faça login novamente.');
-                localStorage.removeItem('authToken');
+                sessionStorage.removeItem('authToken');
                 window.location.href = '/';
             });
         })();

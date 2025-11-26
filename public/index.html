@@ -526,7 +526,7 @@
             const title = getVal('pageNameInput').trim();
             if (!title) { alert('Por favor, preencha o título da página'); return; }
 
-            const token = localStorage.getItem('authToken');
+            const token = sessionStorage.getItem('authToken');
             if (!token) { alert('Faça login como administrador para salvar páginas'); return; }
 
             const MAX = (window.MAX_LENGTHS || {});

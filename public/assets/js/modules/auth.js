@@ -2,9 +2,9 @@ window.PortalAuth = {
     async checkAuth() {
         let authToken = window.PortalApp.authToken;
         if (!authToken) {
-            authToken = localStorage.getItem('authToken');
+            authToken = sessionStorage.getItem('authToken');
             try {
-                window.PortalApp.currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+                window.PortalApp.currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
             } catch(e) {
                 window.PortalApp.currentUser = null;
             }
@@ -76,8 +76,8 @@ window.PortalAuth = {
                 window.PortalApp.authToken = data.token;
                 window.PortalApp.currentUser = data.user;
                 window.PortalApp.isAdmin = !!data.user.isAdmin;
-                localStorage.setItem('authToken', window.PortalApp.authToken);
-                localStorage.setItem('currentUser', JSON.stringify(window.PortalApp.currentUser));
+                sessionStorage.setItem('authToken', window.PortalApp.authToken);
+                sessionStorage.setItem('currentUser', JSON.stringify(window.PortalApp.currentUser));
                 document.getElementById('loginUsername').value = '';
                 document.getElementById('loginPassword').value = '';
                 document.getElementById('loginModal').classList.remove('show');
@@ -120,8 +120,8 @@ window.PortalAuth = {
     },
 
     clearAuth() {
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('currentUser');
+        sessionStorage.removeItem('authToken');
+        sessionStorage.removeItem('currentUser');
         window.PortalApp.authToken = null;
         window.PortalApp.currentUser = null;
         window.PortalApp.isAdmin = false;
