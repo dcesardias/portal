@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciamento de Tabelas - Excel</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/assets/css/portal.css">
+    <style>
+        .admin-container {
+            display: flex;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
+        }
+
+        .admin-sidebar {
+            width: 380px;
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(10px);
+            box-shadow: 4px 0 30px rgba(0, 0, 0, 0.15);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            z-index: 10;
+        }
+
+        .admin-header {
+            padding: 30px 24px;
+            background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+            color: white;
+            box-shadow: 0 4px 20px rgba(40, 167, 69, 0.3);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .admin-header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: white;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .admin-header p {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 400;
+            margin: 0;
+        }
+
+        .nav-menu {
+            list-style: none;
+            padding: 16px;
+            margin: 0;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .nav-item {
+            margin-bottom: 8px;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 16px;
+            border-radius: 10px;
+            color: #333;
+            text-decoration: none;
+            transition: all 0.3s;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            border: 2px solid transparent;
+        }
+
+        .nav-link:hover {
+            background: rgba(40, 167, 69, 0.1);
+            border-color: rgba(40, 167, 69, 0.2);
+            color: #28a745;
+            transform: translateX(4px);
+        }
+
+        .nav-link.active {
+            background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.4);
+        }
+
+        .nav-link i {
+            font-size: 16px;
+            width: 20px;
+            text-align: center;
+        }
+
+        .admin-main {
+            flex: 1;
+            padding: 40px;
+            overflow-y: auto;
+        }
+
+        .admin-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .content-section {
+            display: none;
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .content-section.active {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .section-header h2 {
+            font-size: 28px;
+            color: #0066cc;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            font-size: 14px;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(102, 126, 234, 0.6);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .data-table th {
+            background: rgba(0, 102, 204, 0.1);
+            color: #0066cc;
+            font-weight: 600;
+        }
+
+        .data-table tr:hover {
+            background: rgba(0, 102, 204, 0.05);
+        }
+
+        .data-table .actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .data-table .btn {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 14px;
+            padding: 28px;
+            max-width: 540px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            margin-bottom: 20px;
+        }
+
+        .modal-header h3 {
+            font-size: 21px;
+            color: #0066cc;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 6px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 9px 11px;
+            font-size: 13px;
+            border: 2px solid #e0e0e0;
+            border-radius: 7px;
+            transition: all 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #0066cc;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 70px;
+        }
+
+        .file-upload {
+            border: 2px dashed #0066cc;
+            border-radius: 7px;
+            padding: 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .file-upload:hover {
+            background: rgba(0, 102, 204, 0.05);
+        }
+
+        .file-upload input[type="file"] {
+            display: none;
+        }
+
+        .file-upload i {
+            font-size: 28px !important;
+        }
+
+        .file-upload p {
+            margin: 8px 0 4px 0;
+            font-size: 13px;
+        }
+
+        .file-upload small {
+            font-size: 11px;
+        }
+
+        .file-info {
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(0, 102, 204, 0.1);
+            border-radius: 7px;
+            display: none;
+            font-size: 13px;
+        }
+
+        .file-info.show {
+            display: block;
+        }
+
+        .modal-footer {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .modal-footer .btn {
+            padding: 10px 20px;
+            font-size: 13px;
+        }
+
+        .alert {
+            padding: 16px 20px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            display: none;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .alert.show {
+            display: flex;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 2px solid #28a745;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 2px solid #dc3545;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state i {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-primary {
+            background: rgba(0, 102, 204, 0.1);
+            color: #0066cc;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <div class="admin-sidebar">
+            <div class="admin-header">
+                <h1>⚙️ Admin</h1>
+                <p>Gerenciamento de Tabelas</p>
+            </div>
+            
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a class="nav-link active" data-section="groups">
+                        <i class="fas fa-folder"></i>
+                        <span>Grupos</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-section="tables">
+                        <i class="fas fa-table"></i>
+                        <span>Tabelas</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/excel">
+                        <i class="fas fa-arrow-left"></i>
+                        <span>Voltar ao Sistema</span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+
+        <div class="admin-main">
+            <div class="admin-content">
+                <!-- Alertas -->
+                <div id="alertBox" class="alert"></div>
+
+                <!-- Seção de Grupos -->
+                <div id="groups-section" class="content-section active">
+                    <div class="section-header">
+                        <h2><i class="fas fa-folder"></i> Grupos de Tabelas</h2>
+                        <div style="display: flex; gap: 12px;">
+                            <button class="btn btn-secondary" onclick="loadGroups()">
+                                <i class="fas fa-sync"></i> Recarregar
+                            </button>
+                            <button class="btn btn-primary" onclick="showGroupModal()">
+                                <i class="fas fa-plus"></i> Novo Grupo
+                            </button>
+                        </div>
+                    </div>
+
+                    <table class="data-table" id="groupsTable">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Nome</th>
+                                <th>Descrição</th>
+                                <th>Ícone</th>
+                                <th>Tabelas</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="groupsTableBody">
+                            <tr>
+                                <td colspan="6" class="empty-state">
+                                    <i class="fas fa-folder-open"></i>
+                                    <p>Carregando grupos...</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Seção de Tabelas -->
+                <div id="tables-section" class="content-section">
+                    <div class="section-header">
+                        <h2><i class="fas fa-table"></i> Definições de Tabelas</h2>
+                        <div style="display: flex; gap: 12px;">
+                            <button class="btn btn-secondary" onclick="loadTables()">
+                                <i class="fas fa-sync"></i> Recarregar
+                            </button>
+                            <button class="btn btn-primary" onclick="showTableModal()">
+                                <i class="fas fa-plus"></i> Nova Tabela
+                            </button>
+                        </div>
+                    </div>
+
+                    <table class="data-table" id="tablesTable">
+                        <thead>
+                            <tr>
+                                <th>Nome da Tabela</th>
+                                <th>Nome de Exibição</th>
+                                <th>Descrição</th>
+                                <th>Grupo</th>
+                                <th>Modelo</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablesTableBody">
+                            <tr>
+                                <td colspan="6" class="empty-state">
+                                    <i class="fas fa-table"></i>
+                                    <p>Carregando tabelas...</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Grupo -->
+    <div id="groupModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="groupModalTitle">Novo Grupo</h3>
+            </div>
+            <form id="groupForm">
+                <input type="hidden" id="groupId">
+                
+                <div class="form-group">
+                    <label for="groupCode">Código *</label>
+                    <input type="text" id="groupCode" required pattern="[A-Z0-9_]+" 
+                           placeholder="Ex: RH, FINANCEIRO" maxlength="50">
+                </div>
+
+                <div class="form-group">
+                    <label for="groupName">Nome *</label>
+                    <input type="text" id="groupName" required maxlength="200">
+                </div>
+
+                <div class="form-group">
+                    <label for="groupDescription">Descrição</label>
+                    <textarea id="groupDescription" maxlength="500"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="groupIcon">Ícone (Emoji)</label>
+                    <input type="text" id="groupIcon" placeholder="📁" maxlength="50">
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeGroupModal()">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Salvar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal de Tabela -->
+    <div id="tableModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="tableModalTitle">Nova Tabela</h3>
+            </div>
+            <form id="tableForm">
+                <input type="hidden" id="tableId">
+                
+                <div class="form-group">
+                    <label for="tableName">Nome da Tabela (SQL) *</label>
+                    <input type="text" id="tableName" required pattern="[A-Z0-9_]+" 
+                           placeholder="Ex: FUNCIONARIOS" maxlength="100">
+                    <small>Apenas letras maiúsculas, números e underline</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="tableDisplayName">Nome de Exibição *</label>
+                    <input type="text" id="tableDisplayName" required maxlength="200"
+                           placeholder="Ex: Funcionários">
+                </div>
+
+                <div class="form-group">
+                    <label for="tableDescription">Descrição</label>
+                    <textarea id="tableDescription" maxlength="500"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="tableIcon">Ícone (Emoji)</label>
+                    <input type="text" id="tableIcon" placeholder="📊" maxlength="50">
+                </div>
+
+                <div class="form-group">
+                    <label for="tableGroup">Grupo</label>
+                    <select id="tableGroup">
+                        <option value="">Sem grupo</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Arquivo Modelo Excel</label>
+                    <div class="file-upload" onclick="document.getElementById('tableModelFile').click()">
+                        <i class="fas fa-cloud-upload-alt" style="color: #0066cc;"></i>
+                        <p>Clique para selecionar arquivo</p>
+                        <small>Formato: .xlsx ou .xls</small>
+                    </div>
+                    <input type="file" id="tableModelFile" accept=".xlsx,.xls">
+                    <div class="file-info" id="fileInfo">
+                        <i class="fas fa-file-excel"></i>
+                        <span id="fileName"></span>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeTableModal()">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Salvar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="admin.js"></script>
+</body>
+</html>

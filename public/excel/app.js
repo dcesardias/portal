@@ -10,14 +10,94 @@ const uploadArea = document.getElementById('uploadArea');
 // Inicializar aplicação
 document.addEventListener('DOMContentLoaded', () => {
     loadTables();
+    setupSearch();
 });
+
+// Configurar pesquisa
+function setupSearch() {
+    const searchInput = document.getElementById('searchInput');
+    const clearSearch = document.getElementById('clearSearch');
+    
+    searchInput.addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase();
+        filterTables(searchTerm);
+    });
+    
+    clearSearch.addEventListener('click', () => {
+        searchInput.value = '';
+        filterTables('');
+        searchInput.focus();
+    });
+}
+
+// Filtrar tabelas
+function filterTables(searchTerm) {
+    const tableItems = document.querySelectorAll('.table-item');
+    const tableGroups = document.querySelectorAll('.table-group');
+    
+    tableItems.forEach(item => {
+        const tableName = item.querySelector('.table-name')?.textContent.toLowerCase() || '';
+        const tableDesc = item.querySelector('.table-desc')?.textContent.toLowerCase() || '';
+        const matches = tableName.includes(searchTerm) || tableDesc.includes(searchTerm);
+        
+        item.style.display = matches ? 'flex' : 'none';
+    });
+    
+    // Expandir grupos automaticamente se houver busca
+    tableGroups.forEach(group => {
+        if (searchTerm) {
+            const groupContent = group.querySelector('.table-group-content');
+            const visibleItems = Array.from(groupContent.querySelectorAll('.table-item'))
+                .filter(item => item.style.display !== 'none');
+            
+            if (visibleItems.length > 0) {
+                group.style.display = 'block';
+                if (!group.classList.contains('expanded')) {
+                    group.classList.add('expanded');
+                    requestAnimationFrame(() => {
+                        groupContent.style.maxHeight = (groupContent.scrollHeight + 20) + 'px';
+                    });
+                }
+            } else {
+                group.style.display = 'none';
+            }
+        } else {
+            group.style.display = 'block';
+        }
+    });
+}
 
 // Carregar lista de tabelas disponíveis
 async function loadTables() {
     try {
         const response = await fetch('/api/excel/tabelas');
         const data = await response.json();
-        tabelas = data.tabelas;
+        
+        // Novo formato: { groups: {...}, tables: {...} }
+        if (data.groups) {
+            // Processar grupos e suas tabelas
+            window.groups = data.groups;
+            window.tables = data.tables || {};
+            
+            // Criar lista flat de tabelas para compatibilidade
+            tabelas = {};
+            Object.keys(data.groups).forEach(groupKey => {
+                const group = data.groups[groupKey];
+                if (group.tabelas) {
+                    Object.keys(group.tabelas).forEach(tableKey => {
+                        tabelas[tableKey] = group.tabelas[tableKey];
+                    });
+                }
+            });
+            
+            // Adicionar tabelas sem grupo
+            Object.keys(data.tables).forEach(tableKey => {
+                tabelas[tableKey] = data.tables[tableKey];
+            });
+        } else {
+            // Formato antigo (fallback)
+            tabelas = data.tabelas || {};
+        }
         
         renderTablesList();
         
@@ -57,6 +137,10 @@ function formatNumber(num) {
 function renderTablesList() {
     tablesList.innerHTML = '';
     
+    // Limpar pesquisa ao renderizar
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) searchInput.value = '';
+    
     // Adicionar opção de tabela temporária primeiro
     const tempItem = createTableItem('TABELA_TEMPORARIA', {
         nome: 'Tabela Temporária',
@@ -65,11 +149,84 @@ function renderTablesList() {
     });
     tablesList.appendChild(tempItem);
     
-    // Adicionar tabelas predefinidas
-    for (const [key, info] of Object.entries(tabelas)) {
-        const item = createTableItem(key, info);
-        tablesList.appendChild(item);
+    // Renderizar grupos do banco de dados
+    if (window.groups) {
+        Object.keys(window.groups).forEach(groupKey => {
+            const group = window.groups[groupKey];
+            if (group.tabelas && Object.keys(group.tabelas).length > 0) {
+                const groupElement = createTableGroup(groupKey, {
+                    nome: group.nome,
+                    descricao: group.descricao,
+                    icone: group.icone
+                }, group.tabelas);
+                tablesList.appendChild(groupElement);
+            }
+        });
     }
+    
+    // Renderizar tabelas sem grupo
+    if (window.tables && Object.keys(window.tables).length > 0) {
+        Object.keys(window.tables).forEach(tableKey => {
+            const tableInfo = window.tables[tableKey];
+            const item = createTableItem(tableKey, tableInfo);
+            tablesList.appendChild(item);
+        });
+    }
+}
+
+// Criar grupo de tabelas
+function createTableGroup(groupKey, groupInfo, groupTables) {
+    const groupDiv = document.createElement('div');
+    groupDiv.className = 'table-group';
+    groupDiv.dataset.group = groupKey;
+    
+    // Cabeçalho do grupo
+    const groupHeader = document.createElement('div');
+    groupHeader.className = 'table-group-header';
+    groupHeader.innerHTML = `
+        <span class="table-icon">${groupInfo.icone}</span>
+        <div class="table-info">
+            <div class="table-name">${groupInfo.nome}</div>
+            <div class="table-desc">${groupInfo.descricao}</div>
+        </div>
+        <i class="fas fa-chevron-down group-arrow"></i>
+    `;
+    
+    // Container das tabelas do grupo
+    const groupContent = document.createElement('div');
+    groupContent.className = 'table-group-content';
+    
+    // Adicionar tabelas ao grupo
+    for (const [key, info] of Object.entries(groupTables)) {
+        const item = createTableItem(key, info);
+        item.classList.add('group-item');
+        groupContent.appendChild(item);
+    }
+    
+    // Toggle do grupo
+    groupHeader.addEventListener('click', (e) => {
+        // Se clicou em uma tabela dentro do grupo, não fazer toggle
+        if (e.target.closest('.table-item')) return;
+        
+        const isExpanded = groupDiv.classList.contains('expanded');
+        
+        if (isExpanded) {
+            groupContent.style.maxHeight = '0px';
+            groupDiv.classList.remove('expanded');
+        } else {
+            groupDiv.classList.add('expanded');
+            // Aguardar um frame para calcular a altura correta
+            requestAnimationFrame(() => {
+                // Adicionar margem extra para padding
+                groupContent.style.maxHeight = (groupContent.scrollHeight + 20) + 'px';
+            });
+        }
+    });
+    
+    groupDiv.appendChild(groupHeader);
+    groupDiv.appendChild(groupContent);
+    
+    return groupDiv;
 }
 
 // Criar elemento de tabela
@@ -103,7 +260,22 @@ function selectTable(key, info) {
     document.querySelectorAll('.table-item').forEach(item => {
         item.classList.remove('active');
     });
-    document.querySelector(`[data-table="${key}"]`).classList.add('active');
+    const selectedItem = document.querySelector(`[data-table="${key}"]`);
+    if (selectedItem) {
+        selectedItem.classList.add('active');
+        
+        // Expandir grupo se a tabela estiver dentro de um
+        const parentGroup = selectedItem.closest('.table-group');
+        if (parentGroup && !parentGroup.classList.contains('expanded')) {
+            parentGroup.classList.add('expanded');
+            const groupContent = parentGroup.querySelector('.table-group-content');
+            if (groupContent) {
+                requestAnimationFrame(() => {
+                    groupContent.style.maxHeight = (groupContent.scrollHeight + 20) + 'px';
+                });
+            }
+        }
+    }
     
     // Renderizar área de upload
     if (key === 'TABELA_TEMPORARIA') {

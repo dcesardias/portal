@@ -70,9 +70,87 @@ app.get('/excel', (req, res) => {
     }
 });
 
-// Listar tabelas disponíveis
-app.get('/api/excel/tabelas', (req, res) => {
-    res.json({ tabelas: TABELAS_DISPONIVEIS });
+// Servir página de administração Excel
+app.get('/excel/admin', (req, res) => {
+    try {
+        res.sendFile(path.join(__dirname, 'public', 'excel', 'admin.html'));
+    } catch (e) {
+        res.status(404).send('Página de administração não encontrada');
+    }
+});
+
+// Servir página de teste de API
+app.get('/excel/test-api', (req, res) => {
+    try {
+        res.sendFile(path.join(__dirname, 'public', 'excel', 'test-api.html'));
+    } catch (e) {
+        res.status(404).send('Página de teste não encontrada');
+    }
+});
+
+// Listar tabelas disponíveis (busca do banco de dados)
+app.get('/api/excel/tabelas', async (req, res) => {
+    try {
+        // Buscar grupos e tabelas do banco
+        const groupsResult = await pool.request().query(`
+            SELECT * FROM TableGroups WHERE IsActive = 1 ORDER BY Name
+        `);
+        
+        const tablesResult = await pool.request().query(`
+            SELECT * FROM TableDefinitions WHERE IsActive = 1 ORDER BY DisplayName
+        `);
+        
+        // Organizar por grupos
+        const groups = {};
+        const tables = {};
+        
+        groupsResult.recordset.forEach(group => {
+            groups[group.Code] = {
+                id: group.Id,
+                nome: group.Name,
+                descricao: group.Description,
+                icone: group.Icon,
+                tabelas: {}
+            };
+        });
+        
+        tablesResult.recordset.forEach(table => {
+            const tableInfo = {
+                id: table.Id,
+                nome: table.DisplayName,
+                descricao: table.Description,
+                icone: table.Icon,
+                modelFilePath: table.ModelFilePath
+            };
+            
+            if (table.GroupId) {
+                // Encontrar código do grupo
+                const group = groupsResult.recordset.find(g => g.Id === table.GroupId);
+                if (group && groups[group.Code]) {
+                    groups[group.Code].tabelas[table.TableName] = tableInfo;
+                }
+            } else {
+                // Tabela sem grupo
+                tables[table.TableName] = tableInfo;
+            }
+        });
+        
+        res.json({ groups, tables });
+    } catch (err) {
+        console.error('Erro ao buscar tabelas:', err);
+        // Fallback para tabelas hardcoded
+        res.json({ 
+            groups: {
+                ADP: {
+                    nome: 'ADP',
+                    descricao: 'Tabelas do sistema ADP',
+                    icone: '📊',
+                    tabelas: TABELAS_DISPONIVEIS
+                }
+            },
+            tables: {}
+        });
+    }
 });
 
 // Obter informações de uma tabela específica
@@ -235,7 +313,19 @@ app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, re
     const { tabela } = req.params;
     const tipoCarga = req.body.tipo_carga || 'completa';
     
-    if (!TABELAS_DISPONIVEIS[tabela]) {
+    // Verificar se tabela existe no banco de dados
+    let tableExists = false;
+    try {
+        const checkResult = await pool.request()
+            .input('tableName', sql.VarChar(100), tabela)
+            .query('SELECT 1 FROM TableDefinitions WHERE TableName = @tableName AND IsActive = 1');
+        tableExists = checkResult.recordset.length > 0;
+    } catch (err) {
+        console.warn('Erro ao verificar tabela no banco:', err);
+    }
+    
+    // Fallback para tabelas hardcoded
+    if (!tableExists && !TABELAS_DISPONIVEIS[tabela]) {
         return res.status(404).json({ error: 'Tabela não encontrada' });
     }
     
@@ -434,6 +524,392 @@ app.post('/api/excel/upload-temp', uploadExcel.single('file'), async (req, res) 
 
 // ========================================
 // FIM ROTAS APLICAÇÃO DE CARGA EXCEL
+// ========================================
+
+// ========================================
+// ROTAS DE GERENCIAMENTO DE GRUPOS E TABELAS
+// ========================================
+
+// Listar todos os grupos
+app.get('/api/excel/groups', async (req, res) => {
+    console.log('[API] GET /api/excel/groups - Acesso público');
+    try {
+        const result = await pool.request().query(`
+            SELECT g.*, COUNT(t.Id) as TotalTables
+            FROM TableGroups g
+            LEFT JOIN TableDefinitions t ON g.Id = t.GroupId AND t.IsActive = 1
+            WHERE g.IsActive = 1
+            GROUP BY g.Id, g.Code, g.Name, g.Description, g.Icon, g.IsActive, g.CreatedAt, g.UpdatedAt
+            ORDER BY g.Name
+        `);
+        console.log('[API] Grupos encontrados:', result.recordset.length);
+        console.log('[API] Grupos:', result.recordset.map(g => `${g.Code} - ${g.Name}`));
+        res.json(result.recordset);
+    } catch (err) {
+        console.error('[API] Erro ao buscar grupos:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Criar novo grupo
+app.post('/api/excel/groups', async (req, res) => {
+    console.log('[API] POST /api/excel/groups - Acesso público');
+    
+    try {
+        const { code, name, description, icon } = req.body;
+        
+        if (!code || !name) {
+            return res.status(400).json({ error: 'Código e nome são obrigatórios' });
+        }
+        
+        const result = await pool.request()
+            .input('code', sql.VarChar(50), code)
+            .input('name', sql.NVarChar(200), name)
+            .input('description', sql.NVarChar(500), description || null)
+            .input('icon', sql.NVarChar(50), icon || '📁')
+            .query(`
+                INSERT INTO TableGroups (Code, Name, Description, Icon)
+                OUTPUT INSERTED.*
+                VALUES (@code, @name, @description, @icon)
+            `);
+        
+        res.status(201).json(result.recordset[0]);
+    } catch (err) {
+        console.error('Erro ao criar grupo:', err);
+        if (err.number === 2627) { // Violação de chave única
+            res.status(400).json({ error: 'Já existe um grupo com este código' });
+        } else {
+            res.status(500).json({ error: err.message });
+        }
+    }
+});
+
+// Atualizar grupo
+app.put('/api/excel/groups/:id', async (req, res) => {
+    console.log('[API] PUT /api/excel/groups/:id - Acesso público');
+    
+    try {
+        const { name, description, icon } = req.body;
+        
+        const result = await pool.request()
+            .input('id', sql.Int, req.params.id)
+            .input('name', sql.NVarChar(200), name)
+            .input('description', sql.NVarChar(500), description || null)
+            .input('icon', sql.NVarChar(50), icon || null)
+            .query(`
+                UPDATE TableGroups
+                SET Name = @name,
+                    Description = @description,
+                    Icon = @icon,
+                    UpdatedAt = GETDATE()
+                OUTPUT INSERTED.*
+                WHERE Id = @id AND IsActive = 1
+            `);
+        
+        if (result.recordset.length === 0) {
+            return res.status(404).json({ error: 'Grupo não encontrado' });
+        }
+        
+        res.json(result.recordset[0]);
+    } catch (err) {
+        console.error('Erro ao atualizar grupo:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Excluir grupo (soft delete)
+app.delete('/api/excel/groups/:id', async (req, res) => {
+    console.log('[API] DELETE /api/excel/groups/:id - Acesso público');
+    
+    try {
+        await pool.request()
+            .input('id', sql.Int, req.params.id)
+            .query('UPDATE TableGroups SET IsActive = 0 WHERE Id = @id');
+        
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Erro ao excluir grupo:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Listar todas as definições de tabelas
+app.get('/api/excel/table-definitions', async (req, res) => {
+    try {
+        const result = await pool.request().query(`
+            SELECT t.*, g.Code as GroupCode, g.Name as GroupName
+            FROM TableDefinitions t
+            LEFT JOIN TableGroups g ON t.GroupId = g.Id
+            WHERE t.IsActive = 1
+            ORDER BY g.Name, t.DisplayName
+        `);
+        res.json(result.recordset);
+    } catch (err) {
+        console.error('Erro ao buscar tabelas:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Criar nova definição de tabela
+app.post('/api/excel/table-definitions', uploadExcel.single('modelFile'), async (req, res) => {
+    console.log('[API] POST /api/excel/table-definitions - Acesso público');
+    
+    try {
+        const { tableName, displayName, description, icon, groupId } = req.body;
+        
+        if (!tableName || !displayName) {
+            return res.status(400).json({ error: 'Nome da tabela e nome de exibição são obrigatórios' });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({ error: 'Arquivo modelo Excel é obrigatório' });
+        }
+        
+        let modelFileName = req.file.filename;
+        let modelFilePath = `/uploads/excel/${req.file.filename}`;
+        let columnDefinitions = null;
+        
+        // Ler estrutura do Excel para extrair colunas
+        const workbook = XLSX.readFile(req.file.path);
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const data = XLSX.utils.sheet_to_json(worksheet, { defval: null, header: 1 });
+        
+        if (data.length === 0) {
+            throw new Error('Arquivo Excel está vazio');
+        }
+        
+        // Limpar headers: remover espaços em branco e filtrar null/undefined
+        const headers = data[0]
+            .filter(col => col !== null && col !== undefined && col !== '')
+            .map(col => String(col).trim());
+        
+        if (headers.length === 0) {
+            throw new Error('Nenhuma coluna válida encontrada no arquivo Excel');
+        }
+        
+        const columns = headers.map(col => ({
+            name: col,
+            type: 'NVARCHAR(MAX)',
+            nullable: true
+        }));
+        columnDefinitions = JSON.stringify(columns);
+        
+        // Verificar se tabela já existe no PowerBIPortal
+        const existingTable = await pool.request()
+            .input('tableName', sql.VarChar(100), tableName)
+            .query('SELECT Id FROM TableDefinitions WHERE TableName = @tableName AND IsActive = 1');
+        
+        if (existingTable.recordset.length > 0) {
+            throw new Error('Já existe uma tabela com este nome');
+        }
+        
+        // Criar a tabela no banco Fonte
+        const createTableSQL = `
+            IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = '${tableName}')
+            BEGIN
+                CREATE TABLE [dbo].[${tableName}] (
+                    Id INT IDENTITY(1,1) PRIMARY KEY,
+                    ${headers.map(col => `[${col}] NVARCHAR(MAX) NULL`).join(',\n                    ')},
+                    DataCarga DATETIME DEFAULT GETDATE()
+                )
+            END
+        `;
+        
+        console.log('[CRIAR TABELA] SQL:', createTableSQL);
+        await poolFonte.request().query(createTableSQL);
+        console.log(`[CRIAR TABELA] Tabela ${tableName} criada com sucesso no banco Fonte`);
+        
+        // Inserir dados do modelo na tabela
+        if (data.length > 1) {
+            const dataRows = data.slice(1).filter(row => row.some(cell => cell !== null && cell !== ''));
+            
+            if (dataRows.length > 0) {
+                console.log(`[INSERIR DADOS] Inserindo ${dataRows.length} linhas na tabela ${tableName}`);
+                
+                for (let i = 0; i < dataRows.length; i++) {
+                    const row = dataRows[i];
+                    
+                    // Mapear apenas os índices válidos dos headers originais
+                    const originalHeaders = data[0];
+                    const values = headers.map(header => {
+                        const headerIndex = originalHeaders.findIndex(h => 
+                            h !== null && h !== undefined && String(h).trim() === header
+                        );
+                        
+                        if (headerIndex === -1) return 'NULL';
+                        
+                        const value = row[headerIndex];
+                        if (value === null || value === undefined || value === '') return 'NULL';
+                        return `N'${String(value).replace(/'/g, "''")}'`;
+                    });
+                    
+                    const insertSQL = `
+                        INSERT INTO [dbo].[${tableName}] 
+                            (${headers.map(h => `[${h}]`).join(', ')})
+                        VALUES 
+                            (${values.join(', ')})
+                    `;
+                    
+                    await poolFonte.request().query(insertSQL);
+                    
+                    // Log de progresso a cada 1000 linhas
+                    if ((i + 1) % 1000 === 0 || i === dataRows.length - 1) {
+                        console.log(`[PROGRESSO] ${i + 1}/${dataRows.length} linhas inseridas`);
+                    }
+                }
+                
+                console.log(`[INSERIR DADOS] ${dataRows.length} linhas inseridas com sucesso`);
+            }
+        }
+        
+        // Registrar definição no banco PowerBIPortal
+        const result = await pool.request()
+            .input('tableName', sql.VarChar(100), tableName)
+            .input('displayName', sql.NVarChar(200), displayName)
+            .input('description', sql.NVarChar(500), description || null)
+            .input('icon', sql.NVarChar(50), icon || '📊')
+            .input('groupId', sql.Int, groupId || null)
+            .input('modelFileName', sql.NVarChar(255), modelFileName)
+            .input('modelFilePath', sql.NVarChar(500), modelFilePath)
+            .input('columnDefinitions', sql.NVarChar(sql.MAX), columnDefinitions)
+            .query(`
+                INSERT INTO TableDefinitions 
+                    (TableName, DisplayName, Description, Icon, GroupId, 
+                     ModelFileName, ModelFilePath, ColumnDefinitions)
+                OUTPUT INSERTED.*
+                VALUES 
+                    (@tableName, @displayName, @description, @icon, @groupId,
+                     @modelFileName, @modelFilePath, @columnDefinitions)
+            `);
+        
+        res.status(201).json({
+            ...result.recordset[0],
+            message: 'Tabela criada e dados do modelo inseridos com sucesso'
+        });
+    } catch (err) {
+        console.error('[ERRO] Erro ao criar tabela:', err);
+        
+        // Limpar arquivo se houver erro
+        if (req.file && fs.existsSync(req.file.path)) {
+            fs.unlinkSync(req.file.path);
+        }
+        
+        if (err.number === 2627) {
+            res.status(400).json({ error: 'Já existe uma tabela com este nome' });
+        } else {
+            res.status(500).json({ error: err.message });
+        }
+    }
+});
+
+// Atualizar definição de tabela
+app.put('/api/excel/table-definitions/:id', uploadExcel.single('modelFile'), async (req, res) => {
+    console.log('[API] PUT /api/excel/table-definitions/:id - Acesso público');
+    
+    try {
+        const { displayName, description, icon, groupId } = req.body;
+        
+        let updateFields = {
+            displayName: displayName,
+            description: description || null,
+            icon: icon || null,
+            groupId: groupId || null
+        };
+        
+        // Se houver novo arquivo modelo
+        if (req.file) {
+            updateFields.modelFileName = req.file.filename;
+            updateFields.modelFilePath = `/uploads/excel/${req.file.filename}`;
+            
+            // Ler estrutura do Excel
+            try {
+                const workbook = XLSX.readFile(req.file.path);
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const data = XLSX.utils.sheet_to_json(worksheet, { defval: null, header: 1 });
+                
+                if (data.length > 0) {
+                    const headers = data[0];
+                    const columns = headers.map(col => ({
+                        name: col,
+                        type: 'NVARCHAR(MAX)',
+                        nullable: true
+                    }));
+                    updateFields.columnDefinitions = JSON.stringify(columns);
+                }
+            } catch (excelErr) {
+                console.error('Erro ao ler Excel:', excelErr);
+            }
+        }
+        
+        const request = pool.request()
+            .input('id', sql.Int, req.params.id)
+            .input('displayName', sql.NVarChar(200), updateFields.displayName)
+            .input('description', sql.NVarChar(500), updateFields.description)
+            .input('icon', sql.NVarChar(50), updateFields.icon)
+            .input('groupId', sql.Int, updateFields.groupId);
+        
+        let query = `
+            UPDATE TableDefinitions
+            SET DisplayName = @displayName,
+                Description = @description,
+                Icon = @icon,
+                GroupId = @groupId,
+                UpdatedAt = GETDATE()`;
+        
+        if (updateFields.modelFileName) {
+            request
+                .input('modelFileName', sql.NVarChar(255), updateFields.modelFileName)
+                .input('modelFilePath', sql.NVarChar(500), updateFields.modelFilePath)
+                .input('columnDefinitions', sql.NVarChar(sql.MAX), updateFields.columnDefinitions);
+            
+            query += `,
+                ModelFileName = @modelFileName,
+                ModelFilePath = @modelFilePath,
+                ColumnDefinitions = @columnDefinitions`;
+        }
+        
+        query += `
+            OUTPUT INSERTED.*
+            WHERE Id = @id AND IsActive = 1`;
+        
+        const result = await request.query(query);
+        
+        if (result.recordset.length === 0) {
+            return res.status(404).json({ error: 'Tabela não encontrada' });
+        }
+        
+        res.json(result.recordset[0]);
+    } catch (err) {
+        console.error('Erro ao atualizar tabela:', err);
+        
+        if (req.file && fs.existsSync(req.file.path)) {
+            fs.unlinkSync(req.file.path);
+        }
+        
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Excluir definição de tabela (soft delete)
+app.delete('/api/excel/table-definitions/:id', async (req, res) => {
+    console.log('[API] DELETE /api/excel/table-definitions/:id - Acesso público');
+    
+    try {
+        await pool.request()
+            .input('id', sql.Int, req.params.id)
+            .query('UPDATE TableDefinitions SET IsActive = 0 WHERE Id = @id');
+        
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Erro ao excluir tabela:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ========================================
+// FIM ROTAS DE GERENCIAMENTO
 // ========================================
 
 const storage = multer.diskStorage({

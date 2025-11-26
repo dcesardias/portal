@@ -26,7 +26,7 @@
         .excel-container {
             display: flex;
             height: 100vh;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
             position: relative;
             overflow: hidden;
         }
@@ -44,7 +44,7 @@
         }
 
         .excel-sidebar {
-            width: 340px;
+            width: 380px;
             background: rgba(255, 255, 255, 0.98);
             backdrop-filter: blur(10px);
             box-shadow: 4px 0 30px rgba(0, 0, 0, 0.15);
@@ -57,16 +57,19 @@
 
         .excel-header {
             padding: 30px 24px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
             color: white;
             box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
         }
 
         .excel-header h1 {
             font-size: 24px;
             font-weight: 700;
             color: white;
-            margin-bottom: 8px;
+            margin: 0;
             display: flex;
             align-items: center;
             gap: 10px;
@@ -76,12 +79,92 @@
             font-size: 14px;
             color: rgba(255, 255, 255, 0.9);
             font-weight: 400;
+            margin: 0;
+        }
+
+        .btn-admin {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+        }
+
+        .btn-admin:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.6);
+            transform: translateY(-2px);
+        }
+
+        .search-container {
+            padding: 16px 24px;
+            background: rgba(255, 255, 255, 0.95);
+            border-bottom: 1px solid rgba(102, 126, 234, 0.1);
+        }
+
+        .search-box {
+            position: relative;
+            width: 100%;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 12px 15px 12px 38px !important;
+            border: 2px solid #e1e8f0;
+            border-radius: 8px;
+            font-size: 13px;
+            transition: all 0.3s ease;
+            background: white;
+            box-sizing: border-box;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: #0066cc;
+            box-shadow: inset 0 0 0 1px #0066cc;
+        }
+
+        .search-box .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #0066cc;
+            font-size: 15px;
+        }
+
+        .search-box .clear-icon {
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #999;
+            font-size: 14px;
+            cursor: pointer;
+            display: none;
+            transition: color 0.2s ease;
+        }
+
+        .search-box .clear-icon:hover {
+            color: #0066cc;
+        }
+
+        .search-box input:not(:placeholder-shown) ~ .clear-icon {
+            display: block;
         }
 
         .tables-list {
             flex: 1;
             overflow-y: auto;
-            padding: 16px 12px;
+            padding: 16px 12px 40px 12px;
         }
 
         .tables-list::-webkit-scrollbar {
@@ -93,8 +176,83 @@
         }
 
         .tables-list::-webkit-scrollbar-thumb {
-            background: #667eea;
+            background: #0066cc;
             border-radius: 3px;
+        }
+
+        /* Grupos de tabelas */
+        .table-group {
+            margin-bottom: 10px;
+        }
+
+        .table-group-header {
+            background: white;
+            border: 2px solid transparent;
+            border-radius: 12px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .table-group-header::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 4px;
+            background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
+            transform: scaleY(0);
+            transition: transform 0.3s ease;
+        }
+
+        .table-group-header:hover {
+            transform: translateX(4px);
+            box-shadow: 0 4px 16px rgba(102, 126, 234, 0.25);
+            border-color: #0066cc;
+        }
+
+        .table-group-header:hover::before {
+            transform: scaleY(1);
+        }
+
+        .table-group.expanded .table-group-header {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+            margin-bottom: 0;
+        }
+
+        .group-arrow {
+            margin-left: auto;
+            transition: transform 0.3s ease;
+            color: #0066cc;
+            font-size: 14px;
+        }
+
+        .table-group.expanded .group-arrow {
+            transform: rotate(180deg);
+        }
+
+        .table-group-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.25s ease-in-out, padding 0.25s ease-in-out;
+            background: rgba(102, 126, 234, 0.03);
+            border: 2px solid #0066cc;
+            border-top: none;
+            border-bottom-left-radius: 12px;
+            border-bottom-right-radius: 12px;
+            padding: 0 12px 0 12px;
+        }
+
+        .table-group.expanded .table-group-content {
+            padding: 12px 12px 20px 12px;
         }
 
         .table-item {
@@ -113,6 +271,15 @@
             overflow: hidden;
         }
 
+        .table-item.group-item {
+            margin-bottom: 8px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+        }
+
+        .table-item.group-item:last-child {
+            margin-bottom: 0;
+        }
+
         .table-item::before {
             content: '';
             position: absolute;
@@ -120,7 +287,7 @@
             top: 0;
             height: 100%;
             width: 4px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
             transform: scaleY(0);
             transition: transform 0.3s ease;
         }
@@ -128,7 +295,7 @@
         .table-item:hover {
             transform: translateX(4px);
             box-shadow: 0 4px 16px rgba(102, 126, 234, 0.25);
-            border-color: #667eea;
+            border-color: #0066cc;
         }
 
         .table-item:hover::before {
@@ -136,9 +303,9 @@
         }
 
         .table-item.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
             color: white;
-            border-color: #667eea;
+            border-color: #0066cc;
             box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
             transform: translateX(6px) scale(1.02);
         }
@@ -258,7 +425,7 @@
         }
 
         .upload-content h2 .title-text {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -281,7 +448,7 @@
         .info-card h3 {
             font-size: 16px;
             font-weight: 600;
-            color: #667eea;
+            color: #0066cc;
             margin-bottom: 10px;
             display: flex;
             align-items: center;
@@ -344,13 +511,13 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
             opacity: 0;
             transition: opacity 0.3s ease;
         }
 
         .dropzone:hover {
-            border-color: #667eea;
+            border-color: #0066cc;
             background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%);
             transform: translateY(-4px);
             box-shadow: 0 12px 30px rgba(102, 126, 234, 0.2);
@@ -361,7 +528,7 @@
         }
 
         .dropzone.dragover {
-            border-color: #764ba2;
+            border-color: #0052a3;
             background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%);
             transform: scale(1.02);
         }
@@ -372,7 +539,7 @@
 
         .dropzone .upload-icon {
             font-size: 56px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -422,7 +589,7 @@
         .file-info .file-name {
             font-size: 15px;
             font-weight: 600;
-            color: #667eea;
+            color: #0066cc;
             margin-bottom: 6px;
             display: flex;
             align-items: center;
@@ -495,7 +662,7 @@
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
             color: white;
             box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
             position: relative;
@@ -535,7 +702,7 @@
 
         .progress-fill {
             height: 100%;
-            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(90deg, #0066cc 0%, #0052a3 100%);
             width: 0%;
             transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
             border-radius: 20px;
@@ -561,7 +728,7 @@
 
         .progress-text {
             font-size: 13px;
-            color: #667eea;
+            color: #0066cc;
             margin-top: 10px;
             text-align: center;
             font-weight: 600;
@@ -660,7 +827,7 @@
             border: 3px solid rgba(102, 126, 234, 0.2);
             border-radius: 12px;
             background: white;
-            color: #667eea;
+            color: #0066cc;
             cursor: pointer;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             display: flex;
@@ -671,16 +838,16 @@
         }
 
         .btn-toggle:hover {
-            border-color: #667eea;
+            border-color: #0066cc;
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(102, 126, 234, 0.2);
             background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
         }
 
         .btn-toggle.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
             color: white;
-            border-color: #667eea;
+            border-color: #0066cc;
             box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
             transform: scale(1.02);
         }
@@ -712,6 +879,17 @@
             <div class="excel-header">
                 <h1>📊 Sistema de Carga</h1>
                 <p>Selecione uma tabela</p>
+                <a href="/excel/admin" class="btn-admin" title="Gerenciar Grupos e Tabelas">
+                    <i class="fas fa-cog"></i>
+                    Admin
+                </a>
+            </div>
+            <div class="search-container">
+                <div class="search-box">
+                    <i class="fas fa-search search-icon" style="left: 12px; font-size: 15px;"></i>
+                    <input type="text" id="searchInput" placeholder="Pesquisar..." style="padding: 12px 15px 12px 38px !important; font-size: 13px !important;">
+                    <i class="fas fa-times clear-icon" id="clearSearch"></i>
+                </div>
             </div>
             <div class="tables-list" id="tablesList"></div>
         </div>
