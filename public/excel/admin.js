@@ -197,7 +197,7 @@ function closeGroupModal() {
 // Salvar grupo
 async function saveGroup() {
     try {
-        const token = localStorage.getItem('token');
+        const token = sessionStorage.getItem('authToken');
         if (!token) {
             alert('Você precisa estar logado como administrador para criar/editar grupos.');
             return;
@@ -261,7 +261,7 @@ async function deleteGroup(groupId, groupName) {
         return;
     }
     
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('authToken');
     if (!token) {
         alert('Você precisa estar logado como administrador para excluir grupos.');
         return;
@@ -376,7 +376,7 @@ async function saveTable() {
     let eventSource = null;
     
     try {
-        const token = localStorage.getItem('token');
+        const token = sessionStorage.getItem('authToken');
         if (!token) {
             alert('Você precisa estar logado como administrador para criar/editar tabelas.');
             return;
@@ -518,7 +518,7 @@ async function deleteTable(tableId, tableName) {
         return;
     }
     
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('authToken');
     if (!token) {
         alert('Você precisa estar logado como administrador para excluir tabelas.');
         return;
