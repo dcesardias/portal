@@ -898,7 +898,7 @@ app.post('/api/excel/table-definitions', uploadExcel.single('modelFile'), async 
             throw new Error('Arquivo Excel está vazio');
         }
         
-        // Limpar headers: remover espaços em branco e filtrar null/undefined
+        // Limpar headers: remover espaços em branco extras e filtrar null/undefined
         const headers = data[0]
             .filter(col => col !== null && col !== undefined && col !== '')
             .map(col => String(col).trim());
@@ -1073,7 +1073,10 @@ app.put('/api/excel/table-definitions/:id', uploadExcel.single('modelFile'), asy
                 const data = XLSX.utils.sheet_to_json(worksheet, { defval: null, header: 1 });
                 
                 if (data.length > 0) {
-                    const headers = data[0];
+                    // Limpar headers: remover espaços em branco extras e filtrar null/undefined
+                    const headers = data[0]
+                        .filter(col => col !== null && col !== undefined && col !== '')
+                        .map(col => String(col).trim());
                     const columns = headers.map(col => ({
                         name: col,
                         type: 'NVARCHAR(MAX)',
