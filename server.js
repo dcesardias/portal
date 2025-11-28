@@ -441,9 +441,12 @@ app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, re
         
         sendProgress(sessionId, { stage: 'read', message: `${data.length} linhas encontradas`, progress: 10 });
         
+        // Obter colunas do Excel na ordem em que aparecem
+        const excelColumns = Object.keys(data[0]);
+        
         // Log dos dados lidos do Excel
         console.log('[UPLOAD] Primeira linha do Excel:', JSON.stringify(data[0]));
-        console.log('[UPLOAD] Colunas do Excel:', Object.keys(data[0]));
+        console.log('[UPLOAD] Colunas do Excel (em ordem):', excelColumns);
         
         // Obter estrutura da tabela
         const schemaResult = await poolFonte.request().query(`
@@ -456,8 +459,16 @@ app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, re
         const columns = schemaResult.recordset.filter(col => col.COLUMN_NAME !== 'Id');
         const columnNames = columns.map(c => c.COLUMN_NAME);
         
-        console.log('[UPLOAD] Colunas da tabela:', columnNames);
+        console.log('[UPLOAD] Colunas da tabela (em ordem):', columnNames);
         console.log('[UPLOAD] Estrutura das colunas:', columns.map(c => `${c.COLUMN_NAME} (${c.DATA_TYPE})`));
+        
+        // Validar se o número de colunas do Excel corresponde ao da tabela
+        if (excelColumns.length > columns.length) {
+            fs.unlinkSync(req.file.path);
+            return res.status(400).json({ 
+                error: `Arquivo Excel tem ${excelColumns.length} colunas, mas a tabela espera ${columns.length} colunas` 
+            });
+        }
         
         // Limpar tabela se for carga completa
         if (tipoCarga === 'completa') {
@@ -489,15 +500,19 @@ app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, re
                         console.log('[UPLOAD] Processando primeira linha:', JSON.stringify(row));
                     }
                     
+                    // Mapeia valores do Excel por ORDEM (não por nome da coluna)
+                    const excelValues = excelColumns.map(excelCol => row[excelCol]);
+                    
                     columns.forEach((col, idx) => {
                         const paramName = `param${idx}`;
-                        const rawValue = row[col.COLUMN_NAME];
+                        // Pega o valor pela POSIÇÃO, não pelo nome da coluna
+                        const rawValue = excelValues[idx];
                         const value = convertToSqlType(rawValue, col.DATA_TYPE);
                         const sqlDataType = getSqlDataType(col.DATA_TYPE);
                         
                         // Log detalhado da primeira linha
                         if (totalInserted === 0) {
-                            console.log(`[UPLOAD] Coluna ${col.COLUMN_NAME}: raw="${rawValue}" -> convertido="${value}" (tipo: ${col.DATA_TYPE})`);
+                            console.log(`[UPLOAD] Coluna ${col.COLUMN_NAME} <- Excel[${idx}] "${excelColumns[idx]}": raw="${rawValue}" -> convertido="${value}" (tipo: ${col.DATA_TYPE})`);
                         }
                         
                         request.input(paramName, sqlDataType, value);
