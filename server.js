@@ -441,12 +441,17 @@ app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, re
         
         sendProgress(sessionId, { stage: 'read', message: `${data.length} linhas encontradas`, progress: 10 });
         
-        // Obter colunas do Excel na ordem em que aparecem
-        const excelColumns = Object.keys(data[0]);
+        // Obter colunas do Excel na ordem em que aparecem, filtrando vazias
+        const allExcelColumns = Object.keys(data[0]);
+        const excelColumns = allExcelColumns.filter(col => {
+            // Filtra colunas com nomes vazios, __EMPTY, ou que são só espaços
+            return col && col.trim() !== '' && !col.startsWith('__EMPTY');
+        });
         
         // Log dos dados lidos do Excel
+        console.log('[UPLOAD] Todas as colunas do Excel:', allExcelColumns);
+        console.log('[UPLOAD] Colunas válidas do Excel (em ordem):', excelColumns);
         console.log('[UPLOAD] Primeira linha do Excel:', JSON.stringify(data[0]));
-        console.log('[UPLOAD] Colunas do Excel (em ordem):', excelColumns);
         
         // Obter estrutura da tabela
         const schemaResult = await poolFonte.request().query(`
