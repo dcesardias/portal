@@ -280,6 +280,40 @@ const uploadExcel = multer({
     }
 });
 
+// Função auxiliar para mapear tipo SQL
+function getSqlDataType(sqlType) {
+    const typeMap = {
+        'int': sql.Int,
+        'bigint': sql.BigInt,
+        'float': sql.Float,
+        'decimal': sql.Decimal,
+        'numeric': sql.Numeric,
+        'datetime': sql.DateTime,
+        'datetime2': sql.DateTime2,
+        'date': sql.Date,
+        'varchar': sql.VarChar,
+        'nvarchar': sql.NVarChar,
+        'char': sql.Char,
+        'nchar': sql.NChar,
+        'text': sql.Text,
+        'ntext': sql.NText,
+        'bit': sql.Bit
+    };
+    return typeMap[sqlType.toLowerCase()] || sql.NVarChar;
+}
+
+// Função auxiliar para converter número serial do Excel para data
+function excelSerialToDate(serial) {
+    // Excel serial date: número de dias desde 1900-01-01
+    // Nota: Excel tem um bug e conta 1900 como ano bissexto (não era)
+    const excelEpoch = new Date(1899, 11, 30); // 30 de dezembro de 1899
+    const days = Math.floor(serial);
+    const milliseconds = Math.round((serial - days) * 86400000); // parte decimal = fração do dia
+    
+    const date = new Date(excelEpoch.getTime() + days * 86400000 + milliseconds);
+    return date;
+}
+
 // Função auxiliar para converter tipos de dados
 function convertToSqlType(value, sqlType) {
     if (value === null || value === undefined || value === '') {
@@ -287,24 +321,65 @@ function convertToSqlType(value, sqlType) {
     }
     
     try {
-        switch (sqlType) {
+        const type = sqlType.toLowerCase();
+        switch (type) {
             case 'int':
-                return parseInt(value);
             case 'bigint':
-                return parseInt(value);
+                const intVal = parseInt(value);
+                return isNaN(intVal) ? null : intVal;
             case 'float':
             case 'decimal':
-                return parseFloat(value);
+            case 'numeric':
+                const floatVal = parseFloat(value);
+                return isNaN(floatVal) ? null : floatVal;
+            case 'bit':
+                return value === true || value === 1 || value === '1' || value === 'true' ? 1 : 0;
             case 'datetime':
             case 'datetime2':
             case 'date':
+                // Se já é uma data, retorna
                 if (value instanceof Date) return value;
-                const dateValue = new Date(value);
-                return isNaN(dateValue.getTime()) ? null : dateValue;
+                
+                // Se é um número (serial do Excel)
+                if (typeof value === 'number') {
+                    // Verifica se está no range válido de datas seriais do Excel
+                    if (value > 0 && value < 2958466) { // 31/12/9999 no formato serial
+                        return excelSerialToDate(value);
+                    }
+                    return null;
+                }
+                
+                // Se é string, tenta converter
+                if (typeof value === 'string') {
+                    // Remove espaços extras
+                    value = value.trim();
+                    
+                    // Se está vazio, retorna null
+                    if (value === '') return null;
+                    
+                    // Tenta parsear diferentes formatos
+                    const dateValue = new Date(value);
+                    if (!isNaN(dateValue.getTime())) {
+                        return dateValue;
+                    }
+                    
+                    // Tenta formato brasileiro DD/MM/YYYY
+                    const brDateMatch = value.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+                    if (brDateMatch) {
+                        const [, day, month, year] = brDateMatch;
+                        const date = new Date(year, month - 1, day);
+                        if (!isNaN(date.getTime())) {
+                            return date;
+                        }
+                    }
+                }
+                
+                return null;
             default:
                 return String(value);
         }
     } catch (e) {
+        console.error(`[convertToSqlType] Erro ao converter valor "${value}" para tipo ${sqlType}:`, e);
         return null;
     }
 }
@@ -346,7 +421,17 @@ app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, re
         const workbook = XLSX.readFile(req.file.path);
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const data = XLSX.utils.sheet_to_json(worksheet, { defval: null });
+        const rawData = XLSX.utils.sheet_to_json(worksheet, { defval: null });
+        
+        // Limpar espaços dos nomes das colunas
+        const data = rawData.map(row => {
+            const cleanRow = {};
+            Object.keys(row).forEach(key => {
+                const cleanKey = key.trim();
+                cleanRow[cleanKey] = row[key];
+            });
+            return cleanRow;
+        });
         
         if (data.length === 0) {
             fs.unlinkSync(req.file.path);
@@ -355,6 +440,10 @@ app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, re
         }
         
         sendProgress(sessionId, { stage: 'read', message: `${data.length} linhas encontradas`, progress: 10 });
+        
+        // Log dos dados lidos do Excel
+        console.log('[UPLOAD] Primeira linha do Excel:', JSON.stringify(data[0]));
+        console.log('[UPLOAD] Colunas do Excel:', Object.keys(data[0]));
         
         // Obter estrutura da tabela
         const schemaResult = await poolFonte.request().query(`
@@ -366,6 +455,9 @@ app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, re
         
         const columns = schemaResult.recordset.filter(col => col.COLUMN_NAME !== 'Id');
         const columnNames = columns.map(c => c.COLUMN_NAME);
+        
+        console.log('[UPLOAD] Colunas da tabela:', columnNames);
+        console.log('[UPLOAD] Estrutura das colunas:', columns.map(c => `${c.COLUMN_NAME} (${c.DATA_TYPE})`));
         
         // Limpar tabela se for carga completa
         if (tipoCarga === 'completa') {
@@ -392,15 +484,32 @@ app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, re
                     const values = [];
                     const params = [];
                     
+                    // Log da primeira linha do lote
+                    if (totalInserted === 0) {
+                        console.log('[UPLOAD] Processando primeira linha:', JSON.stringify(row));
+                    }
+                    
                     columns.forEach((col, idx) => {
                         const paramName = `param${idx}`;
-                        const value = convertToSqlType(row[col.COLUMN_NAME], col.DATA_TYPE);
+                        const rawValue = row[col.COLUMN_NAME];
+                        const value = convertToSqlType(rawValue, col.DATA_TYPE);
+                        const sqlDataType = getSqlDataType(col.DATA_TYPE);
                         
-                        request.input(paramName, value);
+                        // Log detalhado da primeira linha
+                        if (totalInserted === 0) {
+                            console.log(`[UPLOAD] Coluna ${col.COLUMN_NAME}: raw="${rawValue}" -> convertido="${value}" (tipo: ${col.DATA_TYPE})`);
+                        }
+                        
+                        request.input(paramName, sqlDataType, value);
                         params.push(`@${paramName}`);
                     });
                     
                     const insertQuery = `INSERT INTO dbo.${tabela} (${columnNames.map(c => `[${c}]`).join(',')}) VALUES (${params.join(',')})`;
+                    
+                    if (totalInserted === 0) {
+                        console.log('[UPLOAD] Query de inserção:', insertQuery);
+                    }
+                    
                     await request.query(insertQuery);
                     totalInserted++;
                     
@@ -478,7 +587,17 @@ app.post('/api/excel/upload-temp', uploadExcel.single('file'), async (req, res) 
         const workbook = XLSX.readFile(req.file.path);
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const data = XLSX.utils.sheet_to_json(worksheet, { defval: null });
+        const rawData = XLSX.utils.sheet_to_json(worksheet, { defval: null });
+        
+        // Limpar espaços dos nomes das colunas
+        const data = rawData.map(row => {
+            const cleanRow = {};
+            Object.keys(row).forEach(key => {
+                const cleanKey = key.trim();
+                cleanRow[cleanKey] = row[key];
+            });
+            return cleanRow;
+        });
         
         if (data.length === 0) {
             fs.unlinkSync(req.file.path);
