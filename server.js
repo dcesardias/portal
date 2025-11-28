@@ -828,9 +828,14 @@ app.get('/api/excel/upload/progress/:sessionId', (req, res) => {
     
     console.log(`[SSE UPLOAD] Cliente conectado com sessionId: ${sessionId}`);
     
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
+    // Headers necessários para SSE funcionar no IIS
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // Desabilita buffering no nginx/proxy
+    
+    // Para IIS/iisnode: enviar espaços para forçar flush
+    res.write(':' + ' '.repeat(2048) + '\n\n');
     res.flushHeaders();
     
     progressClients.set(sessionId, res);
@@ -850,9 +855,14 @@ app.get('/api/excel/table-definitions/progress/:sessionId', (req, res) => {
     
     console.log(`[SSE] Cliente conectado com sessionId: ${sessionId}`);
     
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
+    // Headers necessários para SSE funcionar no IIS
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // Desabilita buffering no nginx/proxy
+    
+    // Para IIS/iisnode: enviar espaços para forçar flush
+    res.write(':' + ' '.repeat(2048) + '\n\n');
     res.flushHeaders();
     
     progressClients.set(sessionId, res);
