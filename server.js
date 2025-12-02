@@ -292,36 +292,45 @@ function detectColumnType(values) {
     let allIntegers = true;
     let allDecimals = true;
     let allDates = true;
+    let hasDateStrings = false;
+    let hasDateNumbers = false;
     
     for (const val of validValues) {
         const type = typeof val;
         
         // Se é número
         if (type === 'number') {
-            // Verifica se pode ser data serial do Excel (entre 1 e 2958466)
-            if (val > 0 && val < 2958466 && val > 25000) { // > 25000 = após 1968
-                // Números seriais do Excel são geralmente > 25000 para datas modernas
-                continue; // Pode ser data
-            }
-            
-            if (!Number.isInteger(val)) {
-                allIntegers = false;
+            // Verifica se pode ser data serial do Excel (entre 25000 e 50000 = 1968-2036)
+            if (val > 25000 && val < 50000) {
+                hasDateNumbers = true;
+                // Não marca como não-inteiro ainda, pode ser data
+            } else {
+                // É um número normal
+                allDates = false;
+                if (!Number.isInteger(val)) {
+                    allIntegers = false;
+                }
             }
         } else if (type === 'string') {
-            allIntegers = false;
-            allDecimals = false;
-            
-            // Verifica se é uma string de data
             const trimmed = val.trim();
+            
+            // Verifica se é uma string de data (formato brasileiro DD/MM/YYYY)
             const datePatterns = [
-                /^\d{1,2}\/\d{1,2}\/\d{4}$/,  // DD/MM/YYYY ou MM/DD/YYYY
+                /^\d{1,2}\/\d{1,2}\/\d{4}$/,  // DD/MM/YYYY
                 /^\d{4}-\d{2}-\d{2}$/,         // YYYY-MM-DD
                 /^\d{1,2}-\d{1,2}-\d{4}$/      // DD-MM-YYYY
             ];
             
             const isDateString = datePatterns.some(pattern => pattern.test(trimmed));
-            if (!isDateString) {
+            if (isDateString) {
+                hasDateStrings = true;
+                allIntegers = false;
+                allDecimals = false;
+            } else {
+                // Não é data, então definitivamente não é coluna de data
                 allDates = false;
+                allIntegers = false;
+                allDecimals = false;
             }
         } else {
             allIntegers = false;
@@ -331,7 +340,8 @@ function detectColumnType(values) {
     }
     
     // Decide o tipo baseado na análise
-    if (allDates) {
+    // Se tem strings de data OU números seriais de data, é DATETIME
+    if (hasDateStrings || (hasDateNumbers && allDates)) {
         return 'DATETIME';
     } else if (allIntegers) {
         return 'INT';
@@ -419,16 +429,39 @@ function convertToSqlType(value, sqlType) {
                     // Se está vazio, retorna null
                     if (value === '') return null;
                     
-                    // Tenta parsear diferentes formatos
-                    const dateValue = new Date(value);
-                    if (!isNaN(dateValue.getTime())) {
-                        return dateValue;
-                    }
-                    
-                    // Tenta formato brasileiro DD/MM/YYYY
-                    const brDateMatch = value.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+                    // PRIMEIRO: Tenta formato brasileiro DD/MM/YYYY (padrão no Brasil)
+                    const brDateMatch = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
                     if (brDateMatch) {
                         const [, day, month, year] = brDateMatch;
+                        const dayNum = parseInt(day);
+                        const monthNum = parseInt(month);
+                        const yearNum = parseInt(year);
+                        
+                        // Validar se os valores são válidos
+                        if (dayNum >= 1 && dayNum <= 31 && monthNum >= 1 && monthNum <= 12) {
+                            const date = new Date(yearNum, monthNum - 1, dayNum);
+                            // Verificar se a data é válida (ex: 31/02 seria inválido)
+                            if (date.getFullYear() === yearNum && 
+                                date.getMonth() === monthNum - 1 && 
+                                date.getDate() === dayNum) {
+                                return date;
+                            }
+                        }
+                    }
+                    
+                    // SEGUNDO: Tenta formato ISO YYYY-MM-DD
+                    const isoDateMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+                    if (isoDateMatch) {
+                        const date = new Date(value);
+                        if (!isNaN(date.getTime())) {
+                            return date;
+                        }
+                    }
+                    
+                    // TERCEIRO: Tenta formato DD-MM-YYYY
+                    const brDateMatch2 = value.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+                    if (brDateMatch2) {
+                        const [, day, month, year] = brDateMatch2;
                         const date = new Date(year, month - 1, day);
                         if (!isNaN(date.getTime())) {
                             return date;
