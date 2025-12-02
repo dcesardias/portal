@@ -309,16 +309,21 @@ function detectColumnType(values) {
                 allDates = false;
                 if (!Number.isInteger(val)) {
                     allIntegers = false;
+                } else if (val > 2147483647 || val < -2147483648) {
+                    // Número muito grande para INT, precisa ser BIGINT
+                    allIntegers = false;
+                    allDecimals = false;
+                    // Marca que precisa de BIGINT (será tratado como NVARCHAR para segurança)
                 }
             }
         } else if (type === 'string') {
             const trimmed = val.trim();
             
-            // Verifica se é uma string de data (formato brasileiro DD/MM/YYYY)
+            // Verifica se é uma string de data (formato brasileiro DD/MM/YYYY ou DD/MM/YY)
             const datePatterns = [
-                /^\d{1,2}\/\d{1,2}\/\d{4}$/,  // DD/MM/YYYY
-                /^\d{4}-\d{2}-\d{2}$/,         // YYYY-MM-DD
-                /^\d{1,2}-\d{1,2}-\d{4}$/      // DD-MM-YYYY
+                /^\d{1,2}\/\d{1,2}\/\d{2,4}$/,  // DD/MM/YYYY ou DD/MM/YY
+                /^\d{4}-\d{2}-\d{2}$/,           // YYYY-MM-DD
+                /^\d{1,2}-\d{1,2}-\d{2,4}$/      // DD-MM-YYYY ou DD-MM-YY
             ];
             
             const isDateString = datePatterns.some(pattern => pattern.test(trimmed));
@@ -344,7 +349,12 @@ function detectColumnType(values) {
     if (hasDateStrings || (hasDateNumbers && allDates)) {
         return 'DATETIME';
     } else if (allIntegers) {
-        return 'INT';
+        // Verifica se todos os inteiros estão no range do INT32
+        const hasLargeInts = validValues.some(val => {
+            const num = typeof val === 'number' ? val : parseFloat(val);
+            return !isNaN(num) && Number.isInteger(num) && (num > 2147483647 || num < -2147483648);
+        });
+        return hasLargeInts ? 'BIGINT' : 'INT';
     } else if (allDecimals) {
         return 'FLOAT';
     } else {
@@ -429,13 +439,19 @@ function convertToSqlType(value, sqlType) {
                     // Se está vazio, retorna null
                     if (value === '') return null;
                     
-                    // PRIMEIRO: Tenta formato brasileiro DD/MM/YYYY (padrão no Brasil)
-                    const brDateMatch = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+                    // PRIMEIRO: Tenta formato brasileiro DD/MM/YYYY ou DD/MM/YY
+                    const brDateMatch = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
                     if (brDateMatch) {
                         const [, day, month, year] = brDateMatch;
                         const dayNum = parseInt(day);
                         const monthNum = parseInt(month);
-                        const yearNum = parseInt(year);
+                        let yearNum = parseInt(year);
+                        
+                        // Se o ano tem 2 dígitos, converter para 4 dígitos
+                        if (yearNum < 100) {
+                            // Anos 00-49 = 2000-2049, anos 50-99 = 1950-1999
+                            yearNum = yearNum < 50 ? 2000 + yearNum : 1900 + yearNum;
+                        }
                         
                         // Validar se os valores são válidos
                         if (dayNum >= 1 && dayNum <= 31 && monthNum >= 1 && monthNum <= 12) {
@@ -458,11 +474,18 @@ function convertToSqlType(value, sqlType) {
                         }
                     }
                     
-                    // TERCEIRO: Tenta formato DD-MM-YYYY
-                    const brDateMatch2 = value.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+                    // TERCEIRO: Tenta formato DD-MM-YYYY ou DD-MM-YY
+                    const brDateMatch2 = value.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
                     if (brDateMatch2) {
                         const [, day, month, year] = brDateMatch2;
-                        const date = new Date(year, month - 1, day);
+                        let yearNum = parseInt(year);
+                        
+                        // Se o ano tem 2 dígitos, converter para 4 dígitos
+                        if (yearNum < 100) {
+                            yearNum = yearNum < 50 ? 2000 + yearNum : 1900 + yearNum;
+                        }
+                        
+                        const date = new Date(yearNum, parseInt(month) - 1, parseInt(day));
                         if (!isNaN(date.getTime())) {
                             return date;
                         }
@@ -556,7 +579,10 @@ app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, re
             ORDER BY ORDINAL_POSITION
         `);
         
-        const columns = schemaResult.recordset.filter(col => col.COLUMN_NAME !== 'Id');
+        // Filtrar colunas automáticas (Id e DataCarga) - essas não vêm do Excel
+        const columns = schemaResult.recordset.filter(col => 
+            col.COLUMN_NAME !== 'Id' && col.COLUMN_NAME !== 'DataCarga'
+        );
         const columnNames = columns.map(c => c.COLUMN_NAME);
         
         console.log('[UPLOAD] Colunas da tabela (em ordem):', columnNames);
@@ -1116,9 +1142,25 @@ app.post('/api/excel/table-definitions', uploadExcel.single('modelFile'), async 
                                     rawValue = row[headerIndex];
                                 }
                                 
+                                // Log da primeira linha para debug
+                                if (batchStart === 0 && i === 0) {
+                                    console.log(`[DEBUG] Coluna "${col.name}" (tipo: ${col.type}): valor bruto = "${rawValue}" (tipo JS: ${typeof rawValue})`);
+                                }
+                                
                                 // Converter valor para o tipo SQL correto
                                 const convertedValue = convertToSqlType(rawValue, col.type);
                                 const sqlDataType = getSqlDataType(col.type);
+                                
+                                if (batchStart === 0 && i === 0) {
+                                    console.log(`[DEBUG] Coluna "${col.name}": valor convertido = "${convertedValue}" (tipo SQL: ${col.type})`);
+                                }
+                                
+                                // Validação extra para INT: verificar range
+                                if (col.type.toUpperCase() === 'INT' && convertedValue !== null) {
+                                    if (convertedValue > 2147483647 || convertedValue < -2147483648) {
+                                        throw new Error(`Valor ${convertedValue} na coluna "${col.name}" está fora do range INT32. Use BIGINT ou revise os dados.`);
+                                    }
+                                }
                                 
                                 request.input(paramName, sqlDataType, convertedValue);
                                 params.push(`@${paramName}`);
