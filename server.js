@@ -1054,43 +1054,64 @@ app.post('/api/excel/table-definitions', uploadExcel.single('modelFile'), async 
                 console.log(`[INSERIR DADOS] Inserindo ${dataRows.length} linhas na tabela ${tableName}`);
                 sendProgress(sessionId, { stage: 'inserting', message: `Preparando inserção de ${dataRows.length} linhas...`, progress: 10, total: dataRows.length });
                 
-                for (let i = 0; i < dataRows.length; i++) {
-                    const row = dataRows[i];
+                // Inserir em lotes usando parametrização
+                const batchSize = 100;
+                
+                for (let batchStart = 0; batchStart < dataRows.length; batchStart += batchSize) {
+                    const batch = dataRows.slice(batchStart, batchStart + batchSize);
+                    const transaction = new sql.Transaction(poolFonte);
                     
-                    // Mapear apenas os índices válidos dos headers originais
-                    const originalHeaders = data[0];
-                    const values = headers.map(header => {
-                        const headerIndex = originalHeaders.findIndex(h => 
-                            h !== null && h !== undefined && String(h).trim() === header
-                        );
+                    await transaction.begin();
+                    
+                    try {
+                        for (let i = 0; i < batch.length; i++) {
+                            const row = batch[i];
+                            const request = new sql.Request(transaction);
+                            
+                            // Mapear valores das colunas e usar conversão de tipos apropriada
+                            const originalHeaders = data[0];
+                            const params = [];
+                            
+                            columns.forEach((col, colIdx) => {
+                                const paramName = `param${colIdx}`;
+                                const headerIndex = originalHeaders.findIndex(h => 
+                                    h !== null && h !== undefined && String(h).trim() === col.name
+                                );
+                                
+                                let rawValue = null;
+                                if (headerIndex !== -1) {
+                                    rawValue = row[headerIndex];
+                                }
+                                
+                                // Converter valor para o tipo SQL correto
+                                const convertedValue = convertToSqlType(rawValue, col.type);
+                                const sqlDataType = getSqlDataType(col.type);
+                                
+                                request.input(paramName, sqlDataType, convertedValue);
+                                params.push(`@${paramName}`);
+                            });
+                            
+                            const insertSQL = `INSERT INTO [dbo].[${tableName}] (${columns.map(c => `[${c.name}]`).join(',')}) VALUES (${params.join(',')})`;
+                            await request.query(insertSQL);
+                        }
                         
-                        if (headerIndex === -1) return 'NULL';
+                        await transaction.commit();
                         
-                        const value = row[headerIndex];
-                        if (value === null || value === undefined || value === '') return 'NULL';
-                        return `N'${String(value).replace(/'/g, "''")}'`;
-                    });
-                    
-                    const insertSQL = `
-                        INSERT INTO [dbo].[${tableName}] 
-                            (${headers.map(h => `[${h}]`).join(', ')})
-                        VALUES 
-                            (${values.join(', ')})
-                    `;
-                    
-                    await poolFonte.request().query(insertSQL);
-                    
-                    // Enviar progresso a cada 100 linhas ou no final
-                    if ((i + 1) % 100 === 0 || i === dataRows.length - 1) {
-                        const percentComplete = 10 + Math.floor(((i + 1) / dataRows.length) * 85);
+                        // Enviar progresso
+                        const totalInserted = batchStart + batch.length;
+                        const percentComplete = 10 + Math.floor((totalInserted / dataRows.length) * 85);
                         sendProgress(sessionId, {
                             stage: 'inserting',
-                            message: `Inserindo dados: ${i + 1}/${dataRows.length} linhas`,
+                            message: `Inserindo dados: ${totalInserted}/${dataRows.length} linhas`,
                             progress: percentComplete,
-                            current: i + 1,
+                            current: totalInserted,
                             total: dataRows.length
                         });
-                        console.log(`[PROGRESSO] ${i + 1}/${dataRows.length} linhas inseridas (${percentComplete}%)`);
+                        console.log(`[PROGRESSO] ${totalInserted}/${dataRows.length} linhas inseridas (${percentComplete}%)`);
+                        
+                    } catch (err) {
+                        await transaction.rollback();
+                        throw err;
                     }
                 }
                 
