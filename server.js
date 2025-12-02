@@ -280,6 +280,68 @@ const uploadExcel = multer({
     }
 });
 
+// Função para detectar tipo de dados baseado em amostra de valores
+function detectColumnType(values) {
+    // Filtra valores válidos (não nulos)
+    const validValues = values.filter(v => v !== null && v !== undefined && v !== '');
+    
+    if (validValues.length === 0) {
+        return 'NVARCHAR(MAX)';
+    }
+    
+    let allIntegers = true;
+    let allDecimals = true;
+    let allDates = true;
+    
+    for (const val of validValues) {
+        const type = typeof val;
+        
+        // Se é número
+        if (type === 'number') {
+            // Verifica se pode ser data serial do Excel (entre 1 e 2958466)
+            if (val > 0 && val < 2958466 && val > 25000) { // > 25000 = após 1968
+                // Números seriais do Excel são geralmente > 25000 para datas modernas
+                continue; // Pode ser data
+            }
+            
+            if (!Number.isInteger(val)) {
+                allIntegers = false;
+            }
+        } else if (type === 'string') {
+            allIntegers = false;
+            allDecimals = false;
+            
+            // Verifica se é uma string de data
+            const trimmed = val.trim();
+            const datePatterns = [
+                /^\d{1,2}\/\d{1,2}\/\d{4}$/,  // DD/MM/YYYY ou MM/DD/YYYY
+                /^\d{4}-\d{2}-\d{2}$/,         // YYYY-MM-DD
+                /^\d{1,2}-\d{1,2}-\d{4}$/      // DD-MM-YYYY
+            ];
+            
+            const isDateString = datePatterns.some(pattern => pattern.test(trimmed));
+            if (!isDateString) {
+                allDates = false;
+            }
+        } else {
+            allIntegers = false;
+            allDecimals = false;
+            allDates = false;
+        }
+    }
+    
+    // Decide o tipo baseado na análise
+    if (allDates) {
+        return 'DATETIME';
+    } else if (allIntegers) {
+        return 'INT';
+    } else if (allDecimals) {
+        return 'FLOAT';
+    } else {
+        return 'NVARCHAR(MAX)';
+    }
+}
+
 // Função auxiliar para mapear tipo SQL
 function getSqlDataType(sqlType) {
     const typeMap = {
@@ -937,11 +999,21 @@ app.post('/api/excel/table-definitions', uploadExcel.single('modelFile'), async 
             throw new Error('Nenhuma coluna válida encontrada no arquivo Excel');
         }
         
-        const columns = headers.map(col => ({
-            name: col,
-            type: 'NVARCHAR(MAX)',
-            nullable: true
-        }));
+        // Detectar tipo de cada coluna baseado nos dados
+        console.log('[CRIAR TABELA] Detectando tipos de colunas...');
+        const columns = headers.map((col, idx) => {
+            // Pega uma amostra dos valores desta coluna (primeiras 100 linhas)
+            const sampleValues = data.slice(1, Math.min(101, data.length)).map(row => row[idx]);
+            const detectedType = detectColumnType(sampleValues);
+            
+            console.log(`[CRIAR TABELA] Coluna "${col}": tipo detectado = ${detectedType}`);
+            
+            return {
+                name: col,
+                type: detectedType,
+                nullable: true
+            };
+        });
         columnDefinitions = JSON.stringify(columns);
         
         // Verificar se tabela já existe no PowerBIPortal
@@ -954,13 +1026,15 @@ app.post('/api/excel/table-definitions', uploadExcel.single('modelFile'), async 
             return res.status(400).json({ error: 'Já existe uma tabela com este nome' });
         }
         
-        // Criar a tabela no banco Fonte
+        // Criar a tabela no banco Fonte com tipos detectados
+        const columnDefinitionsSQL = columns.map(col => `[${col.name}] ${col.type} NULL`).join(',\n                    ');
+        
         const createTableSQL = `
             IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = '${tableName}')
             BEGIN
                 CREATE TABLE [dbo].[${tableName}] (
                     Id INT IDENTITY(1,1) PRIMARY KEY,
-                    ${headers.map(col => `[${col}] NVARCHAR(MAX) NULL`).join(',\n                    ')},
+                    ${columnDefinitionsSQL},
                     DataCarga DATETIME DEFAULT GETDATE()
                 )
             END
@@ -1107,11 +1181,22 @@ app.put('/api/excel/table-definitions/:id', uploadExcel.single('modelFile'), asy
                     const headers = data[0]
                         .filter(col => col !== null && col !== undefined && col !== '')
                         .map(col => String(col).trim());
-                    const columns = headers.map(col => ({
-                        name: col,
-                        type: 'NVARCHAR(MAX)',
-                        nullable: true
-                    }));
+                    
+                    // Detectar tipo de cada coluna baseado nos dados
+                    console.log('[ATUALIZAR TABELA] Detectando tipos de colunas...');
+                    const columns = headers.map((col, idx) => {
+                        // Pega uma amostra dos valores desta coluna (primeiras 100 linhas)
+                        const sampleValues = data.slice(1, Math.min(101, data.length)).map(row => row[idx]);
+                        const detectedType = detectColumnType(sampleValues);
+                        
+                        console.log(`[ATUALIZAR TABELA] Coluna "${col}": tipo detectado = ${detectedType}`);
+                        
+                        return {
+                            name: col,
+                            type: detectedType,
+                            nullable: true
+                        };
+                    });
                     updateFields.columnDefinitions = JSON.stringify(columns);
                 }
             } catch (excelErr) {
