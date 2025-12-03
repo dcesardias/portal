@@ -18,6 +18,7 @@
     "dotenv": "^16.6.1",
     "express": "^5.1.0",
     "http-proxy-middleware": "^3.0.5",
+    "iconv-lite": "^0.7.0",
     "jsonwebtoken": "^9.0.2",
     "mssql": "^11.0.1",
     "multer": "^2.0.2",

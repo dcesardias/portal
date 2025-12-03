@@ -386,13 +386,26 @@ function getSqlDataType(sqlType) {
 
 // Função auxiliar para converter número serial do Excel para data
 function excelSerialToDate(serial) {
-    // Excel serial date: número de dias desde 1900-01-01
-    // Nota: Excel tem um bug e conta 1900 como ano bissexto (não era)
-    const excelEpoch = new Date(1899, 11, 30); // 30 de dezembro de 1899
+    // Excel serial date: número de dias desde 30/12/1899 (serial 0)
+    // Excel tem bug onde considera 1900 ano bissexto (não era), mas isso já está embutido no serial
     const days = Math.floor(serial);
-    const milliseconds = Math.round((serial - days) * 86400000); // parte decimal = fração do dia
     
-    const date = new Date(excelEpoch.getTime() + days * 86400000 + milliseconds);
+    // Data base: 30/12/1899 às 00:00:00 UTC
+    const baseDate = new Date(Date.UTC(1899, 11, 30, 0, 0, 0, 0));
+    
+    // Adicionar os dias
+    const resultDate = new Date(baseDate.getTime() + days * 86400000);
+    
+    // Criar objeto Date local sem timezone usando os componentes UTC
+    const date = new Date(
+        resultDate.getUTCFullYear(),
+        resultDate.getUTCMonth(),
+        resultDate.getUTCDate(),
+        0, 0, 0, 0
+    );
+    
+    console.log(`[DATA EXCEL SERIAL] ${serial} -> ${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')} 00:00:00`);
+    
     return date;
 }
 
@@ -439,6 +452,8 @@ function convertToSqlType(value, sqlType) {
                     // Se está vazio, retorna null
                     if (value === '') return null;
                     
+                    console.log(`[convertToSqlType DATE] Tentando converter string: "${value}"`);
+                    
                     // PRIMEIRO: Tenta formato brasileiro DD/MM/YYYY ou DD/MM/YY
                     const brDateMatch = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
                     if (brDateMatch) {
@@ -455,22 +470,44 @@ function convertToSqlType(value, sqlType) {
                         
                         // Validar se os valores são válidos
                         if (dayNum >= 1 && dayNum <= 31 && monthNum >= 1 && monthNum <= 12) {
-                            const date = new Date(yearNum, monthNum - 1, dayNum);
-                            // Verificar se a data é válida (ex: 31/02 seria inválido)
-                            if (date.getFullYear() === yearNum && 
-                                date.getMonth() === monthNum - 1 && 
-                                date.getDate() === dayNum) {
+                            // Validar se a data existe (ex: 31/02 seria inválido)
+                            const testDate = new Date(yearNum, monthNum - 1, dayNum);
+                            if (testDate.getFullYear() === yearNum && 
+                                testDate.getMonth() === monthNum - 1 && 
+                                testDate.getDate() === dayNum) {
+                                
+                                // Criar Date com meia-noite (00:00) para gravar data sem hora
+                                const date = new Date(yearNum, monthNum - 1, dayNum, 0, 0, 0, 0);
+                                
+                                const sqlDateString = `${yearNum}-${String(monthNum).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+                                console.log(`[DATA BR] "${value}" -> ${sqlDateString} 00:00:00`);
+                                
                                 return date;
+                            } else {
+                                console.log(`[DATA BR] Data inválida após validação: ${yearNum}-${monthNum}-${dayNum}`);
                             }
+                        } else {
+                            console.log(`[DATA BR] Valores fora do range: day=${dayNum}, month=${monthNum}, year=${yearNum}`);
                         }
                     }
                     
-                    // SEGUNDO: Tenta formato ISO YYYY-MM-DD
+                    // SEGUNDO: Tenta formato ISO YYYY-MM-DD (criação manual para evitar parse nativo)
                     const isoDateMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
                     if (isoDateMatch) {
-                        const date = new Date(value);
-                        if (!isNaN(date.getTime())) {
-                            return date;
+                        const [, y, m, d] = isoDateMatch;
+                        const yearNum = parseInt(y, 10);
+                        const monthNum = parseInt(m, 10);
+                        const dayNum = parseInt(d, 10);
+
+                        if (monthNum >= 1 && monthNum <= 12 && dayNum >= 1 && dayNum <= 31) {
+                            const testDate = new Date(yearNum, monthNum - 1, dayNum);
+                            if (
+                                testDate.getFullYear() === yearNum &&
+                                testDate.getMonth() === monthNum - 1 &&
+                                testDate.getDate() === dayNum
+                            ) {
+                                return new Date(yearNum, monthNum - 1, dayNum, 0, 0, 0, 0);
+                            }
                         }
                     }
                     
@@ -478,6 +515,8 @@ function convertToSqlType(value, sqlType) {
                     const brDateMatch2 = value.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
                     if (brDateMatch2) {
                         const [, day, month, year] = brDateMatch2;
+                        const dayNum = parseInt(day);
+                        const monthNum = parseInt(month);
                         let yearNum = parseInt(year);
                         
                         // Se o ano tem 2 dígitos, converter para 4 dígitos
@@ -485,11 +524,18 @@ function convertToSqlType(value, sqlType) {
                             yearNum = yearNum < 50 ? 2000 + yearNum : 1900 + yearNum;
                         }
                         
-                        const date = new Date(yearNum, parseInt(month) - 1, parseInt(day));
-                        if (!isNaN(date.getTime())) {
+                        // Validar e criar data com meia-noite
+                        const testDate = new Date(yearNum, monthNum - 1, dayNum);
+                        if (!isNaN(testDate.getTime())) {
+                            const date = new Date(yearNum, monthNum - 1, dayNum, 0, 0, 0, 0);
+                            const sqlDateString = `${yearNum}-${String(monthNum).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+                            console.log(`[DATA BR-DASH] "${value}" -> ${sqlDateString} 00:00:00`);
+                            
                             return date;
                         }
                     }
+                    
+                    console.log(`[convertToSqlType DATE] Nenhum formato de data reconhecido para: "${value}"`);
                 }
                 
                 return null;
@@ -535,18 +581,66 @@ app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, re
         
         sendProgress(sessionId, { stage: 'reading', message: 'Lendo arquivo Excel...', progress: 5 });
         
-        // Ler arquivo Excel
-        const workbook = XLSX.readFile(req.file.path);
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const rawData = XLSX.utils.sheet_to_json(worksheet, { defval: null });
+        // Detectar se o arquivo é TSV disfarçado de XLS
+        const fileContent = fs.readFileSync(req.file.path, 'utf8');
+        const isTabDelimited = fileContent.includes('\t') && !fileContent.startsWith('PK'); // TSV tem tabs, ZIP (xlsx) começa com PK
         
-        // Limpar espaços dos nomes das colunas
-        const data = rawData.map(row => {
+        let dataText, dataRaw;
+        
+        if (isTabDelimited) {
+            console.log('[UPLOAD] Arquivo detectado como TSV (tab-delimited), lendo manualmente como texto puro');
+            // Tentar detectar encoding correto (Windows-1252/Latin1 vs UTF-8)
+            let content = fileContent;
+            
+            // Se tem caracteres inválidos UTF-8, tentar ler como Windows-1252
+            if (content.includes('�')) {
+                console.log('[UPLOAD] Detectado problema de encoding, relendo como Windows-1252');
+                const iconv = require('iconv-lite');
+                const buffer = fs.readFileSync(req.file.path);
+                content = iconv.decode(buffer, 'windows-1252');
+            }
+            
+            // Ler TSV manualmente como texto puro para evitar conversão automática de datas
+            const lines = content.trim().split('\n');
+            const headers = lines[0].split('\t').map(h => h.trim());
+            
+            const parsedData = [];
+            for (let i = 1; i < lines.length; i++) {
+                if (lines[i].trim() === '') continue;
+                const values = lines[i].split('\t');
+                const row = {};
+                headers.forEach((header, idx) => {
+                    const value = values[idx] ? values[idx].trim() : '';
+                    row[header] = value;
+                });
+                parsedData.push(row);
+            }
+            
+            // Ambos text e raw são o mesmo (texto puro)
+            dataText = parsedData;
+            dataRaw = parsedData;
+        } else {
+            // Arquivo Excel verdadeiro
+            const workbook = XLSX.readFile(req.file.path, { cellText: false, cellDates: false });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            
+            dataText = XLSX.utils.sheet_to_json(worksheet, { defval: null, raw: false });
+            dataRaw = XLSX.utils.sheet_to_json(worksheet, { defval: null, raw: true });
+        }
+        
+        // Limpar espaços dos nomes das colunas, mantendo versões texto e bruta
+        const data = dataRaw.map((row, idx) => {
             const cleanRow = {};
-            Object.keys(row).forEach(key => {
-                const cleanKey = key.trim();
-                cleanRow[cleanKey] = row[key];
+            const rawRow = row;
+            const textRow = dataText[idx] || {};
+            Object.keys(rawRow).forEach(key => {
+                const cleanKey = key ? key.trim() : key;
+                // Guardar tanto o bruto quanto o texto exibido
+                cleanRow[cleanKey] = {
+                    raw: rawRow[key],
+                    text: textRow[key] !== undefined ? (typeof textRow[key] === 'string' ? textRow[key].trim() : textRow[key]) : undefined
+                };
             });
             return cleanRow;
         });
@@ -569,7 +663,18 @@ app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, re
         // Log dos dados lidos do Excel
         console.log('[UPLOAD] Todas as colunas do Excel:', allExcelColumns);
         console.log('[UPLOAD] Colunas válidas do Excel (em ordem):', excelColumns);
-        console.log('[UPLOAD] Primeira linha do Excel:', JSON.stringify(data[0]));
+        console.log('[UPLOAD] Primeira linha do Excel (com raw/text):', JSON.stringify(data[0]));
+        
+        // Log detalhado dos tipos de cada valor na primeira linha
+        console.log('[UPLOAD] Tipos de dados na primeira linha:');
+        Object.keys(data[0]).forEach(col => {
+            const val = data[0][col];
+            const tipo = val && val.raw !== null && val.raw !== undefined ? typeof val.raw : typeof val;
+            console.log(`  - ${col}: ${tipo} = ${val && val.raw !== undefined ? val.raw : val}`);
+            if (val && val.text !== undefined) {
+                console.log(`    (texto exibido: "${val.text}", tipo: ${typeof val.text})`);
+            }
+        });
         
         // Obter estrutura da tabela
         const schemaResult = await poolFonte.request().query(`
@@ -632,13 +737,44 @@ app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, re
                     columns.forEach((col, idx) => {
                         const paramName = `param${idx}`;
                         // Pega o valor pela POSIÇÃO, não pelo nome da coluna
-                        const rawValue = excelValues[idx];
+                        const cell = excelValues[idx];
+                        let rawValue = null;
+                        // Para colunas de data
+                        if (col.DATA_TYPE.toLowerCase().includes('date')) {
+                            if (cell) {
+                                const textVal = cell.text && typeof cell.text === 'string' ? cell.text.trim() : '';
+                                
+                                // Se o texto está em formato de data brasileiro (DD/MM/YYYY), usar o texto
+                                if (textVal && textVal.match(/^\d{1,2}\/\d{1,2}\/\d{2,4}$/)) {
+                                    rawValue = textVal;
+                                }
+                                // Senão, se o raw é número (serial do Excel), usar o raw
+                                else if (cell.raw !== null && cell.raw !== undefined && typeof cell.raw === 'number') {
+                                    rawValue = cell.raw;
+                                }
+                                // Senão, se tem texto não vazio, usar o texto
+                                else if (textVal !== '') {
+                                    rawValue = textVal;
+                                }
+                                // Senão, usar o raw mesmo que não seja número
+                                else {
+                                    rawValue = cell.raw;
+                                }
+                            }
+                        } else {
+                            rawValue = cell ? cell.raw : null;
+                        }
+                        // Log detalhado ANTES da conversão para colunas de data
+                        if (totalInserted === 0 && col.DATA_TYPE.toLowerCase().includes('date')) {
+                            console.log(`[ANTES CONVERSÃO] Coluna ${col.COLUMN_NAME}: cell.raw=${cell.raw} (tipo: ${typeof cell.raw}), cell.text="${cell.text}" (tipo: ${typeof cell.text}), rawValue escolhido=${rawValue} (tipo: ${typeof rawValue})`);
+                        }
+                        
                         const value = convertToSqlType(rawValue, col.DATA_TYPE);
                         const sqlDataType = getSqlDataType(col.DATA_TYPE);
                         
-                        // Log detalhado da primeira linha
-                        if (totalInserted === 0) {
-                            console.log(`[UPLOAD] Coluna ${col.COLUMN_NAME} <- Excel[${idx}] "${excelColumns[idx]}": raw="${rawValue}" -> convertido="${value}" (tipo: ${col.DATA_TYPE})`);
+                        // Log detalhado da primeira linha E de todas as colunas de data
+                        if (totalInserted === 0 || (col.DATA_TYPE.toLowerCase().includes('date') && totalInserted < 5)) {
+                            console.log(`[UPLOAD] Linha ${totalInserted} - Coluna ${col.COLUMN_NAME} <- Excel[${idx}] "${excelColumns[idx]}": raw="${rawValue}" (tipo JS: ${typeof rawValue}) -> convertido="${value}" (tipo SQL: ${col.DATA_TYPE})`);
                         }
                         
                         request.input(paramName, sqlDataType, value);
@@ -724,21 +860,58 @@ app.post('/api/excel/upload-temp', uploadExcel.single('file'), async (req, res) 
             return res.status(503).json({ error: 'Banco Fonte não conectado' });
         }
         
-        // Ler arquivo Excel
-        const workbook = XLSX.readFile(req.file.path);
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const rawData = XLSX.utils.sheet_to_json(worksheet, { defval: null });
+        // Detectar se o arquivo é TSV disfarçado de XLS
+        const fileContent = fs.readFileSync(req.file.path, 'utf8');
+        const isTabDelimited = fileContent.includes('\t') && !fileContent.startsWith('PK');
         
-        // Limpar espaços dos nomes das colunas
-        const data = rawData.map(row => {
-            const cleanRow = {};
-            Object.keys(row).forEach(key => {
-                const cleanKey = key.trim();
-                cleanRow[cleanKey] = row[key];
+        let data;
+        
+        if (isTabDelimited) {
+            console.log('[UPLOAD-TEMP] Arquivo detectado como TSV, lendo manualmente como texto puro');
+            // Tentar detectar encoding correto
+            let content = fileContent;
+            
+            if (content.includes('�')) {
+                console.log('[UPLOAD-TEMP] Detectado problema de encoding, relendo como Windows-1252');
+                const iconv = require('iconv-lite');
+                const buffer = fs.readFileSync(req.file.path);
+                content = iconv.decode(buffer, 'windows-1252');
+            }
+            
+            // Ler TSV manualmente
+            const lines = content.trim().split('\n');
+            const headers = lines[0].split('\t').map(h => h.trim());
+            
+            const parsedData = [];
+            for (let i = 1; i < lines.length; i++) {
+                if (lines[i].trim() === '') continue;
+                const values = lines[i].split('\t');
+                const row = {};
+                headers.forEach((header, idx) => {
+                    const value = values[idx] ? values[idx].trim() : '';
+                    row[header] = value;
+                });
+                parsedData.push(row);
+            }
+            
+            data = parsedData;
+        } else {
+            // Arquivo Excel verdadeiro
+            const workbook = XLSX.readFile(req.file.path);
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const rawData = XLSX.utils.sheet_to_json(worksheet, { defval: null, raw: false });
+            
+            // Limpar espaços dos nomes das colunas
+            data = rawData.map(row => {
+                const cleanRow = {};
+                Object.keys(row).forEach(key => {
+                    const cleanKey = key.trim();
+                    cleanRow[cleanKey] = row[key];
+                });
+                return cleanRow;
             });
-            return cleanRow;
-        });
+        }
         
         if (data.length === 0) {
             fs.unlinkSync(req.file.path);
@@ -1043,7 +1216,7 @@ app.post('/api/excel/table-definitions', uploadExcel.single('modelFile'), async 
         const workbook = XLSX.readFile(req.file.path);
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const data = XLSX.utils.sheet_to_json(worksheet, { defval: null, header: 1 });
+        const data = XLSX.utils.sheet_to_json(worksheet, { defval: null, header: 1, raw: true });
         
         if (data.length === 0) {
             throw new Error('Arquivo Excel está vazio');
@@ -1270,7 +1443,7 @@ app.put('/api/excel/table-definitions/:id', uploadExcel.single('modelFile'), asy
                 const workbook = XLSX.readFile(req.file.path);
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
-                const data = XLSX.utils.sheet_to_json(worksheet, { defval: null, header: 1 });
+                const data = XLSX.utils.sheet_to_json(worksheet, { defval: null, header: 1, raw: true });
                 
                 if (data.length > 0) {
                     // Limpar headers: remover espaços em branco extras e filtrar null/undefined
@@ -1470,8 +1643,8 @@ const config = {
     options: {
         encrypt: false,
         trustServerCertificate: true,
-        // Adicione timeout global do pool (em ms)
-        requestTimeout: 90000 // 90 segundos
+        requestTimeout: 90000, // 90 segundos
+        useUTC: false // Não converter datas para UTC
     }
 };
 
@@ -1484,7 +1657,8 @@ const configFonte = {
     options: {
         encrypt: false,
         trustServerCertificate: true,
-        requestTimeout: 90000
+        requestTimeout: 90000,
+        useUTC: false // Não converter datas para UTC
     }
 };
 
