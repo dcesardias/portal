@@ -81,6 +81,14 @@
         tr:hover {
             background: #f5f5f5;
         }
+
+        .u-mt-20 {
+            margin-top: 20px;
+        }
+
+        .u-icon-lg {
+            font-size: 24px;
+        }
     </style>
 </head>
 <body>
@@ -105,7 +113,7 @@
             <button onclick="testGroupsAPI()">Buscar Grupos</button>
             <button onclick="testGroupsAPINoAuth()">Buscar Sem Auth (teste erro)</button>
             <div id="groupsResult" class="result" style="display: none;"></div>
-            <div id="groupsTable" style="display: none; margin-top: 20px;">
+            <div id="groupsTable" class="u-mt-20" style="display: none;">
                 <h3>Grupos Encontrados:</h3>
                 <table id="groupsTableData"></table>
             </div>
@@ -116,7 +124,7 @@
             <h2>3️⃣ Testar API de Tabelas</h2>
             <button onclick="testTablesAPI()">Buscar Tabelas</button>
             <div id="tablesResult" class="result" style="display: none;"></div>
-            <div id="tablesTable" style="display: none; margin-top: 20px;">
+            <div id="tablesTable" class="u-mt-20" style="display: none;">
                 <h3>Tabelas Encontradas:</h3>
                 <table id="tablesTableData"></table>
             </div>
@@ -213,7 +221,7 @@
                                     <td><code>${g.Code}</code></td>
                                     <td>${g.Name}</td>
                                     <td>${g.Description || '-'}</td>
-                                    <td style="font-size: 24px;">${g.Icon || '-'}</td>
+                                    <td class="u-icon-lg">${g.Icon || '-'}</td>
                                     <td>${g.TotalTables || 0}</td>
                                 </tr>
                             `).join('')}

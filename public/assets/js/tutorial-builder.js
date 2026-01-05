@@ -26,11 +26,70 @@ class TutorialBuilderApp {
         
         // URL da tela atual (para agrupamento)
         this.currentScreenUrl = null;
+
+        // Nomes customizados por grupo (screenUrl)
+        this.groupNames = {};
         
         this.overlayOpacity = 0.75;
         this.highlightOpacity = 0.20;
         
         this.init();
+    }
+
+    // Nome exibido do grupo (prioridade: mapa > step.groupName > fallback URL)
+    getGroupDisplayName(screenUrl) {
+        const urlKey = screenUrl || '';
+        const mapped = this.groupNames[urlKey];
+        if (mapped && String(mapped).trim() !== '') return String(mapped).trim();
+
+        // Procurar em qualquer step do mesmo screenUrl
+        const stepWithName = this.steps.find(s => (s.screenUrl || this.embedUrlBase || '') === urlKey && s.groupName);
+        if (stepWithName && String(stepWithName.groupName).trim() !== '') return String(stepWithName.groupName).trim();
+
+        return this.getScreenName(urlKey);
+    }
+
+    // Atualiza nome do grupo e propaga para todos os steps daquele screenUrl
+    setGroupName(screenUrl, name) {
+        const urlKey = screenUrl || '';
+        const cleanName = (name ?? '').toString().trim();
+        if (cleanName === '') return;
+
+        this.groupNames[urlKey] = cleanName;
+        this.steps = this.steps.map(s => {
+            const sUrl = s.screenUrl || this.embedUrlBase || '';
+            if (sUrl !== urlKey) return s;
+            return { ...s, groupName: cleanName };
+        });
+
+        // Re-render
+        this.renderStepsList();
+        this.renderGroupNavigation();
+        this.showToast(`✅ Grupo renomeado para: ${cleanName}`, 'success');
+    }
+
+    promptRenameGroup(screenUrl) {
+        const currentName = this.getGroupDisplayName(screenUrl);
+        const suggested = currentName && currentName !== 'Tela Inicial' ? currentName : '';
+        const newName = prompt('Nome do grupo:', suggested);
+        if (newName === null) return; // cancelado
+        const clean = newName.trim();
+        if (!clean) {
+            this.showToast('❌ Nome do grupo não pode ficar vazio', 'error');
+            return;
+        }
+        this.setGroupName(screenUrl, clean);
+    }
+
+    hydrateGroupNamesFromSteps() {
+        const map = {};
+        for (const step of this.steps) {
+            const urlKey = step.screenUrl || this.embedUrlBase || '';
+            const name = (step.groupName ?? '').toString().trim();
+            if (!urlKey) continue;
+            if (name && !map[urlKey]) map[urlKey] = name;
+        }
+        this.groupNames = { ...map, ...this.groupNames };
     }
 
     // Callback quando tipo de step muda
@@ -169,7 +228,7 @@ class TutorialBuilderApp {
         
         this.steps.forEach((step, index) => {
             const screenUrl = step.screenUrl || this.embedUrlBase || '';
-            const screenName = this.getScreenName(screenUrl);
+            const screenName = this.getGroupDisplayName(screenUrl);
             
             if (!groups.has(screenUrl)) {
                 groups.set(screenUrl, {
@@ -209,8 +268,8 @@ class TutorialBuilderApp {
                 width: 100%;
                 padding: 10px 12px;
                 margin-bottom: 8px;
-                border: 2px solid ${isActive ? '#667eea' : '#e0e0e0'};
-                background: ${isActive ? '#f0f3ff' : 'white'};
+                border: 2px solid ${isActive ? '#0066cc' : '#e0e0e0'};
+                background: ${isActive ? '#e3f2fd' : 'white'};
                 border-radius: 6px;
                 text-align: left;
                 cursor: pointer;
@@ -219,8 +278,11 @@ class TutorialBuilderApp {
             `;
             
             button.innerHTML = `
-                <div style="font-weight: 600; color: ${isActive ? '#667eea' : '#333'}; margin-bottom: 4px;">
-                    ${isActive ? '▶' : '○'} Grupo ${index + 1}: ${group.name}
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;">
+                    <div style="font-weight: 600; color: ${isActive ? '#0066cc' : '#333'};">
+                        ${isActive ? '▶' : '○'} Grupo ${index + 1}: ${group.name}
+                    </div>
+                    <span class="group-rename" title="Renomear grupo" style="font-size:12px; color:${isActive ? '#0066cc' : '#666'}; padding:2px 6px; border-radius:4px; border:1px solid ${isActive ? '#0066cc' : '#ddd'}; background:${isActive ? '#fff' : '#fafafa'};">✏️</span>
                 </div>
                 <div style="font-size: 11px; color: #666;">
                     ${group.steps.length} ${group.steps.length === 1 ? 'passo' : 'passos'}
@@ -228,10 +290,19 @@ class TutorialBuilderApp {
             `;
             
             button.onclick = () => this.switchToGroup(group.url);
+
+            const renameEl = button.querySelector('.group-rename');
+            if (renameEl) {
+                renameEl.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.promptRenameGroup(group.url);
+                });
+            }
             
             button.onmouseenter = () => {
                 if (!isActive) {
-                    button.style.borderColor = '#667eea';
+                    button.style.borderColor = '#0066cc';
                     button.style.background = '#f8f9fa';
                 }
             };
@@ -254,6 +325,10 @@ class TutorialBuilderApp {
         console.log('[GROUP] Trocando para grupo:', screenUrl);
         
         this.currentScreenUrl = screenUrl;
+
+        // Atualizar nome corrente do grupo (se existir)
+        const currentName = this.getGroupDisplayName(screenUrl);
+        if (currentName) this.groupNames[screenUrl || ''] = currentName;
         
         const iframe = document.getElementById('powerbiFrame');
         if (iframe && screenUrl) {
@@ -264,7 +339,7 @@ class TutorialBuilderApp {
         this.renderAllHighlights();
         this.renderGroupNavigation();
         
-        const screenName = this.getScreenName(screenUrl);
+        const screenName = this.getGroupDisplayName(screenUrl);
         this.showToast(`📂 Grupo: ${screenName}`, 'info');
     }
 
@@ -679,6 +754,7 @@ class TutorialBuilderApp {
                     
                     if (Array.isArray(steps)) {
                         this.steps = steps;
+                        this.hydrateGroupNamesFromSteps();
                         console.log('[LOAD-TUTORIAL] Steps carregados:', this.steps.length);
                         
                         this.renderStepsList();
@@ -768,7 +844,7 @@ class TutorialBuilderApp {
         const overlay = document.getElementById('canvasOverlay');
         overlay.classList.add('selecting');
         document.getElementById('selectBtnText').textContent = '🎯 Clique e arraste no dashboard...';
-        document.getElementById('selectAreaBtn').style.background = '#4CAF50';
+        document.getElementById('selectAreaBtn').style.background = '#0066cc';
         document.getElementById('selectionStatus').textContent = '🖱️ Clique e arraste para selecionar a área';
     }
 
@@ -982,8 +1058,8 @@ class TutorialBuilderApp {
         tempHighlight.className = 'highlight-area active';
         tempHighlight.style.cssText = `
             position: absolute;
-            border: 3px solid #4CAF50;
-            background: rgba(76, 175, 80, ${this.highlightOpacity});
+            border: 3px solid #0066cc;
+            background: rgba(0, 102, 204, ${this.highlightOpacity});
             border-radius: 4px;
             cursor: pointer;
             transition: all 0.2s;
@@ -1055,6 +1131,7 @@ class TutorialBuilderApp {
             highlight: { ...this.tempHighlight },
             powerBIUrl,
             screenUrl: screenUrl,
+            groupName: this.getGroupDisplayName(screenUrl),
             overlayOpacity: this.overlayOpacity,
             highlightOpacity: this.highlightOpacity
         };
@@ -1129,6 +1206,7 @@ class TutorialBuilderApp {
             highlight: this.tempHighlight ? { ...this.tempHighlight } : null,
             powerBIUrl,
             screenUrl: screenUrl,
+            groupName: this.getGroupDisplayName(screenUrl),
             overlayOpacity: this.overlayOpacity,
             highlightOpacity: this.highlightOpacity
         };
@@ -1149,6 +1227,16 @@ class TutorialBuilderApp {
             const iframe = document.getElementById('powerbiFrame');
             if (iframe) {
                 iframe.src = powerBIUrl;
+            }
+
+            // Perguntar nome do novo grupo (destino) e persistir no mapa
+            const defaultName = this.getScreenName(powerBIUrl);
+            const newGroupName = prompt('Nome do novo grupo (página de destino):', defaultName);
+            if (newGroupName !== null) {
+                const clean = newGroupName.trim();
+                if (clean) {
+                    this.groupNames[powerBIUrl] = clean;
+                }
             }
         }
 
@@ -1248,17 +1336,27 @@ class TutorialBuilderApp {
                 separator.style.cssText = `
                     margin: 20px 0;
                     padding: 12px;
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
                     border-radius: 8px;
                     color: white;
                     font-weight: 600;
                     text-align: center;
                     font-size: 13px;
+                    position: relative;
                 `;
                 separator.innerHTML = `
                     <i class="fas fa-layer-group"></i> 
-                    Grupo ${screenGroupNumber}: ${this.getScreenName(stepScreenUrl)}
+                    Grupo ${screenGroupNumber}: ${this.getGroupDisplayName(stepScreenUrl)}
                 `;
+
+                const renameBtn = document.createElement('button');
+                renameBtn.type = 'button';
+                renameBtn.title = 'Renomear grupo';
+                renameBtn.textContent = '✏️';
+                renameBtn.style.cssText = 'position:absolute;right:10px;top:8px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.35);color:#fff;border-radius:6px;padding:4px 8px;cursor:pointer;';
+                renameBtn.onclick = () => this.promptRenameGroup(stepScreenUrl);
+                separator.appendChild(renameBtn);
+
                 container.appendChild(separator);
             }
             
@@ -1268,17 +1366,27 @@ class TutorialBuilderApp {
                 separator.style.cssText = `
                     margin-bottom: 16px;
                     padding: 12px;
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
                     border-radius: 8px;
                     color: white;
                     font-weight: 600;
                     text-align: center;
                     font-size: 13px;
+                    position: relative;
                 `;
                 separator.innerHTML = `
                     <i class="fas fa-layer-group"></i> 
-                    Grupo ${screenGroupNumber}: ${this.getScreenName(stepScreenUrl)}
+                    Grupo ${screenGroupNumber}: ${this.getGroupDisplayName(stepScreenUrl)}
                 `;
+
+                const renameBtn = document.createElement('button');
+                renameBtn.type = 'button';
+                renameBtn.title = 'Renomear grupo';
+                renameBtn.textContent = '✏️';
+                renameBtn.style.cssText = 'position:absolute;right:10px;top:8px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.35);color:#fff;border-radius:6px;padding:4px 8px;cursor:pointer;';
+                renameBtn.onclick = () => this.promptRenameGroup(stepScreenUrl);
+                separator.appendChild(renameBtn);
+
                 container.appendChild(separator);
             }
             
@@ -1294,7 +1402,7 @@ class TutorialBuilderApp {
             
             const typeIcon = step.type === 'navigation' ? '🔗' : '🎯';
             const typeName = step.type === 'navigation' ? 'Navegação' : 'Highlight';
-            const typeColor = step.type === 'navigation' ? '#2196F3' : '#667eea';
+            const typeColor = step.type === 'navigation' ? '#2196F3' : '#0066cc';
             
             let destInfo = '';
             if (step.type === 'navigation' && step.powerBIUrl) {
@@ -1434,8 +1542,8 @@ class TutorialBuilderApp {
             highlight.className = 'highlight-area';
             highlight.style.cssText = `
                 position: absolute;
-                border: 3px solid #667eea;
-                background: rgba(102, 126, 234, ${stepHighlightOpacity});
+                border: 3px solid #0066cc;
+                background: rgba(0, 102, 204, ${stepHighlightOpacity});
                 border-radius: 4px;
                 cursor: pointer;
                 transition: all 0.2s;
@@ -1625,7 +1733,7 @@ class TutorialBuilderApp {
         highlight.id = 'previewHighlight';
         highlight.style.cssText = `
             position: fixed;
-            border: 4px solid #4CAF50;
+            border: 4px solid #0066cc;
             border-radius: 8px;
             z-index: 10001;
             pointer-events: none;
@@ -1690,7 +1798,7 @@ class TutorialBuilderApp {
                         border-radius: 6px;
                         cursor: pointer;
                         font-weight: 600;
-                        background: #667eea;
+                        background: #0066cc;
                         color: white;
                         transition: all 0.2s;
                     ">Próximo</button>
@@ -1715,8 +1823,8 @@ class TutorialBuilderApp {
         
         prevBtn.onmouseenter = () => prevBtn.style.background = '#d0d0d0';
         prevBtn.onmouseleave = () => prevBtn.style.background = '#e5e5e5';
-        nextBtn.onmouseenter = () => nextBtn.style.background = '#5568d3';
-        nextBtn.onmouseleave = () => nextBtn.style.background = '#667eea';
+        nextBtn.onmouseenter = () => nextBtn.style.background = '#0052a3';
+        nextBtn.onmouseleave = () => nextBtn.style.background = '#0066cc';
         closeBtn.onmouseenter = () => { closeBtn.style.background = '#f0f0f0'; closeBtn.style.color = '#333'; };
         closeBtn.onmouseleave = () => { closeBtn.style.background = 'none'; closeBtn.style.color = '#999'; };
         
@@ -1947,7 +2055,7 @@ class TutorialBuilderApp {
                             border-radius: 6px;
                             cursor: pointer;
                             font-weight: 600;
-                            background: #667eea;
+                            background: #0066cc;
                             color: white;
                             transition: all 0.2s;
                         ">${this.previewIndex === this.steps.length - 1 ? 'Concluir' : 'Próximo'}</button>
@@ -1983,11 +2091,11 @@ class TutorialBuilderApp {
         highlight.style.left = hlLeft + 'px';
         highlight.style.width = hlWidth + 'px';
         highlight.style.height = hlHeight + 'px';
-        highlight.style.background = `rgba(76, 175, 80, ${stepHighlightOpacity})`;
+        highlight.style.background = `rgba(0, 102, 204, ${stepHighlightOpacity})`;
         highlight.style.boxShadow = `
-            0 0 0 4px rgba(76, 175, 80, 0.4),
+            0 0 0 4px rgba(0, 102, 204, 0.35),
             0 0 0 9999px rgba(0, 0, 0, ${stepOverlayOpacity}),
-            0 0 40px 5px rgba(76, 175, 80, 0.8)
+            0 0 40px 5px rgba(0, 102, 204, 0.55)
         `;
         
         tooltip.innerHTML = `
@@ -2035,7 +2143,7 @@ class TutorialBuilderApp {
                         border-radius: 6px;
                         cursor: pointer;
                         font-weight: 600;
-                        background: #667eea;
+                        background: #0066cc;
                         color: white;
                         transition: all 0.2s;
                     ">${this.previewIndex === this.steps.length - 1 ? 'Concluir' : 'Próximo'}</button>
@@ -2069,8 +2177,8 @@ class TutorialBuilderApp {
         
         if (nextBtn) {
             nextBtn.onclick = () => this.previewNavigate(1);
-            nextBtn.onmouseenter = () => nextBtn.style.background = '#5568d3';
-            nextBtn.onmouseleave = () => nextBtn.style.background = '#667eea';
+            nextBtn.onmouseenter = () => nextBtn.style.background = '#0052a3';
+            nextBtn.onmouseleave = () => nextBtn.style.background = '#0066cc';
         }
         
         if (closeBtn) {

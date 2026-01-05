@@ -5,6 +5,132 @@ window.PortalTutorial = {
     highlight: null,
     tooltip: null,
 
+    getScreenName(url) {
+        if (!url) return 'Tela Inicial';
+        try {
+            const urlObj = new URL(url);
+
+            const pageName = urlObj.searchParams.get('pageName');
+            if (pageName) {
+                if (pageName.startsWith('ReportSection')) {
+                    const match = pageName.match(/ReportSection(\d+)/);
+                    return match ? `Página ${match[1]}` : pageName;
+                }
+                if (/^[a-f0-9]{16,20}$/i.test(pageName)) {
+                    return `Página ${pageName.substring(0, 8)}...`;
+                }
+                return pageName;
+            }
+
+            const pathParts = urlObj.pathname.split('/').filter(p => p);
+            const reportsIndex = pathParts.indexOf('reports');
+            if (reportsIndex !== -1 && reportsIndex + 2 < pathParts.length) {
+                const pageId = pathParts[reportsIndex + 2];
+                if (pageId.startsWith('ReportSection')) {
+                    const match = pageId.match(/ReportSection(\d+)/);
+                    return match ? `Página ${match[1]}` : pageId;
+                }
+                if (/^[a-f0-9]{16,20}$/i.test(pageId)) {
+                    return `Página ${pageId.substring(0, 8)}...`;
+                }
+                return pageId;
+            }
+
+            return 'Tela Inicial';
+        } catch {
+            return 'Tela Inicial';
+        }
+    },
+
+    getGroupDisplayNameForUrl(url) {
+        const steps = this.currentTutorial?.steps || [];
+        const nameFromStep = steps.find(s => ((s._resolvedScreenUrl || s.screenUrl || '') === (url || '')) && s.groupName)?.groupName;
+        if (nameFromStep && String(nameFromStep).trim() !== '') return String(nameFromStep).trim();
+        return this.getScreenName(url);
+    },
+
+    // Normaliza steps para suportar tutoriais antigos sem screenUrl.
+    // Regra: usa o screenUrl do step quando existir; caso contrário, herda a tela atual.
+    // Quando encontra um step de navigation com powerBIUrl, a tela atual passa a ser powerBIUrl para os próximos steps.
+    normalizeTutorialSteps(rawSteps) {
+        const steps = Array.isArray(rawSteps) ? rawSteps : [];
+        let currentUrl = (steps[0]?.screenUrl || '').toString();
+
+        return steps.map((step) => {
+            const ownUrl = (step?.screenUrl || '').toString();
+            const resolvedUrl = ownUrl || currentUrl || '';
+
+            // Atualizar currentUrl após step de navegação (para os próximos)
+            if (step?.type === 'navigation' && step?.powerBIUrl) {
+                currentUrl = step.powerBIUrl;
+            } else if (ownUrl) {
+                currentUrl = ownUrl;
+            }
+
+            return {
+                ...step,
+                _resolvedScreenUrl: resolvedUrl
+            };
+        });
+    },
+
+    // Grupos em ordem de aparição
+    getTutorialGroups() {
+        const steps = this.currentTutorial?.steps || [];
+        const groups = [];
+        const indexByUrl = new Map();
+
+        steps.forEach((step, index) => {
+            const url = step._resolvedScreenUrl || step.screenUrl || '';
+            if (!indexByUrl.has(url)) {
+                indexByUrl.set(url, groups.length);
+                groups.push({
+                    url,
+                    name: this.getGroupDisplayNameForUrl(url),
+                    firstIndex: index,
+                    count: 0
+                });
+            }
+            const g = groups[indexByUrl.get(url)];
+            g.count += 1;
+        });
+
+        return groups;
+    },
+
+    getPowerBIIframe() {
+        return document.querySelector('#powerbiContainer iframe');
+    },
+
+    async ensureScreen(screenUrl) {
+        const url = screenUrl || '';
+        if (!url) return;
+
+        const iframe = this.getPowerBIIframe();
+        if (!iframe) {
+            console.error('[TUTORIAL] Iframe do Power BI não encontrado');
+            return;
+        }
+
+        if (iframe.src === url) return;
+
+        console.log('[TUTORIAL] Navegando para tela:', url);
+        return new Promise((resolve) => {
+            let done = false;
+            const finish = () => {
+                if (done) return;
+                done = true;
+                iframe.removeEventListener('load', onLoad);
+                clearTimeout(timeoutId);
+                resolve();
+            };
+            const onLoad = () => finish();
+            const timeoutId = setTimeout(() => finish(), 6000);
+            iframe.addEventListener('load', onLoad);
+            iframe.src = url;
+        });
+    },
+
     // Carregar e iniciar tutorial de uma página
     async startTutorial(pageId) {
         try {
@@ -24,17 +150,69 @@ window.PortalTutorial = {
                 alert('Este tutorial não possui passos configurados');
                 return;
             }
-            
+
+            // Normalizar steps para garantir screenUrl resolvida (compatibilidade)
+            tutorial.steps = this.normalizeTutorialSteps(tutorial.steps);
             this.currentTutorial = tutorial;
-            this.currentStep = 0;
-            
+
             this.createOverlay();
-            this.showStep(0);
+
+            const groups = this.getTutorialGroups();
+            if (groups.length > 1) {
+                console.log('[TUTORIAL] Exibindo seleção de grupos:', groups.length);
+                this.showGroupPicker(groups);
+                return;
+            }
+
+            this.currentStep = 0;
+            await this.showStep(0);
             
         } catch (error) {
             console.error('[TUTORIAL] Erro ao carregar tutorial:', error);
             alert('Erro ao carregar tutorial');
         }
+    },
+
+    showGroupPicker(groups) {
+        if (!this.tooltip) return;
+
+        // Ocultar highlight durante seleção
+        if (this.highlight) this.highlight.style.display = 'none';
+
+        const itemsHtml = groups.map((g, idx) => {
+            const safeName = this.escapeHtml(g.name);
+            return `
+                <button class="btn-tutorial" style="width:100%;margin-top:8px;" onclick="window.PortalTutorial.startFromGroupIndex(${idx})">
+                    Grupo ${idx + 1}: ${safeName} (${g.count} ${g.count === 1 ? 'passo' : 'passos'})
+                </button>
+            `;
+        }).join('');
+
+        this.tooltip.innerHTML = `
+            <div class="tutorial-tooltip-content">
+                <button class="btn-tutorial-close" onclick="window.PortalTutorial.endTutorial()">×</button>
+                <h3>Escolha por qual grupo começar</h3>
+                <p>Você pode iniciar o tutorial em qualquer página/grupo.</p>
+                <div style="margin-top:10px;">${itemsHtml}</div>
+            </div>
+        `;
+
+        // Centralizar tooltip
+        const margin = 20;
+        const rect = this.tooltip.getBoundingClientRect();
+        const left = Math.max(margin, Math.min((window.innerWidth - rect.width) / 2, window.innerWidth - rect.width - margin));
+        const top = Math.max(margin, Math.min((window.innerHeight - rect.height) / 2, window.innerHeight - rect.height - margin));
+        this.tooltip.style.left = `${left}px`;
+        this.tooltip.style.top = `${top}px`;
+    },
+
+    async startFromGroupIndex(groupIndex) {
+        const groups = this.getTutorialGroups();
+        const group = groups[groupIndex];
+        if (!group) return;
+
+        this.currentStep = group.firstIndex;
+        await this.showStep(this.currentStep);
     },
 
     // Criar overlay escuro de fundo
@@ -56,7 +234,7 @@ window.PortalTutorial = {
     },
 
     // Mostrar passo específico
-    showStep(stepIndex) {
+    async showStep(stepIndex) {
         if (!this.currentTutorial || !this.currentTutorial.steps[stepIndex]) {
             console.error('[TUTORIAL] Passo inválido:', stepIndex);
             return;
@@ -66,9 +244,20 @@ window.PortalTutorial = {
         this.currentStep = stepIndex;
         
         console.log('[TUTORIAL] Mostrando passo:', stepIndex, step);
+
+        // Garantir que está na tela correta antes de posicionar highlight
+        const targetScreen = step._resolvedScreenUrl || step.screenUrl || '';
+        if (targetScreen) {
+            await this.ensureScreen(targetScreen);
+        }
         
-        // Posicionar highlight RELATIVO AO IFRAME
-        this.positionHighlight(step.highlight);
+        // Posicionar highlight RELATIVO AO IFRAME (se houver)
+        if (step.highlight) {
+            if (this.highlight) this.highlight.style.display = 'block';
+            this.positionHighlight(step.highlight);
+        } else {
+            if (this.highlight) this.highlight.style.display = 'none';
+        }
         
         // Posicionar tooltip
         this.positionTooltip(step);
@@ -76,6 +265,7 @@ window.PortalTutorial = {
 
     // Posicionar destaque da área - CORRIGIDO PARA USAR COORDENADAS DO IFRAME
     positionHighlight(highlight) {
+        if (!highlight) return;
         // CORRIGIDO: Obter posição do iframe do Power BI
         const iframe = document.querySelector('#powerbiContainer iframe');
         if (!iframe) {
@@ -109,9 +299,10 @@ window.PortalTutorial = {
         if (!iframe) return;
         
         const iframeRect = iframe.getBoundingClientRect();
-        const highlightTop = iframeRect.top + (parseFloat(step.highlight.top) * iframeRect.height / 100);
-        const highlightLeft = iframeRect.left + (parseFloat(step.highlight.left) * iframeRect.width / 100);
-        const highlightHeight = parseFloat(step.highlight.height) * iframeRect.height / 100;
+        const hasHighlight = !!step.highlight;
+        const highlightTop = hasHighlight ? iframeRect.top + (parseFloat(step.highlight.top) * iframeRect.height / 100) : iframeRect.top + 20;
+        const highlightLeft = hasHighlight ? iframeRect.left + (parseFloat(step.highlight.left) * iframeRect.width / 100) : iframeRect.left + 20;
+        const highlightHeight = hasHighlight ? parseFloat(step.highlight.height) * iframeRect.height / 100 : 0;
         
         // Criar conteúdo do tooltip
         this.tooltip.innerHTML = `
@@ -140,7 +331,7 @@ window.PortalTutorial = {
         // Posicionar tooltip (abaixo do highlight, centralizado)
         const tooltipRect = this.tooltip.getBoundingClientRect();
         const tooltipTop = highlightTop + highlightHeight + 20;
-        let tooltipLeft = highlightLeft - (tooltipRect.width / 2) + (parseFloat(step.highlight.width) * iframeRect.width / 200);
+        let tooltipLeft = highlightLeft - (tooltipRect.width / 2) + (hasHighlight ? (parseFloat(step.highlight.width) * iframeRect.width / 200) : 0);
         
         // Garantir que tooltip não saia da tela
         const margin = 20;
@@ -162,14 +353,14 @@ window.PortalTutorial = {
     // Próximo passo
     nextStep() {
         if (this.currentStep < this.currentTutorial.steps.length - 1) {
-            this.showStep(this.currentStep + 1);
+            void this.showStep(this.currentStep + 1);
         }
     },
 
     // Passo anterior
     previousStep() {
         if (this.currentStep > 0) {
-            this.showStep(this.currentStep - 1);
+            void this.showStep(this.currentStep - 1);
         }
     },
 

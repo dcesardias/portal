@@ -26,6 +26,23 @@ app.use(cors());
 // CORRIGIDO: Aumentar limite para aceitar imagens grandes em base64
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+// Evita cache do Tutorial Builder (iframe costuma cachear agressivamente)
+// Mantém a URL e comportamento; apenas força o browser a buscar a versão atual.
+app.get(['/tutorial-builder.html', '/tutorial-builder'], (req, res) => {
+    try {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        res.setHeader('Surrogate-Control', 'no-store');
+
+        res.sendFile(path.join(__dirname, 'public', 'tutorial-builder.html'));
+    } catch (e) {
+        console.error('Erro ao servir tutorial-builder.html:', e);
+        res.status(404).send('Tutorial Builder não encontrado');
+    }
+});
+
 app.use(express.static('public'));
 
 const uploadsDir = path.join(__dirname, 'uploads');

@@ -506,6 +506,19 @@
             .data-table td {
                 padding: var(--admin-spacing-sm);
             }
+
+            .u-pointer {
+                cursor: pointer;
+            }
+
+            .u-row-gap {
+                display: flex;
+                gap: var(--admin-spacing-md);
+            }
+
+            .u-primary {
+                color: var(--admin-primary);
+            }
         }
     </style>
 </head>
@@ -531,13 +544,13 @@
                     </a>
                 </li>
 <li class="nav-item">
-                    <a class="nav-link" onclick="window.location.href='/excel/index.html'" style="cursor:pointer;">
+                    <a class="nav-link u-pointer" onclick="window.location.href='/excel/index.html'">
                         <i class="fas fa-arrow-left"></i>
                         <span>Voltar ao Sistema</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" onclick="window.close(); window.opener ? null : window.location.href='/'" style="cursor:pointer;">
+                    <a class="nav-link u-pointer" onclick="window.close(); window.opener ? null : window.location.href='/'">
                         <i class="fas fa-home"></i>
                         <span>Voltar ao Portal</span>
                     </a>
@@ -554,7 +567,7 @@
                 <div id="groups-section" class="content-section active">
                     <div class="section-header">
                         <h2><i class="fas fa-folder"></i> Grupos de Tabelas</h2>
-                        <div style="display: flex; gap: var(--admin-spacing-md);">
+                        <div class="u-row-gap">
                             <button class="btn btn-secondary" onclick="loadGroups()">
                                 <i class="fas fa-sync"></i> Recarregar
                             </button>
@@ -590,7 +603,7 @@
                 <div id="tables-section" class="content-section">
                     <div class="section-header">
                         <h2><i class="fas fa-table"></i> Definições de Tabelas</h2>
-                        <div style="display: flex; gap: var(--admin-spacing-md);">
+                        <div class="u-row-gap">
                             <button class="btn btn-secondary" onclick="loadTables()">
                                 <i class="fas fa-sync"></i> Recarregar
                             </button>
@@ -709,7 +722,7 @@
                 <div class="form-group">
                     <label>Arquivo Modelo Excel</label>
                     <div class="file-upload" onclick="document.getElementById('tableModelFile').click()">
-                        <i class="fas fa-cloud-upload-alt" style="color: #0066cc;"></i>
+                        <i class="fas fa-cloud-upload-alt u-primary"></i>
                         <p>Clique para selecionar arquivo</p>
                         <small>Formato: .xlsx ou .xls</small>
                     </div>

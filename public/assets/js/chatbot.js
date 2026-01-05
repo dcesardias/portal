@@ -120,10 +120,10 @@
         chatContainer.innerHTML = `
             <style>
                 :root {
-                    --ai-primary: linear-gradient(135deg, #6B73FF 0%, #000DFF 100%);
-                    --ai-secondary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    --ai-primary: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
+                    --ai-secondary: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
                     --ai-dark: linear-gradient(135deg, #1a1a2e 0%, #0f0f1e 100%);
-                    --ai-color-primary: #6B73FF;
+                    --ai-color-primary: #0066cc;
                     --ai-text-primary: #1a1a2e;
                     --ai-bg-secondary: #f7f7fc;
                     --ai-bg-tertiary: #ededf5;
@@ -572,7 +572,7 @@
                     width: 8px;
                     height: 8px;
                     border-radius: 50%;
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
                     animation: typing 1.2s infinite;
                 }
                 

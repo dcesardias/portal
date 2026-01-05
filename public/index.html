@@ -55,13 +55,13 @@
             </div>
             <div class="content" id="mainContent">
                 <div id="homeView">
-                    <div class="info-card" style="margin-bottom:20px;">
+                    <div class="info-card info-card--mb20">
                         <h3>Bem-vindo ao Portal</h3>
                         <p id="homeSubtitle">Navegue pelos painéis e dashboards disponíveis. Selecione um card abaixo ou use o menu lateral.</p>
                     </div>
 
                     <div class="cards-section">
-                        <h2 style="color: var(--text-color); margin-bottom: 20px; font-size: 20px;">Acesso Rápido aos Painéis</h2>
+                        <h2 class="portal-section-title">Acesso Rápido aos Painéis</h2>
                         <div id="quickAccessCards" class="cards-grid"></div>
                     </div>
                 </div>
@@ -70,7 +70,7 @@
                     <div class="info-card">
                         <p id="pageDescription">Este painel oferece uma visão abrangente das métricas...</p>
                     </div>
-                    <div style="position:relative;">
+                    <div class="powerbi-shell">
                         <button id="startTutorialBtn" class="btn-start-tutorial" style="display:none;" title="Iniciar tutorial desta página">
                             <i class="fas fa-graduation-cap"></i>
                             Ajuda
@@ -82,8 +82,8 @@
                         <div class="powerbi-container" id="powerbiContainer">
                             <div class="placeholder">
                                 <div class="powerbi-icon">📊</div>
-                                <h3 style="color: #666; margin-bottom:10px;">Power BI</h3>
-                                <p style="color: #999; margin-bottom:20px;">Entre para ver este relatório</p>
+                                <h3 class="powerbi-placeholder-title">Power BI</h3>
+                                <p class="powerbi-placeholder-desc">Entre para ver este relatório</p>
                                 <button class="btn">Entrar</button>
                             </div>
                         </div>
@@ -109,7 +109,7 @@
             <label>Senha</label>
             <input type="password" id="loginPassword" name="admin_password" placeholder="Digite sua senha" autocomplete="current-password">
         </div>
-        <button class="btn btn-admin" style="width: 100%;" id="loginButton">Entrar</button>
+        <button class="btn btn-admin" id="loginButton">Entrar</button>
     </div>
 
     <div class="admin-panel" id="adminPanel">
@@ -119,9 +119,9 @@
             <span class="close-btn" onclick="closeAdminPanel()">×</span>
         </div>
         <div class="admin-content">
-            <div style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+            <div class="admin-toolbar">
                 <button class="btn btn-logout" onclick="logout()">Sair do Admin</button>
-                <button class="btn" onclick="window.open('/excel/index.html', '_blank')" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; border: none; display: flex; align-items: center; gap: 6px;">
+                <button class="btn btn-system-load" onclick="window.open('/excel/index.html', '_blank')">
                     <i class="fas fa-table"></i> Sistema de Carga
                 </button>
             </div>
@@ -152,41 +152,41 @@
                     <input type="text" id="powerbiUrlInput" placeholder="https://app.powerbi.com/view?r=...">
                 </div>
                 <div class="form-group">
-                    <label style="display: flex; align-items: center; gap: 8px;">
-                        <input type="checkbox" id="showInHomeCheckbox" checked style="width: auto;">
+                    <label class="admin-inline-row">
+                        <input type="checkbox" id="showInHomeCheckbox" checked>
                         <span>Mostrar na tela inicial (Acesso Rápido)</span>
                     </label>
-                    <small style="color: #666; display: block; margin-top: 4px;">
+                    <small class="admin-help">
                         Marque para exibir esta página nos cards de acesso rápido da tela inicial
                     </small>
                 </div>
                 <div class="form-group">
                     <label>Ícone do Card (opcional)</label>
-                    <div style="display:flex;align-items:center;gap:8px;">
-                        <input type="text" id="pageIconInput" placeholder="Ex: 📊 ou escolha abaixo" style="flex:1;">
+                    <div class="admin-inline-row">
+                        <input type="text" id="pageIconInput" placeholder="Ex: 📊 ou escolha abaixo" class="admin-flex-1">
                         <div id="pageIconPreview" class="icon-preview" title="Preview do ícone"></div>
                     </div>
-                    <div id="pageIconDropdown" style="position:relative;margin-top:8px;">
-                        <div id="pageIconDropdownToggle" style="width:100%;padding:8px;border-radius:4px;border:1px solid #ddd;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
-                            <span id="pageIconDropdownSelected" style="display:flex;align-items:center;gap:8px;">
-                                <span style="color:#999;">Selecione um ícone...</span>
+                    <div id="pageIconDropdown" class="admin-dropdown">
+                        <div id="pageIconDropdownToggle" class="admin-dropdown-toggle">
+                            <span id="pageIconDropdownSelected" class="admin-inline-row">
+                                <span class="admin-muted">Selecione um ícone...</span>
                             </span>
-                            <span style="transform:rotate(90deg);color:#666;">›</span>
+                            <span class="admin-dropdown-caret">›</span>
                         </div>
-                        <div id="pageIconDropdownMenu" style="display:none;position:absolute;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ddd;border-radius:4px;margin-top:4px;z-index:1000;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                        <div id="pageIconDropdownMenu" class="admin-dropdown-menu" style="display:none;">
                         </div>
                     </div>
-                    <small style="color: #666; display: block; margin-top: 8px;">
+                    <small class="admin-help admin-help-spaced">
                         Este ícone aparecerá no card de acesso rápido na tela inicial
                     </small>
                 </div> 
-                <div style="display:flex;gap:10px;">
+                <div class="admin-actions-row">
                     <button class="btn btn-admin" id="savePageBtn" onclick="savePage()">Salvar Página</button>
-                    <button class="btn" id="cancelPageEditBtn" style="display:none;background:#ccc;color:#000;" onclick="cancelPageEdit()">Cancelar</button>
+                    <button class="btn" id="cancelPageEditBtn" style="display:none;" onclick="cancelPageEdit()">Cancelar</button>
                 </div>
                 
-                <h4 style="margin-top: 30px;">Páginas Existentes</h4>
-                <div style="margin-bottom: 10px; padding: 8px; background: #e8f5e8; border-radius: 4px; font-size: 12px; color: #2e7d32;">
+                <h4 class="admin-section-title">Páginas Existentes</h4>
+                <div class="admin-callout admin-callout--success">
                     💡 <strong>Ordenação dos Cards:</strong> Use as setas ↑↓ para alterar a ordem dos cards na tela inicial. A ordenação afeta apenas páginas marcadas como "Mostrar na tela inicial".
                 </div>
                 <div class="menu-list" id="pagesList"></div>
@@ -207,18 +207,18 @@
                 </div>
                 <div class="form-group">
                     <label>Ícone (emoji ou classe)</label>
-                    <div style="display:flex;align-items:center;gap:8px;">
-                        <input type="text" id="menuIconInput" placeholder="Ex: 📊 ou fas fa-chart" style="flex:1;">
+                    <div class="admin-inline-row">
+                        <input type="text" id="menuIconInput" placeholder="Ex: 📊 ou fas fa-chart" class="admin-flex-1">
                         <div id="menuIconPreview" class="icon-preview" title="Preview do ícone"></div>
                     </div>
-                    <div id="iconDropdown" style="position:relative;margin-top:8px;">
-                        <div id="iconDropdownToggle" style="width:100%;padding:8px;border-radius:4px;border:1px solid #ddd;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
-                            <span id="iconDropdownSelected" style="display:flex;align-items:center;gap:8px;">
-                                <span style="color:#999;">Selecione um ícone...</span>
+                    <div id="iconDropdown" class="admin-dropdown">
+                        <div id="iconDropdownToggle" class="admin-dropdown-toggle">
+                            <span id="iconDropdownSelected" class="admin-inline-row">
+                                <span class="admin-muted">Selecione um ícone...</span>
                             </span>
-                            <span style="transform:rotate(90deg);color:#666;">›</span>
+                            <span class="admin-dropdown-caret">›</span>
                         </div>
-                        <div id="iconDropdownMenu" style="display:none;position:absolute;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ddd;border-radius:4px;margin-top:4px;z-index:1000;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                        <div id="iconDropdownMenu" class="admin-dropdown-menu" style="display:none;">
                         </div>
                     </div>
                 </div>
@@ -227,7 +227,7 @@
                     <select id="parentSelect">
                         <option value="">Nenhum (Nível Principal)</option>
                     </select>
-                    <small style="color: #666; display: block; margin-top: 4px;">
+                    <small class="admin-help">
                         💡 Selecione uma categoria existente para criar subitens. Você pode criar múltiplos níveis de hierarquia (nível 2, 3, etc.)
                     </small>
                 </div>
@@ -236,17 +236,17 @@
                     <select id="pageSelect">
                         <option value="">Selecione uma página (apenas para itens simples)</option>
                     </select>
-                    <small style="color: #666; display: block; margin-top: 4px;">
+                    <small class="admin-help">
                         💡 Apenas itens simples podem ter páginas associadas. Categorias servem apenas para organizar outros itens.
                     </small>
                 </div>
-                <div style="display:flex;gap:10px;">
+                <div class="admin-actions-row">
                     <button class="btn btn-admin" id="saveMenuBtn" onclick="saveMenuItem()">Adicionar ao Menu</button>
-                    <button class="btn" id="cancelMenuEditBtn" style="display:none;background:#ccc;color:#000;" onclick="cancelMenuEdit()">Cancelar</button>
+                    <button class="btn" id="cancelMenuEditBtn" style="display:none;" onclick="cancelMenuEdit()">Cancelar</button>
                 </div>
                 
-                <h4 style="margin-top: 30px;">Estrutura do Menu</h4>
-                <div style="margin-bottom: 10px; padding: 8px; background: #e3f2fd; border-radius: 4px; font-size: 12px; color: #1565c0;">
+                <h4 class="admin-section-title">Estrutura do Menu</h4>
+                <div class="admin-callout admin-callout--info">
                     💡 <strong>Hierarquia Multinível:</strong> Você pode criar subitens dentro de subitens sem limite de profundidade. Categorias podem conter outras categorias e itens.
                 </div>
                 <div class="menu-list" id="menuStructure"></div>
@@ -264,7 +264,7 @@
                             <div>
                                 <strong>Logo atual</strong>
                                 <br>
-                                <small style="color: #666;">Recomendado: PNG transparente, 32x32px a 64x32px</small>
+                                <small class="admin-help">Recomendado: PNG transparente, 32x32px a 64x32px</small>
                             </div>
                         </div>
                         <div class="upload-controls">
@@ -282,7 +282,7 @@
                 </div>
                 <div class="form-group">
                     <label>Tamanho do Logo (px)</label>
-                    <input type="number" id="logoSizeInput" min="16" max="128" value="48" style="width:100%;margin-top:6px;">
+                    <input type="number" id="logoSizeInput" min="16" max="128" value="48">
                 </div>
                 <div class="form-group">
                     <label>Nome do Portal</label>
@@ -294,18 +294,18 @@
                 </div>
                 <div class="form-group">
                     <label>Ícone do item "Home" (emoji ou classe)</label>
-                    <div style="display:flex;align-items:center;gap:8px;">
-                        <input type="text" id="homeIconInput" placeholder="Ex: 🏠 ou fas fa-home" style="flex:1;">
+                    <div class="admin-inline-row">
+                        <input type="text" id="homeIconInput" placeholder="Ex: 🏠 ou fas fa-home" class="admin-flex-1">
                         <div id="homeIconPreview" class="icon-preview" title="Preview do ícone Home"></div>
                     </div>
-                    <div id="homeIconDropdown" style="position:relative;margin-top:8px;">
-                        <div id="homeIconDropdownToggle" style="width:100%;padding:8px;border-radius:4px;border:1px solid #ddd;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
-                            <span id="homeIconDropdownSelected" style="display:flex;align-items:center;gap:8px;">
-                                <span style="color:#999;">Selecione um ícone...</span>
+                    <div id="homeIconDropdown" class="admin-dropdown">
+                        <div id="homeIconDropdownToggle" class="admin-dropdown-toggle">
+                            <span id="homeIconDropdownSelected" class="admin-inline-row">
+                                <span class="admin-muted">Selecione um ícone...</span>
                             </span>
-                            <span style="transform:rotate(90deg);color:#666;">›</span>
+                            <span class="admin-dropdown-caret">›</span>
                         </div>
-                        <div id="homeIconDropdownMenu" style="display:none;position:absolute;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ddd;border-radius:4px;margin-top:4px;z-index:1000;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                        <div id="homeIconDropdownMenu" class="admin-dropdown-menu" style="display:none;">
                         </div>
                     </div>
                 </div>
@@ -329,14 +329,14 @@
 						<option value="Verdana, Geneva, sans-serif">Verdana</option>
 						<option value="Tahoma, Geneva, sans-serif">Tahoma</option>
 					</select>
-					<div style="margin-top:8px;">
-						<label style="font-weight:500;font-size:12px;">Tamanho (px)</label>
-						<input type="number" id="portalFontSize" min="10" max="48" value="16" style="width:100%;margin-top:6px;">
-						<label style="margin-top:8px;display:flex;align-items:center;gap:8px;">
-							<input type="checkbox" id="portalFontBold" style="width:auto;">
-							<span style="font-weight:500;font-size:12px;">Negrito</span>
-						</label>
-					</div>
+                    <div class="admin-subgroup">
+                        <label class="admin-label-sm">Tamanho (px)</label>
+                        <input type="number" id="portalFontSize" min="10" max="48" value="16">
+                        <label class="admin-checkbox-row">
+                            <input type="checkbox" id="portalFontBold">
+                            <span class="admin-label-sm">Negrito</span>
+                        </label>
+                    </div>
 				</div>
 				<div class="form-group">
 					<label>Fonte - Itens do Menu</label>
@@ -358,17 +358,17 @@
 						<option value="Verdana, Geneva, sans-serif">Verdana</option>
 						<option value="Tahoma, Geneva, sans-serif">Tahoma</option>
 					</select>
-					<div style="margin-top:8px;">
-						<label style="font-weight:500;font-size:12px;">Tamanho (px)</label>
-						<input type="number" id="menuFontSize" min="10" max="32" value="14" style="width:100%;margin-top:6px;">
-						<label style="margin-top:8px;display:flex;align-items:center;gap:8px;">
-							<input type="checkbox" id="menuFontBold" style="width:auto;">
-							<span style="font-weight:500;font-size:12px;">Negrito</span>
-						</label>
+                    <div class="admin-subgroup">
+                        <label class="admin-label-sm">Tamanho (px)</label>
+                        <input type="number" id="menuFontSize" min="10" max="32" value="14">
+                        <label class="admin-checkbox-row">
+                            <input type="checkbox" id="menuFontBold">
+                            <span class="admin-label-sm">Negrito</span>
+                        </label>
 						
-						<label style="font-weight:500;font-size:12px;margin-top:12px;display:block;">Tamanho dos Ícones (px)</label>
-						<input type="number" id="menuIconSize" min="12" max="32" value="18" style="width:100%;margin-top:6px;">
-					</div>
+                        <label class="admin-label-sm admin-label-top">Tamanho dos Ícones (px)</label>
+                        <input type="number" id="menuIconSize" min="12" max="32" value="18">
+                    </div>
 				</div>
 				<div class="form-group">
 					<label>Fonte - Páginas (título/subtítulo/descrição)</label>
@@ -390,28 +390,28 @@
 						<option value="Verdana, Geneva, sans-serif">Verdana</option>
 						<option value="Tahoma, Geneva, sans-serif">Tahoma</option>
 					</select>
-					<div style="margin-top:8px;">
-						<label style="font-weight:500;font-size:12px;">Tamanho Título (px)</label>
-						<input type="number" id="pageTitleSize" min="12" max="64" value="24" style="width:100%;margin-top:6px;">
-						<label style="margin-top:8px;display:flex;align-items:center;gap:8px;">
-							<input type="checkbox" id="pageTitleBold" checked style="width:auto;">
-							<span style="font-weight:500;font-size:12px;">Título em Negrito</span>
-						</label>
+                    <div class="admin-subgroup">
+                        <label class="admin-label-sm">Tamanho Título (px)</label>
+                        <input type="number" id="pageTitleSize" min="12" max="64" value="24">
+                        <label class="admin-checkbox-row">
+                            <input type="checkbox" id="pageTitleBold" checked>
+                            <span class="admin-label-sm">Título em Negrito</span>
+                        </label>
 						
-						<label style="font-weight:500;font-size:12px;margin-top:12px;display:block;">Tamanho Subtítulo (px)</label>
-						<input type="number" id="pageSubtitleSize" min="10" max="36" value="14" style="width:100%;margin-top:6px;">
-						<label style="margin-top:8px;display:flex;align-items:center;gap:8px;">
-							<input type="checkbox" id="pageSubtitleBold" style="width:auto;">
-							<span style="font-weight:500;font-size:12px;">Subtítulo em Negrito</span>
-						</label>
+                        <label class="admin-label-sm admin-label-top">Tamanho Subtítulo (px)</label>
+                        <input type="number" id="pageSubtitleSize" min="10" max="36" value="14">
+                        <label class="admin-checkbox-row">
+                            <input type="checkbox" id="pageSubtitleBold">
+                            <span class="admin-label-sm">Subtítulo em Negrito</span>
+                        </label>
 						
-						<label style="font-weight:500;font-size:12px;margin-top:12px;display:block;">Tamanho Descrição (px)</label>
-						<input type="number" id="pageDescSize" min="10" max="24" value="14" style="width:100%;margin-top:6px;">
-						<label style="margin-top:8px;display:flex;align-items:center;gap:8px;">
-							<input type="checkbox" id="pageDescBold" style="width:auto;">
-							<span style="font-weight:500;font-size:12px;">Descrição em Negrito</span>
-						</label>
-					</div>
+                        <label class="admin-label-sm admin-label-top">Tamanho Descrição (px)</label>
+                        <input type="number" id="pageDescSize" min="10" max="24" value="14">
+                        <label class="admin-checkbox-row">
+                            <input type="checkbox" id="pageDescBold">
+                            <span class="admin-label-sm">Descrição em Negrito</span>
+                        </label>
+                    </div>
 				</div>
                 <div class="form-group">
                     <label>Cor Primária</label>
@@ -429,18 +429,18 @@
                     <label>Cor de realce do botão do Menu (hover)</label>
                     <input type="color" id="menuHoverColor" value="#2a2d4a">
                 </div>
-                <div class="form-group" style="margin-top:16px;">
-                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-                        <input type="checkbox" id="chatbotEnabledCheckbox" checked style="width:auto;">
+                <div class="form-group admin-form-spaced">
+                    <label class="admin-checkbox-row">
+                        <input type="checkbox" id="chatbotEnabledCheckbox" checked>
                         <span>Ativar Chatbot (ícone no canto inferior direito)</span>
                     </label>
-                    <small style="color:#666;display:block;margin-top:4px;">Desmarque para ocultar o ícone/flutuante do assistente de dados para todos os usuários. A URL direta <code>/chatbot</code> continuará funcionando mesmo desativado.</small>
+                    <small class="admin-help">Desmarque para ocultar o ícone/flutuante do assistente de dados para todos os usuários. A URL direta <code>/chatbot</code> continuará funcionando mesmo desativado.</small>
                 </div>
                 <button class="btn btn-admin" onclick="saveConfig()">Salvar Configurações</button>
                 
-                <div style="margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 4px;">
-                    <h4 style="color: #856404; margin-bottom: 10px;">Informações do Sistema</h4>
-                    <p style="color: #856404; font-size: 14px;">
+                <div class="admin-callout admin-callout--warning admin-section-spacer">
+                    <h4>Informações do Sistema</h4>
+                    <p>
                         ✅ Portal conectado ao SQL Server<br>
                         ✅ Usuário admin autenticado<br>
                         ✅ Modo de edição ativado
@@ -450,12 +450,12 @@
 
             <div class="tab-content" id="dictionaryTab">
                 <h3>Gerenciar Dicionários de Dados (IA)</h3>
-                <p style="color: #666; font-size: 14px; margin-bottom: 20px;">
+                <p class="admin-desc">
                     Configure os dicionários de dados que o chatbot IA usará para gerar consultas SQL. 
                     O dicionário padrão será usado automaticamente pelo assistente.
                 </p>
 
-                <div style="margin-bottom: 20px;">
+                <div class="admin-block">
                     <button class="btn btn-admin" onclick="window.PortalAdmin.showCreateDictionaryForm()">
                         ➕ Novo Dicionário
                     </button>
@@ -463,7 +463,7 @@
 
                 <h4>Dicionários Existentes</h4>
                 <div class="menu-list" id="dictionariesList">
-                    <div style="text-align: center; color: #666; padding: 20px;">
+                    <div class="admin-placeholder">
                         Carregando dicionários...
                     </div>
                 </div>
@@ -471,15 +471,15 @@
         </div>
     </div>
 
-    <div id="tutorialBuilderModal" style="display:none;position:fixed;inset:0;z-index:10050;backdrop-filter:blur(2px);background:rgba(0,0,0,0.55);">
-        <div style="position:absolute;inset:30px;display:flex;flex-direction:column;">
-            <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
-                <button id="closeTutorialBuilderBtn" aria-label="Fechar" style="background:#fff;border:1px solid #ddd;border-radius:8px;padding:8px 12px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,0.2);">
+    <div id="tutorialBuilderModal" style="display:none;">
+        <div class="tbm-content">
+            <div class="tbm-header">
+                <button id="closeTutorialBuilderBtn" aria-label="Fechar">
                     ×
                 </button>
             </div>
-            <div style="flex:1;min-height:0;background:#1f1f1f;border-radius:10px;overflow:hidden;border:1px solid #333;">
-                <iframe id="tutorialBuilderIframe" src="" title="Tutorial Builder" style="width:100%;height:100%;border:0;display:block;"></iframe>
+            <div class="tbm-frame">
+                <iframe id="tutorialBuilderIframe" src="" title="Tutorial Builder"></iframe>
             </div>
         </div>
     </div>
@@ -590,7 +590,7 @@
             .tutorial-highlight {
                 position: fixed !important;
                 background: transparent !important;
-                border: 4px solid #4CAF50 !important;
+                border: 4px solid #0066cc !important;
                 border-radius: 8px !important;
                 z-index: 10001 !important;
                 pointer-events: auto !important;
@@ -705,6 +705,49 @@
                 animation: pulse 1.5s ease-in-out infinite;
             }
 
+            .tutorial-loading-title {
+                margin: 0 0 8px 0;
+                color: #333;
+            }
+
+            .tutorial-loading-desc {
+                margin: 0;
+                color: #666;
+                font-size: 14px;
+            }
+
+            .tutorial-tooltip-center {
+                text-align: center;
+                margin-bottom: 16px;
+            }
+
+            .tutorial-tooltip-emoji {
+                font-size: 48px;
+            }
+
+            .tutorial-tooltip-title {
+                margin: 0 0 12px 0;
+                font-size: 20px;
+                color: #333;
+                text-align: center;
+            }
+
+            .tutorial-tooltip-desc {
+                margin: 0 0 20px 0;
+                color: #666;
+                line-height: 1.6;
+            }
+
+            [data-theme="dark"] .tutorial-loading-title,
+            [data-theme="dark"] .tutorial-tooltip-title {
+                color: #e0e0e0;
+            }
+
+            [data-theme="dark"] .tutorial-loading-desc,
+            [data-theme="dark"] .tutorial-tooltip-desc {
+                color: #bdbdbd;
+            }
+
             @keyframes pulse {
                 0%, 100% { opacity: 1; }
                 50% { opacity: 0.5; }
@@ -816,8 +859,8 @@
             tt.innerHTML = `
                 <div class="tutorial-loading">
                     <div class="tutorial-loading-icon">⏳</div>
-                    <h3 style="margin: 0 0 8px 0; color: #333;">Carregando página...</h3>
-                    <p style="margin: 0; color: #666; font-size: 14px;">Aguarde enquanto o Power BI carrega</p>
+                    <h3 class="tutorial-loading-title">Carregando página...</h3>
+                    <p class="tutorial-loading-desc">Aguarde enquanto o Power BI carrega</p>
                 </div>
             `;
         }
@@ -845,11 +888,11 @@
             hl.style.left = hlLeft + 'px';
             hl.style.width = hlWidth + 'px';
             hl.style.height = hlHeight + 'px';
-            hl.style.background = `rgba(76, 175, 80, ${highlightOpacity})`;
+            hl.style.background = `rgba(0, 102, 204, ${highlightOpacity})`;
             hl.style.boxShadow = `
-                0 0 0 4px rgba(76, 175, 80, 0.4),
+                0 0 0 4px rgba(0, 102, 204, 0.35),
                 0 0 0 9999px rgba(0, 0, 0, ${overlayOpacity}),
-                0 0 40px 5px rgba(76, 175, 80, 0.8)
+                0 0 40px 5px rgba(0, 102, 204, 0.55)
             `;
 
             // CRÍTICO: Sempre recriar HTML do tooltip para garantir elementos válidos
@@ -919,11 +962,11 @@
             
             tt.innerHTML = `
                 <button class="btn-tutorial-close" aria-label="Fechar">×</button>
-                <div style="text-align: center; margin-bottom: 16px;">
-                    <span style="font-size: 48px;">💡</span>
+                <div class="tutorial-tooltip-center">
+                    <span class="tutorial-tooltip-emoji">💡</span>
                 </div>
-                <h3 style="margin: 0 0 12px 0; font-size: 20px; color: #333; text-align: center;">${step.title || ('Passo ' + (idx + 1))}</h3>
-                <p style="margin: 0 0 20px 0; color: #666; line-height: 1.6;">${step.description || ''}</p>
+                <h3 class="tutorial-tooltip-title">${step.title || ('Passo ' + (idx + 1))}</h3>
+                <p class="tutorial-tooltip-desc">${step.description || ''}</p>
                 <div class="tutorial-footer">
                     <span class="tutorial-progress">${(idx + 1)} / ${total}</span>
                     <div class="tutorial-buttons">

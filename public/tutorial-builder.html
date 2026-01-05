@@ -6,6 +6,27 @@
     <title>Criar Tutorial - Power BI Portal</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        :root {
+            --tb-font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
+            --tb-bg: #f3f4f6;
+            --tb-surface: #ffffff;
+            --tb-surface-muted: #f9fafb;
+            --tb-text: #111827;
+            --tb-muted: #6b7280;
+            --tb-border: #e5e7eb;
+            --tb-primary: #0066cc;
+            --tb-primary-dark: #0052a3;
+            --tb-success: #2e7d32;
+            --tb-danger: #d32f2f;
+            --tb-warning: #f57c00;
+            --tb-radius-sm: 6px;
+            --tb-radius-md: 10px;
+            --tb-radius-lg: 12px;
+            --tb-shadow-sm: 0 1px 2px rgba(0,0,0,0.10);
+            --tb-shadow-md: 0 10px 24px rgba(0,0,0,0.14);
+            --tb-focus: 0 0 0 3px rgba(0,102,204,0.14);
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -13,10 +34,11 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f5f5f5;
+            font-family: var(--tb-font-family);
+            background: var(--tb-bg);
             height: 100vh;
             overflow: hidden;
+            color: var(--tb-text);
         }
 
         .container {
@@ -26,15 +48,15 @@
 
         .sidebar {
             width: 400px;
-            background: white;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            background: var(--tb-surface);
+            box-shadow: var(--tb-shadow-sm);
             overflow-y: auto;
             z-index: 100;
         }
 
         .sidebar-header {
             padding: 24px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--tb-primary) 0%, var(--tb-primary-dark) 100%);
             color: white;
         }
 
@@ -50,13 +72,13 @@
 
         .sidebar-section {
             padding: 24px;
-            border-bottom: 1px solid #e0e0e0;
+            border-bottom: 1px solid var(--tb-border);
         }
 
         .sidebar-section h2 {
             font-size: 18px;
             margin-bottom: 16px;
-            color: #333;
+            color: var(--tb-text);
         }
 
         .form-group {
@@ -67,7 +89,7 @@
             display: block;
             font-size: 14px;
             font-weight: 600;
-            color: #555;
+            color: var(--tb-muted);
             margin-bottom: 8px;
         }
 
@@ -75,16 +97,19 @@
         .form-group textarea {
             width: 100%;
             padding: 10px;
-            border: 2px solid #e0e0e0;
-            border-radius: 6px;
+            border: 1px solid var(--tb-border);
+            border-radius: var(--tb-radius-sm);
             font-size: 14px;
-            transition: border-color 0.2s;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            background: var(--tb-surface);
+            color: var(--tb-text);
         }
 
         .form-group input:focus,
         .form-group textarea:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: var(--tb-primary);
+            box-shadow: var(--tb-focus);
         }
 
         .form-group textarea {
@@ -95,11 +120,11 @@
         .btn {
             padding: 12px 20px;
             border: none;
-            border-radius: 6px;
+            border-radius: var(--tb-radius-sm);
             font-size: 14px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: transform 0.2s, filter 0.2s, box-shadow 0.2s;
             display: flex;
             align-items: center;
             gap: 8px;
@@ -107,41 +132,49 @@
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--tb-primary);
             color: white;
+            box-shadow: var(--tb-shadow-sm);
         }
 
         .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            transform: translateY(-1px);
+            filter: brightness(0.96);
+            box-shadow: var(--tb-shadow-md);
         }
 
         .btn-success {
-            background: #4CAF50;
+            background: var(--tb-success);
             color: white;
+            box-shadow: var(--tb-shadow-sm);
         }
 
         .btn-success:hover {
-            background: #45a049;
+            filter: brightness(0.96);
+            box-shadow: var(--tb-shadow-md);
         }
 
         .btn-secondary {
-            background: #6c757d;
+            background: #6b7280;
             color: white;
+            box-shadow: var(--tb-shadow-sm);
         }
 
         .btn-secondary:hover {
-            background: #5a6268;
+            filter: brightness(0.96);
+            box-shadow: var(--tb-shadow-md);
         }
 
         .btn-danger {
-            background: #f44336;
+            background: var(--tb-danger);
             color: white;
+            box-shadow: var(--tb-shadow-sm);
         }
 
         .btn:disabled {
             opacity: 0.5;
             cursor: not-allowed;
+            box-shadow: none;
         }
 
         .steps-list {
@@ -149,17 +182,17 @@
         }
 
         .step-item {
-            background: #f8f9fa;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
+            background: var(--tb-surface-muted);
+            border: 1px solid var(--tb-border);
+            border-radius: var(--tb-radius-md);
             padding: 16px;
             margin-bottom: 12px;
             transition: all 0.2s;
         }
 
         .step-item:hover {
-            border-color: #667eea;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-color: var(--tb-primary);
+            box-shadow: var(--tb-shadow-sm);
         }
 
         .step-header {
@@ -172,7 +205,7 @@
         .step-number {
             font-size: 12px;
             font-weight: 700;
-            color: #667eea;
+            color: var(--tb-primary);
         }
 
         .step-title {
@@ -183,7 +216,7 @@
 
         .step-description {
             font-size: 13px;
-            color: #666;
+            color: var(--tb-muted);
             line-height: 1.5;
         }
 
@@ -202,12 +235,12 @@
         }
 
         .btn-edit {
-            background: #2196F3;
+            background: #1976d2;
             color: white;
         }
 
         .btn-delete {
-            background: #f44336;
+            background: var(--tb-danger);
             color: white;
         }
 
@@ -228,9 +261,9 @@
             width: 100%;
             aspect-ratio: 16 / 9;
             height: auto;
-            background: #f8f9fa;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
+            background: var(--tb-surface-muted);
+            border: 1px solid var(--tb-border);
+            border-radius: var(--tb-radius-lg);
             position: relative;
             overflow: hidden;
         }
@@ -258,37 +291,37 @@
 
         .selection-box {
             position: absolute;
-            border: 3px dashed #667eea;
-            background: rgba(102, 126, 234, 0.1);
+            border: 2px dashed var(--tb-primary);
+            background: rgba(0, 102, 204, 0.10);
             pointer-events: none;
             z-index: 20;
         }
 
         .highlight-area {
             position: absolute;
-            border: 3px solid #667eea;
-            background: rgba(102, 126, 234, 0.15);
-            border-radius: 4px;
+            border: 2px solid var(--tb-primary);
+            background: rgba(0, 102, 204, 0.14);
+            border-radius: var(--tb-radius-sm);
             cursor: pointer;
             transition: all 0.2s;
             z-index: 15;
         }
 
         .highlight-area.active {
-            border-color: #4CAF50;
-            background: rgba(76, 175, 80, 0.2);
+            border-color: var(--tb-success);
+            background: rgba(46, 125, 50, 0.18);
         }
 
         .highlight-area:hover {
-            background: rgba(102, 126, 234, 0.25);
-            box-shadow: 0 0 20px rgba(102, 126, 234, 0.5);
+            background: rgba(0, 102, 204, 0.22);
+            box-shadow: 0 0 18px rgba(0, 0, 0, 0.25);
         }
 
         .highlight-label {
             position: absolute;
             top: -30px;
             left: 0;
-            background: #667eea;
+            background: var(--tb-primary);
             color: white;
             padding: 4px 10px;
             border-radius: 4px;
@@ -327,12 +360,12 @@
         }
 
         .page-info {
-            background: #e3f2fd;
+            background: rgba(0, 102, 204, 0.08);
             padding: 12px;
             border-radius: 6px;
             margin-bottom: 20px;
             font-size: 13px;
-            color: #1565c0;
+            color: var(--tb-primary-dark);
         }
 
         .page-info strong {
@@ -346,7 +379,7 @@
         }
 
         .step-item.drag-over {
-            border-top: 3px solid #667eea;
+            border-top: 3px solid var(--tb-primary);
         }
 
         .drag-handle {
@@ -357,7 +390,7 @@
         }
 
         .drag-handle:hover {
-            color: #667eea;
+            color: var(--tb-primary);
         }
 
         .toast {
@@ -378,11 +411,11 @@
         }
 
         .toast.success {
-            background: #4CAF50;
+            background: var(--tb-success);
         }
 
         .toast.error {
-            background: #f44336;
+            background: var(--tb-danger);
         }
 
         @keyframes slideIn {
@@ -417,6 +450,452 @@
             font-weight: 600;
             font-size: 13px;
         }
+
+        /* Clean overrides para estilos inline (não altera comportamento) */
+        #overlayOpacityValue,
+        #highlightOpacityValue {
+            color: var(--tb-primary) !important;
+        }
+
+        #selectionStatus {
+            color: var(--tb-muted) !important;
+        }
+
+        #navPageNameDisplay {
+            background: rgba(0, 102, 204, 0.08) !important;
+            border-radius: var(--tb-radius-sm) !important;
+        }
+
+        #navPageNameDisplay > div:first-child {
+            color: var(--tb-primary-dark) !important;
+        }
+
+        #navPageNameValue {
+            color: var(--tb-primary-dark) !important;
+        }
+
+        /* Blocos “card” inline comuns */
+        #groupNavigation {
+            background: var(--tb-surface-muted) !important;
+            border-radius: var(--tb-radius-md) !important;
+            border: 1px solid var(--tb-border) !important;
+        }
+
+        /* Modal de configuração (mantém estrutura inline, só paleta/sombras) */
+        #reportConfigModal {
+            background: rgba(0,0,0,0.72) !important;
+        }
+
+        #reportConfigModal h2,
+        #reportConfigModal label {
+            color: var(--tb-text) !important;
+        }
+
+        #reportConfigModal p,
+        #reportConfigModal small,
+        #reportConfigModal summary,
+        #reportConfigModal div[style*="color: #666"],
+        #reportConfigModal div[style*="color: #555"] {
+            color: var(--tb-muted) !important;
+        }
+
+        #reportUrlInput {
+            border: 1px solid var(--tb-border) !important;
+            border-radius: var(--tb-radius-sm) !important;
+        }
+
+        #reportUrlInput:focus {
+            outline: none !important;
+            border-color: var(--tb-primary) !important;
+            box-shadow: var(--tb-focus) !important;
+        }
+
+        #parseReportUrlBtn {
+            background: var(--tb-primary) !important;
+            border-radius: var(--tb-radius-sm) !important;
+            box-shadow: var(--tb-shadow-sm) !important;
+        }
+
+        #parseReportUrlBtn:hover {
+            transform: translateY(-1px) !important;
+            filter: brightness(0.96) !important;
+            box-shadow: var(--tb-shadow-md) !important;
+        }
+
+        #confirmReportConfigBtn {
+            background: var(--tb-success) !important;
+            border-radius: var(--tb-radius-sm) !important;
+            box-shadow: var(--tb-shadow-sm) !important;
+        }
+
+        /* Aviso amarelo inline */
+        #navigationSaveArea div[style*="#fff3cd"] {
+            background: rgba(245, 124, 0, 0.12) !important;
+            border-left-color: var(--tb-warning) !important;
+            border-radius: var(--tb-radius-sm) !important;
+        }
+
+        /* Utilitários (substituem inline styles no HTML) */
+        .tb-surface-muted {
+            background: var(--tb-surface-muted);
+        }
+
+        .tb-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .tb-row-wrap {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .tb-flex-1 {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        .tb-help {
+            color: var(--tb-muted);
+            display: block;
+            margin-top: 8px;
+            line-height: 1.6;
+        }
+
+        .tb-label-strong {
+            font-weight: 600;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .tb-radio-row {
+            display: flex;
+            gap: 20px;
+        }
+
+        .tb-radio {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+
+        .tb-btn-block {
+            width: 100%;
+        }
+
+        .tb-btn-block-spaced {
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .tb-btn-block-bottom {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .tb-card {
+            margin-top: 20px;
+            padding: 15px;
+            background: var(--tb-surface-muted);
+            border: 1px solid var(--tb-border);
+            border-radius: var(--tb-radius-md);
+        }
+
+        .tb-group-nav {
+            margin-bottom: 20px;
+            padding: 16px;
+            background: var(--tb-surface-muted);
+            border-radius: var(--tb-radius-md);
+            border: 1px solid var(--tb-border);
+        }
+
+        .tb-card h4 {
+            margin: 0 0 15px 0;
+            font-size: 14px;
+            color: var(--tb-text);
+        }
+
+        .tb-card label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--tb-text);
+        }
+
+        .tb-actions-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .tb-mb-15 {
+            margin-bottom: 15px;
+        }
+
+        .tb-mt-8 {
+            margin-top: 8px;
+        }
+
+        .tb-status {
+            margin-top: 10px;
+            color: var(--tb-muted);
+            font-size: 12px;
+            min-height: 20px;
+        }
+
+        .tb-nav-page-display {
+            background: rgba(0, 102, 204, 0.08);
+            padding: 12px;
+            border-radius: var(--tb-radius-sm);
+            margin-bottom: 12px;
+        }
+
+        .tb-nav-page-title {
+            font-size: 12px;
+            color: var(--tb-primary-dark);
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .tb-mono {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 13px;
+            color: var(--tb-primary-dark);
+            word-break: break-all;
+            line-height: 1.6;
+        }
+
+        .tb-text-center {
+            text-align: center;
+        }
+
+        .tb-value {
+            min-width: 40px;
+            font-weight: 600;
+        }
+
+        .tb-callout {
+            margin-top: 12px;
+            padding: 12px;
+            border-radius: var(--tb-radius-sm);
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        .tb-callout-warning {
+            background: rgba(245, 124, 0, 0.12);
+            border-left: 4px solid var(--tb-warning);
+            color: #7a4b00;
+        }
+
+        /* Modais */
+        #reportConfigModal,
+        #navigationPageModal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.72);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #navigationPageModal {
+            z-index: 10001;
+        }
+
+        .tb-modal {
+            background: var(--tb-surface);
+            border-radius: var(--tb-radius-lg);
+            padding: 32px;
+            max-width: 700px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.30);
+            color: var(--tb-text);
+        }
+
+        .tb-modal-title {
+            margin: 0 0 12px 0;
+            font-size: 24px;
+            color: var(--tb-text);
+        }
+
+        .tb-modal-desc {
+            margin: 0 0 24px 0;
+            color: var(--tb-muted);
+            line-height: 1.6;
+        }
+
+        .tb-modal-field {
+            margin-bottom: 20px;
+        }
+
+        .tb-modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        /* Inputs dos modais */
+        #reportUrlInput,
+        #navPageUrlInput {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--tb-border);
+            border-radius: var(--tb-radius-sm);
+            font-size: 14px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            background: var(--tb-surface);
+            color: var(--tb-text);
+        }
+
+        #reportUrlInput:focus,
+        #navPageUrlInput:focus {
+            outline: none;
+            border-color: var(--tb-primary);
+            box-shadow: var(--tb-focus);
+        }
+
+        /* Resultados (mantém display none inline; aqui só visual) */
+        .tb-result {
+            background: rgba(46, 125, 50, 0.10);
+            padding: 16px;
+            border-radius: var(--tb-radius-md);
+            margin-bottom: 20px;
+            border: 1px solid rgba(46, 125, 50, 0.18);
+        }
+
+        .tb-result-title {
+            font-weight: 600;
+            color: var(--tb-success);
+            margin-bottom: 8px;
+        }
+
+        .tb-code {
+            font-size: 13px;
+            color: var(--tb-muted);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            line-height: 1.8;
+        }
+
+        .tb-codebox {
+            background: var(--tb-surface);
+            padding: 8px;
+            border-radius: var(--tb-radius-sm);
+            border: 1px solid var(--tb-border);
+            word-break: break-all;
+            margin-top: 4px;
+        }
+
+        .tb-divider {
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid var(--tb-border);
+        }
+
+        .tb-details {
+            cursor: pointer;
+        }
+
+        .tb-details summary {
+            font-weight: 600;
+            color: var(--tb-muted);
+            font-size: 14px;
+        }
+
+        .tb-details-body {
+            margin-top: 12px;
+            padding-left: 20px;
+            color: var(--tb-muted);
+            font-size: 13px;
+            line-height: 1.8;
+        }
+
+        .tb-details-body ol {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .tb-note {
+            margin-top: 12px;
+            background: var(--tb-surface-muted);
+            padding: 12px;
+            border-radius: var(--tb-radius-sm);
+            border: 1px solid var(--tb-border);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 12px;
+        }
+
+        /* Range inputs (clean) */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            border-radius: 999px;
+            background: linear-gradient(to right, var(--tb-border) 0%, var(--tb-primary) 100%);
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--tb-primary);
+            cursor: pointer;
+            box-shadow: var(--tb-shadow-sm);
+            transition: transform 0.2s, filter 0.2s, box-shadow 0.2s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            background: var(--tb-primary-dark);
+            box-shadow: var(--tb-shadow-md);
+            transform: scale(1.06);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--tb-primary);
+            cursor: pointer;
+            border: none;
+            box-shadow: var(--tb-shadow-sm);
+            transition: transform 0.2s, filter 0.2s, box-shadow 0.2s;
+        }
+
+        input[type="range"]::-moz-range-thumb:hover {
+            background: var(--tb-primary-dark);
+            box-shadow: var(--tb-shadow-md);
+            transform: scale(1.06);
+        }
+
+        input[type="range"]#highlightOpacity {
+            background: linear-gradient(to right, var(--tb-border) 0%, var(--tb-success) 100%);
+        }
+
+        input[type="range"]#highlightOpacity::-webkit-slider-thumb {
+            background: var(--tb-success);
+        }
+
+        input[type="range"]#highlightOpacity::-moz-range-thumb {
+            background: var(--tb-success);
+        }
+
+        /* Acessibilidade */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.001ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.001ms !important;
+                scroll-behavior: auto !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -436,23 +915,23 @@
             </div>
 
             <!-- Formulário de Novo Passo -->
-            <div class="sidebar-section" style="background: #f8f9fa;">
+            <div class="sidebar-section tb-surface-muted">
                 <h2>📝 Novo Passo</h2>
                 
                 <!-- Tipo de Step -->
                 <div class="form-group">
-                    <label style="font-weight: 600; margin-bottom: 10px; display: block;">Tipo de Passo</label>
-                    <div style="display: flex; gap: 20px;">
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <label class="tb-label-strong">Tipo de Passo</label>
+                    <div class="tb-radio-row">
+                        <label class="tb-radio">
                             <input type="radio" name="stepType" value="highlight" checked onchange="app.onStepTypeChange('highlight')">
                             <span>🎯 Highlight Normal</span>
                         </label>
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <label class="tb-radio">
                             <input type="radio" name="stepType" value="navigation" onchange="app.onStepTypeChange('navigation')">
                             <span>🔗 Navegação de Página</span>
                         </label>
                     </div>
-                    <small style="color: #666; display: block; margin-top: 8px;">
+                    <small class="tb-help">
                         <strong>Highlight:</strong> Aponta uma área específica do dashboard.<br>
                         <strong>Navegação:</strong> Instrui o usuário a clicar em um botão para mudar de página.
                     </small>
@@ -473,14 +952,14 @@
 
                 <!-- Área de seleção (visível apenas para tipo "highlight") -->
                 <div id="highlightSelectionArea">
-                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                        <button class="btn btn-primary" id="selectAreaBtn" style="flex:1;" disabled>
+                    <div class="tb-row-wrap">
+                        <button class="btn btn-primary tb-flex-1" id="selectAreaBtn" disabled>
                             <i class="fas fa-mouse-pointer"></i>
                             <span id="selectBtnText">Selecionar Área no Canvas</span>
                         </button>
                     </div>
 
-                    <button class="btn btn-success" id="saveStepBtn" style="width: 100%; margin-top: 10px; display: none;">
+                    <button class="btn btn-success tb-btn-block-spaced" id="saveStepBtn" style="display: none;">
                         <i class="fas fa-save"></i>
                         Salvar Passo
                     </button>
@@ -489,79 +968,59 @@
                 <!-- Botão de salvar para navegação (COM URL obrigatória) -->
                 <div id="navigationSaveArea" style="display: none;">
                     <!-- Display da página configurada -->
-                    <div id="navPageNameDisplay" style="
-                        display: none;
-                        background: #e3f2fd;
-                        padding: 12px;
-                        border-radius: 6px;
-                        margin-bottom: 12px;
-                    ">
-                        <div style="font-size: 12px; color: #1565c0; font-weight: 600; margin-bottom: 4px;">
+                    <div id="navPageNameDisplay" class="tb-nav-page-display" style="display: none;">
+                        <div class="tb-nav-page-title">
                             📄 Página de Destino Configurada
                         </div>
-                        <div id="navPageNameValue" style="
-                            font-family: monospace;
-                            font-size: 13px;
-                            color: #0d47a1;
-                            word-break: break-all;
-                        "></div>
+                        <div id="navPageNameValue" class="tb-mono"></div>
                     </div>
                     
-                    <button class="btn btn-primary" onclick="app.openNavigationPageConfig()" style="width: 100%; margin-bottom: 10px;">
+                    <button class="btn btn-primary tb-btn-block-bottom" onclick="app.openNavigationPageConfig()">
                         <i class="fas fa-link"></i>
                         Configurar Página de Destino
                     </button>
                     
-                    <button class="btn btn-success" id="saveNavigationStepBtn" style="width: 100%;" onclick="app.saveNavigationStep()">
+                    <button class="btn btn-success tb-btn-block" id="saveNavigationStepBtn" onclick="app.saveNavigationStep()">
                         <i class="fas fa-save"></i>
                         Salvar Passo de Navegação
                     </button>
                     
-                    <small style="color: #666; display: block; margin-top: 8px; text-align: center;">
+                    <small class="tb-help tb-text-center">
                         💡 Step de navegação muda de página. Configure a URL de destino acima.
                     </small>
                     
-                    <div style="
-                        margin-top: 12px;
-                        padding: 12px;
-                        background: #fff3cd;
-                        border-left: 4px solid #ffc107;
-                        border-radius: 4px;
-                        font-size: 12px;
-                        color: #856404;
-                        line-height: 1.6;
-                    ">
+                    <div class="tb-callout tb-callout-warning">
                         <strong>⚠️ Atenção:</strong> Steps de navegação mudam de página e encerram a sequência atual. 
                         Após salvar este step, crie novos steps para a próxima página do relatório.
                     </div>
                 </div>
 
                 <!-- Ajustes visuais do highlight -->
-                <div class="form-group" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-                    <h4 style="margin: 0 0 15px 0; font-size: 14px; color: #333;">🎨 Ajustes Visuais do Highlight</h4>
+                <div class="form-group tb-card">
+                    <h4>🎨 Ajustes Visuais do Highlight</h4>
                     
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 5px; font-weight: 600; font-size: 13px;">
+                    <div class="tb-mb-15">
+                        <label>
                             Escurecimento Fora do Highlight
                         </label>
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <input type="range" id="overlayOpacity" min="0" max="100" value="75" style="flex: 1;">
-                            <span id="overlayOpacityValue" style="min-width: 40px; font-weight: 600; color: #667eea;">75%</span>
+                        <div class="tb-row">
+                            <input type="range" id="overlayOpacity" min="0" max="100" value="75" class="tb-flex-1">
+                            <span id="overlayOpacityValue" class="tb-value">75%</span>
                         </div>
                     </div>
                     
                     <div>
-                        <label style="display: block; margin-bottom: 5px; font-weight: 600; font-size: 13px;">
+                        <label>
                             Claridade Dentro do Highlight
                         </label>
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <input type="range" id="highlightOpacity" min="0" max="100" value="20" style="flex: 1;">
-                            <span id="highlightOpacityValue" style="min-width: 40px; font-weight: 600; color: #4CAF50;">20%</span>
+                        <div class="tb-row">
+                            <input type="range" id="highlightOpacity" min="0" max="100" value="20" class="tb-flex-1">
+                            <span id="highlightOpacityValue" class="tb-value">20%</span>
                         </div>
                     </div>
                 </div>
 
-                <div style="display:flex;gap:10px;margin-top:20px;">
+                <div class="tb-actions-row">
                     <button class="btn-redo" id="redoSelectionBtn" onclick="app.redoSelection()" style="display:none;">
                         🔄 Refazer Seleção
                     </button>
@@ -570,20 +1029,13 @@
                     </button>
                 </div>
                 
-                <div id="selectionStatus" style="margin-top: 10px; color: #666; font-size: 12px; min-height: 20px;"></div>
+                <div id="selectionStatus" class="tb-status"></div>
             </div>
 
             <!-- Lista de Passos -->
             <div class="sidebar-section">
                 <!-- Navegação de Grupos (se houver múltiplos grupos) -->
-                <div id="groupNavigation" style="
-                    display: none;
-                    margin-bottom: 20px;
-                    padding: 16px;
-                    background: #f8f9fa;
-                    border-radius: 8px;
-                    border: 2px solid #e0e0e0;
-                "></div>
+                <div id="groupNavigation" class="tb-group-nav" style="display: none;"></div>
                 
                 <h2>📋 Passos Criados (<span id="stepCount">0</span>)</h2>
                 <div class="steps-list" id="stepsList">
@@ -596,12 +1048,12 @@
 
             <!-- Ações -->
             <div class="sidebar-section">
-                <button class="btn btn-secondary" id="previewBtn" style="width: 100%; margin-bottom: 10px;" disabled>
+                <button class="btn btn-secondary tb-btn-block-bottom" id="previewBtn" disabled>
                     <i class="fas fa-play"></i>
                     Visualizar Tutorial
                 </button>
                 
-                <button class="btn btn-success" id="saveBtn" style="width: 100%;" disabled>
+                <button class="btn btn-success tb-btn-block" id="saveBtn" disabled>
                     <i class="fas fa-cloud-upload"></i>
                     Salvar no Banco de Dados
                 </button>
@@ -624,123 +1076,71 @@
     <script src="assets/js/tutorial-builder.js"></script>
 
     <!-- Modal: Configuração Inicial do Relatório -->
-    <div id="reportConfigModal" style="
-        display: none;
-        position: fixed;
-        inset: 0;
-        background: rgba(0,0,0,0.8);
-        z-index: 10000;
-        align-items: center;
-        justify-content: center;
-    ">
-        <div style="
-            background: white;
-            border-radius: 12px;
-            padding: 40px;
-            max-width: 700px;
-            width: 90%;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        ">
-            <h2 style="margin: 0 0 12px 0; color: #333; font-size: 24px;">
+    <div id="reportConfigModal">
+        <div class="tb-modal">
+            <h2 class="tb-modal-title">
                 🔗 Configuração do Relatório Power BI
             </h2>
-            <p style="margin: 0 0 24px 0; color: #666; line-height: 1.6;">
+            <p class="tb-modal-desc">
                 Cole a URL completa de <strong>qualquer página</strong> do seu relatório Power BI. 
                 Vamos extrair automaticamente os IDs necessários para criar as URLs embed.
             </p>
 
-            <div style="margin-bottom: 20px;">
-                <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #333;">
+            <div class="tb-modal-field">
+                <label class="tb-label-strong">
                     URL do Relatório Power BI
                 </label>
                 <input 
                     type="text" 
                     id="reportUrlInput" 
                     placeholder="https://app.powerbi.com/groups/.../reports/.../ReportSection...?experience=power-bi"
-                    style="
-                        width: 100%;
-                        padding: 12px;
-                        border: 2px solid #e0e0e0;
-                        border-radius: 6px;
-                        font-size: 14px;
-                        font-family: monospace;
-                    "
                 >
-                <small style="display: block; margin-top: 8px; color: #666;">
+                <small class="tb-help">
                     💡 Exemplo: https://app.powerbi.com/groups/5d2f86f0.../reports/8fe56d7d.../ReportSection...
                 </small>
             </div>
 
-            <div id="reportConfigResult" style="
-                display: none;
-                background: #e8f5e9;
-                padding: 16px;
-                border-radius: 8px;
-                margin-bottom: 20px;
-            ">
-                <div style="font-weight: 600; color: #2e7d32; margin-bottom: 8px;">
+            <div id="reportConfigResult" class="tb-result" style="display: none;">
+                <div class="tb-result-title">
                     ✅ Relatório Configurado
                 </div>
-                <div style="font-size: 13px; color: #555; font-family: monospace; line-height: 1.8;">
+                <div class="tb-code">
                     <div><strong>Report ID:</strong> <span id="extractedReportId"></span></div>
                     <div><strong>Tenant ID:</strong> <span id="extractedTenantId"></span></div>
-                    <div style="margin-top: 8px;"><strong>URL Embed Base:</strong></div>
-                    <div style="background: white; padding: 8px; border-radius: 4px; word-break: break-all; margin-top: 4px;">
+                    <div class="tb-mt-8"><strong>URL Embed Base:</strong></div>
+                    <div class="tb-codebox">
                         <span id="extractedEmbedUrl"></span>
                     </div>
                 </div>
             </div>
 
-            <div style="display: flex; gap: 12px; justify-content: flex-end;">
-                <button 
-                    id="parseReportUrlBtn"
-                    onclick="app.parseReportUrl()"
-                    style="
-                        padding: 12px 24px;
-                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                        color: white;
-                        border: none;
-                        border-radius: 6px;
-                        font-weight: 600;
-                        cursor: pointer;
-                        transition: all 0.2s;
-                    "
-                >
+            <div class="tb-modal-actions">
+                <button id="parseReportUrlBtn" class="btn btn-primary" onclick="app.parseReportUrl()">
                     🔍 Analisar URL
                 </button>
                 <button 
                     id="confirmReportConfigBtn"
                     onclick="app.confirmReportConfig()"
                     disabled
-                    style="
-                        padding: 12px 24px;
-                        background: #4CAF50;
-                        color: white;
-                        border: none;
-                        border-radius: 6px;
-                        font-weight: 600;
-                        cursor: pointer;
-                        transition: all 0.2s;
-                        opacity: 0.5;
-                    "
+                    class="btn btn-success"
                 >
                     ✅ Confirmar e Continuar
                 </button>
             </div>
 
-            <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #e0e0e0;">
-                <details style="cursor: pointer;">
-                    <summary style="font-weight: 600; color: #666; font-size: 14px;">
+            <div class="tb-divider">
+                <details class="tb-details">
+                    <summary>
                         ℹ️ Como obter a URL do relatório?
                     </summary>
-                    <div style="margin-top: 12px; padding-left: 20px; color: #666; font-size: 13px; line-height: 1.8;">
-                        <ol style="margin: 0; padding-left: 20px;">
+                    <div class="tb-details-body">
+                        <ol>
                             <li>Abra seu relatório no Power BI Service</li>
                             <li>Navegue até qualquer página do relatório</li>
                             <li>Copie a URL completa da barra de endereços do navegador</li>
                             <li>Cole aqui e clique em "Analisar URL"</li>
                         </ol>
-                        <div style="margin-top: 12px; background: #f5f5f5; padding: 12px; border-radius: 4px; font-family: monospace; font-size: 12px;">
+                        <div class="tb-note">
                             A URL deve conter: <strong>groups/</strong>, <strong>reports/</strong> e <strong>ReportSection</strong>
                         </div>
                     </div>
@@ -750,135 +1150,72 @@
     </div>
 
     <!-- Modal: Configuração de Página para Navegação -->
-    <div id="navigationPageModal" style="
-        display: none;
-        position: fixed;
-        inset: 0;
-        background: rgba(0,0,0,0.8);
-        z-index: 10001;
-        align-items: center;
-        justify-content: center;
-    ">
-        <div style="
-            background: white;
-            border-radius: 12px;
-            padding: 40px;
-            max-width: 700px;
-            width: 90%;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        ">
-            <h2 style="margin: 0 0 12px 0; color: #333; font-size: 24px;">
+    <div id="navigationPageModal">
+        <div class="tb-modal">
+            <h2 class="tb-modal-title">
                 🔗 Configurar Página de Destino
             </h2>
-            <p style="margin: 0 0 24px 0; color: #666; line-height: 1.6;">
+            <p class="tb-modal-desc">
                 Cole a URL completa da página do Power BI para onde o usuário será navegado ao completar este passo.
             </p>
 
-            <div style="margin-bottom: 20px;">
-                <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #333;">
+            <div class="tb-modal-field">
+                <label class="tb-label-strong">
                     URL da Página de Destino
                 </label>
                 <input 
                     type="text" 
                     id="navPageUrlInput" 
                     placeholder="https://app.powerbi.com/groups/.../reports/.../ReportSection2?experience=power-bi"
-                    style="
-                        width: 100%;
-                        padding: 12px;
-                        border: 2px solid #e0e0e0;
-                        border-radius: 6px;
-                        font-size: 14px;
-                        font-family: monospace;
-                    "
                 >
-                <small style="display: block; margin-top: 8px; color: #666;">
+                <small class="tb-help">
                     💡 Cole a URL da página específica do relatório. Exemplo: .../ReportSection2
                 </small>
             </div>
 
-            <div id="navPageResult" style="
-                display: none;
-                background: #e8f5e9;
-                padding: 16px;
-                border-radius: 8px;
-                margin-bottom: 20px;
-            ">
-                <div style="font-weight: 600; color: #2e7d32; margin-bottom: 8px;">
+            <div id="navPageResult" class="tb-result" style="display: none;">
+                <div class="tb-result-title">
                     ✅ Página Configurada
                 </div>
-                <div style="font-size: 13px; color: #555; font-family: monospace; line-height: 1.8;">
+                <div class="tb-code">
                     <div><strong>Página:</strong> <span id="navPageName"></span></div>
-                    <div style="margin-top: 8px;"><strong>URL Embed:</strong></div>
-                    <div style="background: white; padding: 8px; border-radius: 4px; word-break: break-all; margin-top: 4px;">
+                    <div class="tb-mt-8"><strong>URL Embed:</strong></div>
+                    <div class="tb-codebox">
                         <span id="navEmbedUrl"></span>
                     </div>
                 </div>
             </div>
 
-            <div style="display: flex; gap: 12px; justify-content: flex-end;">
-                <button 
-                    onclick="app.closeNavigationPageModal()"
-                    style="
-                        padding: 12px 24px;
-                        background: #e5e5e5;
-                        color: #333;
-                        border: none;
-                        border-radius: 6px;
-                        font-weight: 600;
-                        cursor: pointer;
-                        transition: all 0.2s;
-                    "
-                >
+            <div class="tb-modal-actions">
+                <button class="btn btn-secondary" onclick="app.closeNavigationPageModal()">
                     Cancelar
                 </button>
-                <button 
-                    onclick="app.parseNavigationPageUrl()"
-                    style="
-                        padding: 12px 24px;
-                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                        color: white;
-                        border: none;
-                        border-radius: 6px;
-                        font-weight: 600;
-                        cursor: pointer;
-                        transition: all 0.2s;
-                    "
-                >
+                <button class="btn btn-primary" onclick="app.parseNavigationPageUrl()">
                     🔍 Analisar URL
                 </button>
                 <button 
                     id="confirmNavPageBtn"
                     onclick="app.confirmNavigationPage()"
                     disabled
-                    style="
-                        padding: 12px 24px;
-                        background: #4CAF50;
-                        color: white;
-                        border: none;
-                        border-radius: 6px;
-                        font-weight: 600;
-                        cursor: pointer;
-                        transition: all 0.2s;
-                        opacity: 0.5;
-                    "
+                    class="btn btn-success"
                 >
                     ✅ Confirmar
                 </button>
             </div>
 
-            <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #e0e0e0;">
-                <details style="cursor: pointer;">
-                    <summary style="font-weight: 600; color: #666; font-size: 14px;">
+            <div class="tb-divider">
+                <details class="tb-details">
+                    <summary>
                         ℹ️ Como obter a URL da página?
                     </summary>
-                    <div style="margin-top: 12px; padding-left: 20px; color: #666; font-size: 13px; line-height: 1.8;">
-                        <ol style="margin: 0; padding-left: 20px;">
+                    <div class="tb-details-body">
+                        <ol>
                             <li>Abra seu relatório no Power BI Service</li>
                             <li>Navegue até a página desejada (ReportSection2, ReportSection3, etc)</li>
                             <li>Copie a URL completa da barra de endereços</li>
                             <li>Cole aqui e clique em "Analisar URL"</li>
                         </ol>
-                        <div style="margin-top: 12px; background: #fff3cd; padding: 12px; border-radius: 4px; border-left: 4px solid #ffc107;">
+                        <div class="tb-callout tb-callout-warning">
                             <strong>⚠️ Importante:</strong> Steps de navegação mudam de página. Todos os steps anteriores devem ser da mesma página atual.
                         </div>
                     </div>

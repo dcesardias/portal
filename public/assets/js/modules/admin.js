@@ -141,7 +141,7 @@ window.PortalAdmin = {
     addTutorialButtonToPage(pageId, container) {
         const tutorialBtn = document.createElement('button');
         tutorialBtn.className = 'btn-small';
-        tutorialBtn.style.cssText = 'background: #9C27B0; color: white;';
+        tutorialBtn.style.cssText = 'background: #0066cc; color: white;';
         tutorialBtn.title = 'Tutorial Builder';
         tutorialBtn.textContent = '📚';
         tutorialBtn.addEventListener('click', (e) => {
@@ -177,7 +177,7 @@ window.PortalAdmin = {
             
             if (page.showInHome !== false) {
                 const badge = document.createElement('span');
-                badge.style.cssText = 'margin-left: 8px; padding: 2px 6px; background: #4CAF50; color: white; border-radius: 10px; font-size: 10px;';
+                badge.style.cssText = 'margin-left: 8px; padding: 2px 6px; background: #0066cc; color: white; border-radius: 10px; font-size: 10px;';
                 badge.textContent = 'HOME';
                 titleDiv.appendChild(badge);
             }
@@ -192,7 +192,7 @@ window.PortalAdmin = {
             
             titleDiv.appendChild(document.createElement('br'));
             const subtitleSmall = document.createElement('small');
-            subtitleSmall.style.color = '#666';
+            subtitleSmall.style.color = 'var(--text-secondary)';
             subtitleSmall.textContent = (page.subtitle || 'Sem subtítulo') + ` - Ordem: ${page.order ?? 0}`;
             titleDiv.appendChild(subtitleSmall);
             
@@ -983,7 +983,7 @@ window.PortalAdmin = {
 
             if (dict.isDefault) {
                 const badge = document.createElement('span');
-                badge.style.cssText = 'margin-left: 8px; padding: 2px 6px; background: #4CAF50; color: white; border-radius: 10px; font-size: 10px;';
+                badge.style.cssText = 'margin-left: 8px; padding: 2px 6px; background: #0066cc; color: white; border-radius: 10px; font-size: 10px;';
                 badge.textContent = 'PADRÃO';
                 infoDiv.appendChild(badge);
             }
@@ -996,7 +996,7 @@ window.PortalAdmin = {
 
             infoDiv.appendChild(document.createElement('br'));
             const small = document.createElement('small');
-            small.style.color = '#666';
+            small.style.color = 'var(--text-secondary)';
             const tableCount = (typeof dict.tableCount === 'number')
                 ? dict.tableCount
                 : (Array.isArray(dict.tables) ? dict.tables.length : 0);
@@ -1208,7 +1208,7 @@ window.PortalAdmin = {
                                 <small style="color: #999; font-size: 11px;">ID: ${table.id} | ${table.columns ? table.columns.length : 0} coluna(s)</small>
                             </div>
                             <div style="flex-shrink: 0; margin-left: 10px; display: flex; gap: 4px;">
-                                <button class="btn-small" style="background: #4CAF50; color: white; padding: 4px 8px; font-size: 11px;" onclick="event.stopPropagation(); window.PortalAdmin.showCreateColumnForm(${dictData.id}, ${table.id})">+ Coluna</button>
+                                <button class="btn-small" style="background: #0066cc; color: white; padding: 4px 8px; font-size: 11px;" onclick="event.stopPropagation(); window.PortalAdmin.showCreateColumnForm(${dictData.id}, ${table.id})">+ Coluna</button>
                                 <button class="btn-small btn-edit btn-edit-table" style="padding: 4px 8px; font-size: 11px;"
                                         data-dict-id="${dictData.id}" 
                                         data-table-id="${table.id}" 
@@ -1248,7 +1248,7 @@ window.PortalAdmin = {
                                     ${dictData.isActive ? '✅ Ativo' : '❌ Inativo'}
                                 </span>
                             </div>
-                            ${dictData.isDefault ? '<div><span style="background: #4caf50; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px;">⭐ PADRÃO</span></div>' : ''}
+                            ${dictData.isDefault ? '<div><span style="background: #0066cc; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px;">⭐ PADRÃO</span></div>' : ''}
                             <div>
                                 <span style="font-weight: 600; color: #1565c0;">Tabelas:</span>
                                 <span>${dictData.tables ? dictData.tables.length : 0}</span>
@@ -1258,7 +1258,7 @@ window.PortalAdmin = {
                                 <span>${dictData.id}</span>
                             </div>
                         </div>
-                        <button onclick="window.PortalAdmin.showCreateTableForm(${dictData.id})" style="background: #4CAF50; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; white-space: nowrap;">+ Nova Tabela</button>
+                        <button onclick="window.PortalAdmin.showCreateTableForm(${dictData.id})" style="background: #0066cc; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; white-space: nowrap;">+ Nova Tabela</button>
                     </div>
                     
                     <h4 style="margin-bottom: 15px; color: #333;">📋 Tabelas e Colunas</h4>
