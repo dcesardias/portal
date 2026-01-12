@@ -216,7 +216,7 @@ app.get('/api/excel/modelo/:tabela', async (req, res) => {
         const schemaResult = await poolFonte.request().query(`
             SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE
             FROM INFORMATION_SCHEMA.COLUMNS
-            WHERE TABLE_NAME = '${tabela}'
+            WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = '${tabela}'
             ORDER BY ORDINAL_POSITION
         `);
         
@@ -297,6 +297,60 @@ const uploadExcel = multer({
     }
 });
 
+// ===============================
+// Normalização de números (pt-BR / en-US)
+// ===============================
+
+// Ex.: "1.234,56" -> "1234.56" | "1,234.56" -> "1234.56" | "123,45" -> "123.45" | "220,00" -> "220.00"
+function normalizeLocaleNumberString(input) {
+    if (input === null || input === undefined) return null;
+    if (typeof input === 'number') return String(input);
+    if (typeof input !== 'string') return null;
+
+    let s = input.trim();
+    if (s === '') return null;
+
+    // Remove espaços (inclui NBSP usado às vezes como separador de milhar)
+    s = s.replace(/[\s\u00A0]/g, '');
+
+    const hasDot = s.includes('.');
+    const hasComma = s.includes(',');
+
+    if (hasDot && hasComma) {
+        const lastDot = s.lastIndexOf('.');
+        const lastComma = s.lastIndexOf(',');
+        if (lastComma > lastDot) {
+            // pt-BR: '.' milhar, ',' decimal
+            s = s.replace(/\./g, '').replace(/,/g, '.');
+        } else {
+            // en-US: ',' milhar, '.' decimal
+            s = s.replace(/,/g, '');
+        }
+    } else if (hasComma && !hasDot) {
+        // pt-BR: ',' decimal
+        s = s.replace(/,/g, '.');
+    }
+
+    if (!/^[+-]?\d+(\.\d+)?$/.test(s)) return null;
+    return s;
+}
+
+function getLocaleNumberInfo(input) {
+    if (input === null || input === undefined) return null;
+    if (typeof input === 'number') {
+        if (!Number.isFinite(input)) return null;
+        const s = String(input);
+        const scale = s.includes('.') ? s.split('.')[1].length : 0;
+        return { normalized: s, number: input, scale };
+    }
+    const normalized = normalizeLocaleNumberString(input);
+    if (!normalized) return null;
+    const number = parseFloat(normalized);
+    if (!Number.isFinite(number)) return null;
+    const scale = normalized.includes('.') ? normalized.split('.')[1].length : 0;
+    return { normalized, number, scale };
+}
+
 // Função para detectar tipo de dados baseado em amostra de valores
 function detectColumnType(values) {
     // Filtra valores válidos (não nulos)
@@ -311,6 +365,8 @@ function detectColumnType(values) {
     let allDates = true;
     let hasDateStrings = false;
     let hasDateNumbers = false;
+
+    let maxScale = 0;
     
     for (const val of validValues) {
         const type = typeof val;
@@ -326,6 +382,9 @@ function detectColumnType(values) {
                 allDates = false;
                 if (!Number.isInteger(val)) {
                     allIntegers = false;
+                    // Para números JS, tenta inferir scale pela string
+                    const info = getLocaleNumberInfo(val);
+                    if (info && info.scale > maxScale) maxScale = info.scale;
                 } else if (val > 2147483647 || val < -2147483648) {
                     // Número muito grande para INT, precisa ser BIGINT
                     allIntegers = false;
@@ -335,6 +394,25 @@ function detectColumnType(values) {
             }
         } else if (type === 'string') {
             const trimmed = val.trim();
+
+            // Se parece número (inclui 1.234,56 / 123,45 / 220,00), trata como número.
+            const info = getLocaleNumberInfo(trimmed);
+            if (info !== null) {
+                allDates = false;
+
+                // IMPORTANTÍSSIMO: se o texto traz separador decimal (mesmo ",00"), é decimal.
+                // Isso evita colunas como "Nro de Horas" serem inferidas como INT.
+                if (info.scale > 0) {
+                    allIntegers = false;
+                    if (info.scale > maxScale) maxScale = info.scale;
+                } else if (!Number.isInteger(info.number)) {
+                    allIntegers = false;
+                } else if (info.number > 2147483647 || info.number < -2147483648) {
+                    allIntegers = false;
+                    allDecimals = false;
+                }
+                continue;
+            }
             
             // Verifica se é uma string de data (formato brasileiro DD/MM/YYYY ou DD/MM/YY)
             const datePatterns = [
@@ -368,12 +446,14 @@ function detectColumnType(values) {
     } else if (allIntegers) {
         // Verifica se todos os inteiros estão no range do INT32
         const hasLargeInts = validValues.some(val => {
-            const num = typeof val === 'number' ? val : parseFloat(val);
+            const num = typeof val === 'number' ? val : (getLocaleNumberInfo(val)?.number ?? NaN);
             return !isNaN(num) && Number.isInteger(num) && (num > 2147483647 || num < -2147483648);
         });
         return hasLargeInts ? 'BIGINT' : 'INT';
     } else if (allDecimals) {
-        return 'FLOAT';
+        // Preferir DECIMAL para preservar escala (evita flutuação e mantém ",00")
+        const scale = Math.max(1, Math.min(maxScale || 2, 10));
+        return `DECIMAL(18,${scale})`;
     } else {
         return 'NVARCHAR(MAX)';
     }
@@ -381,24 +461,146 @@ function detectColumnType(values) {
 
 // Função auxiliar para mapear tipo SQL
 function getSqlDataType(sqlType) {
-    const typeMap = {
-        'int': sql.Int,
-        'bigint': sql.BigInt,
-        'float': sql.Float,
-        'decimal': sql.Decimal,
-        'numeric': sql.Numeric,
-        'datetime': sql.DateTime,
-        'datetime2': sql.DateTime2,
-        'date': sql.Date,
-        'varchar': sql.VarChar,
-        'nvarchar': sql.NVarChar,
-        'char': sql.Char,
-        'nchar': sql.NChar,
-        'text': sql.Text,
-        'ntext': sql.NText,
-        'bit': sql.Bit
-    };
-    return typeMap[sqlType.toLowerCase()] || sql.NVarChar;
+    if (!sqlType) return sql.NVarChar;
+
+    const raw = String(sqlType).trim().toLowerCase();
+    const match = raw.match(/^([a-z0-9_]+)\(([^)]+)\)$/);
+    const baseType = match ? match[1] : raw;
+    const args = match ? match[2].split(',').map(s => s.trim()) : null;
+
+    switch (baseType) {
+        case 'int':
+            return sql.Int;
+        case 'smallint':
+            return sql.SmallInt;
+        case 'tinyint':
+            return sql.TinyInt;
+        case 'bigint':
+            return sql.BigInt;
+        case 'float':
+            return sql.Float;
+        case 'real':
+            return sql.Real;
+        case 'money':
+            return sql.Money;
+        case 'smallmoney':
+            return sql.SmallMoney ? sql.SmallMoney : sql.Money;
+        case 'bit':
+            return sql.Bit;
+        case 'datetime':
+            return sql.DateTime;
+        case 'datetime2':
+            return sql.DateTime2;
+        case 'date':
+            return sql.Date;
+        case 'text':
+            return sql.Text;
+        case 'ntext':
+            return sql.NText;
+        case 'char':
+            if (args && args[0] && args[0] !== 'max') {
+                const len = parseInt(args[0], 10);
+                return Number.isFinite(len) ? sql.Char(len) : sql.Char;
+            }
+            return sql.Char;
+        case 'nchar':
+            if (args && args[0] && args[0] !== 'max') {
+                const len = parseInt(args[0], 10);
+                return Number.isFinite(len) ? sql.NChar(len) : sql.NChar;
+            }
+            return sql.NChar;
+        case 'varchar':
+            if (args && args[0]) {
+                if (args[0] === 'max') return sql.VarChar(sql.MAX);
+                const len = parseInt(args[0], 10);
+                return Number.isFinite(len) ? sql.VarChar(len) : sql.VarChar;
+            }
+            return sql.VarChar;
+        case 'nvarchar':
+            if (args && args[0]) {
+                if (args[0] === 'max') return sql.NVarChar(sql.MAX);
+                const len = parseInt(args[0], 10);
+                return Number.isFinite(len) ? sql.NVarChar(len) : sql.NVarChar;
+            }
+            return sql.NVarChar;
+        case 'decimal': {
+            if (args && args[0]) {
+                const precision = parseInt(args[0], 10);
+                const scale = parseInt(args[1] ?? '0', 10);
+                if (Number.isFinite(precision) && Number.isFinite(scale)) return sql.Decimal(precision, scale);
+                if (Number.isFinite(precision)) return sql.Decimal(precision, 0);
+            }
+            return sql.Decimal;
+        }
+        case 'numeric': {
+            if (args && args[0]) {
+                const precision = parseInt(args[0], 10);
+                const scale = parseInt(args[1] ?? '0', 10);
+                if (Number.isFinite(precision) && Number.isFinite(scale)) return sql.Numeric(precision, scale);
+                if (Number.isFinite(precision)) return sql.Numeric(precision, 0);
+            }
+            return sql.Numeric;
+        }
+        default:
+            return sql.NVarChar;
+    }
+}
+
+// Tipo SQL com base no schema do INFORMATION_SCHEMA (inclui precisão/scale/tamanho)
+function getSqlDataTypeFromColumn(col) {
+    if (!col || !col.DATA_TYPE) return sql.NVarChar;
+    const baseType = String(col.DATA_TYPE).trim().toLowerCase();
+
+    if (baseType === 'decimal') {
+        const precision = col.NUMERIC_PRECISION != null ? parseInt(col.NUMERIC_PRECISION, 10) : 18;
+        const scale = col.NUMERIC_SCALE != null ? parseInt(col.NUMERIC_SCALE, 10) : 0;
+        if (Number.isFinite(precision) && Number.isFinite(scale)) return sql.Decimal(precision, scale);
+        return sql.Decimal;
+    }
+    if (baseType === 'numeric') {
+        const precision = col.NUMERIC_PRECISION != null ? parseInt(col.NUMERIC_PRECISION, 10) : 18;
+        const scale = col.NUMERIC_SCALE != null ? parseInt(col.NUMERIC_SCALE, 10) : 0;
+        if (Number.isFinite(precision) && Number.isFinite(scale)) return sql.Numeric(precision, scale);
+        return sql.Numeric;
+    }
+
+    if (baseType === 'money') {
+        return sql.Money;
+    }
+    if (baseType === 'smallmoney') {
+        return sql.SmallMoney ? sql.SmallMoney : sql.Money;
+    }
+    if (baseType === 'real') {
+        return sql.Real;
+    }
+    if (baseType === 'smallint') {
+        return sql.SmallInt;
+    }
+    if (baseType === 'tinyint') {
+        return sql.TinyInt;
+    }
+
+    if (baseType === 'varchar') {
+        const len = col.CHARACTER_MAXIMUM_LENGTH;
+        if (len === -1) return sql.VarChar(sql.MAX);
+        if (len != null) {
+            const n = parseInt(len, 10);
+            if (Number.isFinite(n) && n > 0) return sql.VarChar(n);
+        }
+        return sql.VarChar;
+    }
+
+    if (baseType === 'nvarchar') {
+        const len = col.CHARACTER_MAXIMUM_LENGTH;
+        if (len === -1) return sql.NVarChar(sql.MAX);
+        if (len != null) {
+            const n = parseInt(len, 10);
+            if (Number.isFinite(n) && n > 0) return sql.NVarChar(n);
+        }
+        return sql.NVarChar;
+    }
+
+    return getSqlDataType(baseType);
 }
 
 // Função auxiliar para converter número serial do Excel para data
@@ -431,18 +633,38 @@ function convertToSqlType(value, sqlType) {
     if (value === null || value === undefined || value === '') {
         return null;
     }
+
+    function parseLocaleNumber(input) {
+        const info = getLocaleNumberInfo(input);
+        return info ? info.number : NaN;
+    }
     
     try {
         const type = sqlType.toLowerCase();
         switch (type) {
             case 'int':
             case 'bigint':
-                const intVal = parseInt(value);
+                // INT/BIGINT não guarda casas. Se vier com casas != 0, recusar para evitar perda silenciosa.
+                if (typeof value === 'string') {
+                    const info = getLocaleNumberInfo(value);
+                    if (info && info.scale > 0) {
+                        const frac = info.normalized.split('.')[1] || '';
+                        if (/[1-9]/.test(frac)) {
+                            throw new Error(`Valor decimal "${value}" não cabe em coluna ${sqlType}. Altere a coluna para DECIMAL/NUMERIC.`);
+                        }
+                    }
+                }
+                const intVal = typeof value === 'number'
+                    ? Math.trunc(value)
+                    : parseInt((normalizeLocaleNumberString(value) ?? String(value)).split('.')[0], 10);
                 return isNaN(intVal) ? null : intVal;
             case 'float':
             case 'decimal':
             case 'numeric':
-                const floatVal = parseFloat(value);
+            case 'real':
+            case 'money':
+            case 'smallmoney':
+                const floatVal = parseLocaleNumber(value);
                 return isNaN(floatVal) ? null : floatVal;
             case 'bit':
                 return value === true || value === 1 || value === '1' || value === 'true' ? 1 : 0;
@@ -695,9 +917,15 @@ app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, re
         
         // Obter estrutura da tabela
         const schemaResult = await poolFonte.request().query(`
-            SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE
+            SELECT
+                COLUMN_NAME,
+                DATA_TYPE,
+                IS_NULLABLE,
+                CHARACTER_MAXIMUM_LENGTH,
+                NUMERIC_PRECISION,
+                NUMERIC_SCALE
             FROM INFORMATION_SCHEMA.COLUMNS
-            WHERE TABLE_NAME = '${tabela}'
+            WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = '${tabela}'
             ORDER BY ORDINAL_POSITION
         `);
         
@@ -708,7 +936,18 @@ app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, re
         const columnNames = columns.map(c => c.COLUMN_NAME);
         
         console.log('[UPLOAD] Colunas da tabela (em ordem):', columnNames);
-        console.log('[UPLOAD] Estrutura das colunas:', columns.map(c => `${c.COLUMN_NAME} (${c.DATA_TYPE})`));
+        console.log('[UPLOAD] Estrutura das colunas:', columns.map(c => {
+            const t = (c.DATA_TYPE || '').toLowerCase();
+            if (t === 'decimal' || t === 'numeric') {
+                return `${c.COLUMN_NAME} (${c.DATA_TYPE}(${c.NUMERIC_PRECISION},${c.NUMERIC_SCALE}))`;
+            }
+            if (t === 'varchar' || t === 'nvarchar') {
+                const len = c.CHARACTER_MAXIMUM_LENGTH;
+                const lenStr = (len === -1) ? 'MAX' : len;
+                return `${c.COLUMN_NAME} (${c.DATA_TYPE}(${lenStr}))`;
+            }
+            return `${c.COLUMN_NAME} (${c.DATA_TYPE})`;
+        }));
         
         // Validar se o número de colunas do Excel corresponde ao da tabela
         if (excelColumns.length > columns.length) {
@@ -723,6 +962,85 @@ app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, re
             sendProgress(sessionId, { stage: 'cleaning', message: 'Limpando tabela...', progress: 15 });
             await poolFonte.request().query(`DELETE FROM dbo.${tabela}`);
             sendProgress(sessionId, { stage: 'cleaned', message: 'Tabela limpa', progress: 20 });
+        }
+
+        // ===============================
+        // Proteção sistêmica: se a coluna no banco é INT/BIGINT/SMALLINT/TINYINT,
+        // mas os dados trazem casas decimais (ex.: "220,00", "133,30"),
+        // a carga completa ajusta automaticamente a coluna para DECIMAL.
+        // (Em carga incremental, falha com mensagem, pois é uma mudança de schema.)
+        // ===============================
+        {
+            const integerTypes = new Set(['int', 'bigint', 'smallint', 'tinyint']);
+
+            // Analisa amostra (até 500 linhas) para inferir escala necessária por coluna
+            const sampleSize = Math.min(data.length, 500);
+            const maxScaleByIndex = new Map();
+
+            for (let r = 0; r < sampleSize; r++) {
+                const row = data[r];
+                const excelValues = excelColumns.map(excelCol => row[excelCol]);
+                for (let c = 0; c < columns.length; c++) {
+                    const col = columns[c];
+                    const colType = String(col.DATA_TYPE || '').toLowerCase();
+                    if (!integerTypes.has(colType)) continue;
+                    if (colType.includes('date')) continue;
+
+                    const cell = excelValues[c];
+                    const raw = cell ? cell.raw : null;
+                    if (raw === null || raw === undefined || raw === '') continue;
+
+                    const info = getLocaleNumberInfo(raw);
+                    if (!info) continue;
+                    if (info.scale <= 0) continue;
+
+                    const prev = maxScaleByIndex.get(c) || 0;
+                    if (info.scale > prev) maxScaleByIndex.set(c, info.scale);
+                }
+            }
+
+            if (maxScaleByIndex.size > 0) {
+                if (tipoCarga !== 'completa') {
+                    const cols = Array.from(maxScaleByIndex.entries()).map(([idx, scale]) => `${columns[idx].COLUMN_NAME} (scale ${scale})`).join(', ');
+                    throw new Error(`A carga contém valores decimais, mas a tabela possui colunas inteiras. Colunas: ${cols}. Use carga completa ou altere as colunas para DECIMAL/NUMERIC.`);
+                }
+
+                sendProgress(sessionId, { stage: 'altering', message: 'Ajustando tipos numéricos (INT -> DECIMAL) ...', progress: 22 });
+                for (const [idx, scaleRaw] of maxScaleByIndex.entries()) {
+                    const col = columns[idx];
+                    const scale = Math.max(1, Math.min(scaleRaw, 10));
+                    const nullable = String(col.IS_NULLABLE).toUpperCase() === 'YES' ? 'NULL' : 'NOT NULL';
+                    const precision = String(col.DATA_TYPE || '').toLowerCase() === 'bigint' ? 38 : 18;
+                    const alterSql = `ALTER TABLE dbo.[${tabela}] ALTER COLUMN [${col.COLUMN_NAME}] DECIMAL(${precision},${scale}) ${nullable}`;
+                    console.log('[UPLOAD] Ajuste automático de tipo:', alterSql);
+                    await poolFonte.request().query(alterSql);
+                }
+
+                // Recarregar schema para refletir os tipos ajustados
+                const schemaReload = await poolFonte.request().query(`
+                    SELECT
+                        COLUMN_NAME,
+                        DATA_TYPE,
+                        IS_NULLABLE,
+                        CHARACTER_MAXIMUM_LENGTH,
+                        NUMERIC_PRECISION,
+                        NUMERIC_SCALE
+                    FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = '${tabela}'
+                    ORDER BY ORDINAL_POSITION
+                `);
+
+                const refreshed = schemaReload.recordset.filter(col => col.COLUMN_NAME !== 'Id' && col.COLUMN_NAME !== 'DataCarga');
+                // Mantém a ordem original das colunas filtradas
+                columns.length = 0;
+                refreshed.forEach(c => columns.push(c));
+
+                // Atualiza arrays dependentes
+                columnNames.length = 0;
+                columns.forEach(c => columnNames.push(c.COLUMN_NAME));
+
+                console.log('[UPLOAD] Schema recarregado após ajuste de tipos.');
+            }
         }
         
         // Inserir dados em lotes
@@ -787,7 +1105,7 @@ app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, re
                         }
                         
                         const value = convertToSqlType(rawValue, col.DATA_TYPE);
-                        const sqlDataType = getSqlDataType(col.DATA_TYPE);
+                        const sqlDataType = getSqlDataTypeFromColumn(col);
                         
                         // Log detalhado da primeira linha E de todas as colunas de data
                         if (totalInserted === 0 || (col.DATA_TYPE.toLowerCase().includes('date') && totalInserted < 5)) {
@@ -1229,11 +1547,41 @@ app.post('/api/excel/table-definitions', uploadExcel.single('modelFile'), async 
         let modelFilePath = `/uploads/excel/${req.file.filename}`;
         let columnDefinitions = null;
         
-        // Ler estrutura do Excel para extrair colunas
-        const workbook = XLSX.readFile(req.file.path);
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const data = XLSX.utils.sheet_to_json(worksheet, { defval: null, header: 1, raw: true });
+        // Ler estrutura do arquivo para extrair colunas.
+        // Suporta: Excel real e TSV disfarçado de .xls (export ADP costuma vir assim).
+        let data;
+        {
+            const buf = fs.readFileSync(req.file.path);
+            const utf8 = buf.toString('utf8');
+            const isTabDelimited = utf8.includes('\t') && !utf8.startsWith('PK');
+
+            if (isTabDelimited) {
+                console.log('[CRIAR TABELA] Arquivo detectado como TSV (tab-delimited), lendo como texto');
+                let content = utf8;
+                if (content.includes('�')) {
+                    console.log('[CRIAR TABELA] Detectado problema de encoding, relendo como Windows-1252');
+                    const iconv = require('iconv-lite');
+                    content = iconv.decode(buf, 'windows-1252');
+                }
+
+                const lines = content.trim().split(/\r?\n/);
+                const headersLine = lines[0] || '';
+                const headers = headersLine.split('\t').map(h => h.trim());
+                const rows = [];
+                for (let i = 1; i < lines.length; i++) {
+                    if (!lines[i] || lines[i].trim() === '') continue;
+                    const vals = lines[i].split('\t').map(v => (v ?? '').trim());
+                    rows.push(vals);
+                }
+                data = [headers, ...rows];
+            } else {
+                const workbook = XLSX.readFile(req.file.path, { cellText: false, cellDates: false });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                // raw:false preserva texto formatado (ex.: "220,00") -> inferência correta de DECIMAL
+                data = XLSX.utils.sheet_to_json(worksheet, { defval: null, header: 1, raw: false });
+            }
+        }
         
         if (data.length === 0) {
             throw new Error('Arquivo Excel está vazio');
@@ -1455,12 +1803,40 @@ app.put('/api/excel/table-definitions/:id', uploadExcel.single('modelFile'), asy
             updateFields.modelFileName = req.file.filename;
             updateFields.modelFilePath = `/uploads/excel/${req.file.filename}`;
             
-            // Ler estrutura do Excel
+            // Ler estrutura do arquivo (Excel real ou TSV disfarçado)
             try {
-                const workbook = XLSX.readFile(req.file.path);
-                const sheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[sheetName];
-                const data = XLSX.utils.sheet_to_json(worksheet, { defval: null, header: 1, raw: true });
+                let data;
+                {
+                    const buf = fs.readFileSync(req.file.path);
+                    const utf8 = buf.toString('utf8');
+                    const isTabDelimited = utf8.includes('\t') && !utf8.startsWith('PK');
+
+                    if (isTabDelimited) {
+                        console.log('[ATUALIZAR TABELA] Arquivo detectado como TSV (tab-delimited), lendo como texto');
+                        let content = utf8;
+                        if (content.includes('�')) {
+                            console.log('[ATUALIZAR TABELA] Detectado problema de encoding, relendo como Windows-1252');
+                            const iconv = require('iconv-lite');
+                            content = iconv.decode(buf, 'windows-1252');
+                        }
+
+                        const lines = content.trim().split(/\r?\n/);
+                        const headersLine = lines[0] || '';
+                        const headers = headersLine.split('\t').map(h => h.trim());
+                        const rows = [];
+                        for (let i = 1; i < lines.length; i++) {
+                            if (!lines[i] || lines[i].trim() === '') continue;
+                            const vals = lines[i].split('\t').map(v => (v ?? '').trim());
+                            rows.push(vals);
+                        }
+                        data = [headers, ...rows];
+                    } else {
+                        const workbook = XLSX.readFile(req.file.path, { cellText: false, cellDates: false });
+                        const sheetName = workbook.SheetNames[0];
+                        const worksheet = workbook.Sheets[sheetName];
+                        data = XLSX.utils.sheet_to_json(worksheet, { defval: null, header: 1, raw: false });
+                    }
+                }
                 
                 if (data.length > 0) {
                     // Limpar headers: remover espaços em branco extras e filtrar null/undefined
