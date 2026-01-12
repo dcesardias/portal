@@ -1,6 +1,4 @@
 window.PortalSearch = {
-    searchHistory: [],
-
     setupSearch() {
         const searchInput = document.getElementById('searchInput');
         const searchResults = document.getElementById('searchResults');
@@ -8,51 +6,23 @@ window.PortalSearch = {
         if (!searchInput || !searchResults) return;
         
         let searchTimeout;
-        
-        // Carregar histórico de busca do localStorage
-        try {
-            this.searchHistory = JSON.parse(localStorage.getItem('searchHistory') || '[]');
-        } catch(e) {
-            this.searchHistory = [];
-        }
-        
-        // Prevenir qualquer autocomplete do navegador
-        searchInput.setAttribute('autocomplete', 'off');
-        searchInput.setAttribute('readonly', 'readonly');
-        
-        searchInput.addEventListener('focus', function() {
-            this.removeAttribute('readonly');
-            // Limpar se tiver "admin" no valor
-            if (this.value === 'admin' || this.value.toLowerCase().includes('admin')) {
-                this.value = '';
-            }
-        });
-        
-        searchInput.addEventListener('blur', function() {
-            setTimeout(() => {
-                this.setAttribute('readonly', 'readonly');
-            }, 100);
-        });
+
+        // Ajustes de digitação sem interferir no autocomplete nativo
+        searchInput.setAttribute('autocorrect', 'off');
+        searchInput.setAttribute('autocapitalize', 'off');
+        searchInput.setAttribute('spellcheck', 'false');
         
         searchInput.addEventListener('input', (e) => {
             clearTimeout(searchTimeout);
             const query = e.target.value.trim();
             
             if (query.length < 2) {
-                searchResults.style.display = 'none';
                 return;
             }
             
             searchTimeout = setTimeout(() => {
                 this.performSearch(query);
             }, 300);
-        });
-        
-        searchInput.addEventListener('focus', () => {
-            const query = searchInput.value.trim();
-            if (query.length >= 2) {
-                this.performSearch(query);
-            }
         });
         
         document.addEventListener('click', (e) => {
@@ -156,7 +126,6 @@ window.PortalSearch = {
                 div.appendChild(content);
                 
                 div.addEventListener('click', () => {
-                    this.addToHistory(query);
                     document.getElementById('searchInput').value = '';
                     searchResults.style.display = 'none';
                     
@@ -185,20 +154,6 @@ window.PortalSearch = {
         if (!query) return text;
         const regex = new RegExp(`(${query})`, 'gi');
         return text.replace(regex, '<mark>$1</mark>');
-    },
-
-    addToHistory(query) {
-        if (!query || query.length < 2) return;
-        // Remover duplicatas
-        this.searchHistory = this.searchHistory.filter(item => item !== query);
-        // Adicionar no início
-        this.searchHistory.unshift(query);
-        // Manter apenas últimos 10
-        this.searchHistory = this.searchHistory.slice(0, 10);
-        // Salvar
-        try {
-            localStorage.setItem('searchHistory', JSON.stringify(this.searchHistory));
-        } catch(e) {}
     }
 };
 

@@ -29,21 +29,24 @@
                     <div class="page-title" id="pageTitle">Power BI Dashboard</div>
                     <div class="page-subtitle" id="pageSubtitle">Visão geral do portal de relatórios</div>
                 </div>
-                <div class="search-container">
+                  <form class="search-container" id="portalSearchForm" role="search" autocomplete="on" action="javascript:void(0)">
                     <input id="searchInput" 
-                           name="q_search_portal_2025" 
+                           name="portal_search" 
                            class="search-input" 
-                           type="text" 
+                           type="search" 
+                           inputmode="search"
                            placeholder="Buscar páginas..." 
-                           autocomplete="off"
+                          autocomplete="on"
                            autocorrect="off" 
                            autocapitalize="off" 
                            spellcheck="false"
                            aria-label="Buscar páginas"
                            role="searchbox"
                            data-lpignore="true"
-                           data-form-type="other" />
+                           data-form-type="search"
+                          />
                     <button id="themeToggle" 
+                            type="button"
                             class="theme-toggle" 
                             title="Alternar tema claro/escuro"
                             aria-label="Alternar entre modo claro e escuro">
@@ -51,7 +54,7 @@
                         <span class="icon moon-icon">🌙</span>
                     </button>
                     <div id="searchResults" class="search-results"></div>
-                </div>
+                </form>
             </div>
             <div class="content" id="mainContent">
                 <div id="homeView">
@@ -96,20 +99,22 @@
     <div class="overlay" id="overlay"></div>
 
     <div class="login-modal" id="loginModal">
-        <div class="login-header">
-            <h2>Login Administrativo</h2>
-        </div>
-        <div class="error-message" id="loginError"></div>
-        <input type="text" name="username_fake" style="position:absolute;left:-9999px;" tabindex="-1" autocomplete="username">
-        <div class="form-group">
-            <label>Usuário</label>
-            <input type="text" id="loginUsername" name="admin_username" placeholder="Digite seu usuário" autocomplete="username">
-        </div>
-        <div class="form-group">
-            <label>Senha</label>
-            <input type="password" id="loginPassword" name="admin_password" placeholder="Digite sua senha" autocomplete="current-password">
-        </div>
-        <button class="btn btn-admin" id="loginButton">Entrar</button>
+        <form id="adminLoginForm" autocomplete="on" action="javascript:void(0)">
+            <div class="login-header">
+                <h2>Login Administrativo</h2>
+            </div>
+            <div class="error-message" id="loginError"></div>
+            <input type="text" name="username_fake" style="position:absolute;left:-9999px;" tabindex="-1" autocomplete="username">
+            <div class="form-group">
+                <label>Usuário</label>
+                <input type="text" id="loginUsername" name="admin_username" placeholder="Digite seu usuário" autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label>Senha</label>
+                <input type="password" id="loginPassword" name="admin_password" placeholder="Digite sua senha" autocomplete="current-password">
+            </div>
+            <button class="btn btn-admin" id="loginButton" type="button">Entrar</button>
+        </form>
     </div>
 
     <div class="admin-panel" id="adminPanel">
