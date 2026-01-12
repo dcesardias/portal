@@ -638,9 +638,45 @@ function convertToSqlType(value, sqlType) {
         const info = getLocaleNumberInfo(input);
         return info ? info.number : NaN;
     }
+
+    // Suporta tipos parametrizados como DECIMAL(18,2), NVARCHAR(MAX), etc.
+    function getBaseSqlType(typeName) {
+        if (!typeName) return '';
+        const raw = String(typeName).trim().toLowerCase();
+        const m = raw.match(/^([a-z0-9_]+)\s*(\(.*\))?$/);
+        return m ? m[1] : raw;
+    }
+
+    function getTypeArgs(typeName) {
+        if (!typeName) return null;
+        const raw = String(typeName).trim().toLowerCase();
+        const m = raw.match(/^[a-z0-9_]+\(([^)]+)\)$/);
+        if (!m) return null;
+        return m[1].split(',').map(s => s.trim());
+    }
+
+    // Formata número como string invariante com escala fixa, sem depender de locale.
+    // Ex.: normalized="133.3", scale=2 -> "133.30"
+    function formatNormalizedDecimal(normalized, scale) {
+        if (normalized == null) return null;
+        const s = String(normalized);
+        const sign = s.startsWith('-') ? '-' : '';
+        const unsigned = sign ? s.slice(1) : s;
+        const parts = unsigned.split('.');
+        const intPart = parts[0] === '' ? '0' : parts[0];
+        const fracPart = parts[1] || '';
+        const targetScale = Math.max(0, scale);
+
+        if (targetScale === 0) {
+            return sign + intPart;
+        }
+
+        const fracPadded = (fracPart + '0'.repeat(targetScale)).slice(0, targetScale);
+        return sign + intPart + '.' + fracPadded;
+    }
     
     try {
-        const type = sqlType.toLowerCase();
+        const type = getBaseSqlType(sqlType);
         switch (type) {
             case 'int':
             case 'bigint':
@@ -658,14 +694,59 @@ function convertToSqlType(value, sqlType) {
                     ? Math.trunc(value)
                     : parseInt((normalizeLocaleNumberString(value) ?? String(value)).split('.')[0], 10);
                 return isNaN(intVal) ? null : intVal;
+            case 'smallint':
+            case 'tinyint': {
+                if (typeof value === 'string') {
+                    const info = getLocaleNumberInfo(value);
+                    if (info && info.scale > 0) {
+                        const frac = info.normalized.split('.')[1] || '';
+                        if (/[1-9]/.test(frac)) {
+                            throw new Error(`Valor decimal "${value}" não cabe em coluna ${sqlType}. Altere a coluna para DECIMAL/NUMERIC.`);
+                        }
+                    }
+                }
+                const smallVal = typeof value === 'number'
+                    ? Math.trunc(value)
+                    : parseInt((normalizeLocaleNumberString(value) ?? String(value)).split('.')[0], 10);
+                return isNaN(smallVal) ? null : smallVal;
+            }
             case 'float':
             case 'decimal':
             case 'numeric':
             case 'real':
             case 'money':
-            case 'smallmoney':
-                const floatVal = parseLocaleNumber(value);
-                return isNaN(floatVal) ? null : floatVal;
+            case 'smallmoney': {
+                const info = getLocaleNumberInfo(value);
+                if (!info) return null;
+
+                // Determina scale preferencial:
+                // - DECIMAL/NUMERIC: usa o scale do tipo (ex.: decimal(18,2))
+                // - MONEY: scale=4
+                let scale = 0;
+                if (type === 'money' || type === 'smallmoney') {
+                    scale = 4;
+                } else {
+                    const args = getTypeArgs(sqlType);
+                    if (args && args.length >= 2) {
+                        const s = parseInt(args[1], 10);
+                        if (Number.isFinite(s) && s >= 0) scale = s;
+                    }
+                }
+
+                // Se a coluna tem scale 0 mas o dado tem parte fracionária != 0, falhar (evita 133,30 virar 133,00)
+                if (scale === 0 && info.scale > 0) {
+                    const frac = info.normalized.split('.')[1] || '';
+                    if (/[1-9]/.test(frac)) {
+                        throw new Error(`Valor decimal "${value}" não cabe em ${sqlType}. Ajuste a coluna para ter casas decimais (scale > 0).`);
+                    }
+                }
+
+                // GARANTIA: enviar string numérica com ponto e escala fixa para o driver.
+                // Isso evita qualquer interpretação de "," como milhar e evita perda de casas.
+                const formatted = formatNormalizedDecimal(info.normalized, scale);
+                const num = parseFloat(formatted);
+                return Number.isFinite(num) ? formatted : null;
+            }
             case 'bit':
                 return value === true || value === 1 || value === '1' || value === 'true' ? 1 : 0;
             case 'datetime':
@@ -1104,7 +1185,15 @@ app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, re
                             console.log(`[ANTES CONVERSÃO] Coluna ${col.COLUMN_NAME}: cell.raw=${cell.raw} (tipo: ${typeof cell.raw}), cell.text="${cell.text}" (tipo: ${typeof cell.text}), rawValue escolhido=${rawValue} (tipo: ${typeof rawValue})`);
                         }
                         
-                        const value = convertToSqlType(rawValue, col.DATA_TYPE);
+                        // Para DECIMAL/NUMERIC, incluir precisão/scale na conversão (garante preservação das casas)
+                        let conversionType = col.DATA_TYPE;
+                        const baseType = String(col.DATA_TYPE || '').toLowerCase();
+                        if (baseType === 'decimal' || baseType === 'numeric') {
+                            const p = col.NUMERIC_PRECISION != null ? parseInt(col.NUMERIC_PRECISION, 10) : 18;
+                            const s = col.NUMERIC_SCALE != null ? parseInt(col.NUMERIC_SCALE, 10) : 0;
+                            conversionType = `${baseType}(${Number.isFinite(p) ? p : 18},${Number.isFinite(s) ? s : 0})`;
+                        }
+                        const value = convertToSqlType(rawValue, conversionType);
                         const sqlDataType = getSqlDataTypeFromColumn(col);
                         
                         // Log detalhado da primeira linha E de todas as colunas de data
