@@ -107,6 +107,10 @@
     box-sizing: border-box;
 }
 
+html {
+    scroll-behavior: smooth;
+}
+
 body {
     font-family: var(--base-font-family);
     background: var(--bg-color);
@@ -114,6 +118,8 @@ body {
     overflow: hidden;
     color: var(--text-color);
     transition: background-color 0.3s ease, color 0.3s ease;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 .container {
@@ -566,6 +572,21 @@ body {
     box-shadow: var(--shadow-md), 0 4px 12px rgba(0, 102, 204, 0.3);
 }
 
+.btn:disabled,
+.btn-admin:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    filter: grayscale(0.5);
+    transform: none !important;
+    box-shadow: none !important;
+    pointer-events: none;
+}
+
+.btn:disabled::after,
+.btn-admin:disabled::after {
+    display: none;
+}
+
 .btn-admin {
     background: #2e7d32;
     color: white;
@@ -739,6 +760,15 @@ body {
     outline: none;
     border-color: var(--primary-color);
     box-shadow: var(--search-focus-shadow);
+}
+
+.form-group input:disabled,
+.form-group select:disabled,
+.form-group textarea:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: var(--info-card-bg);
+    color: var(--text-muted);
 }
 
 .form-group input::placeholder {
@@ -1014,7 +1044,7 @@ body {
 
 /* Sidebar Collapsed */
 .sidebar {
-    transition: width 0.25s ease, padding 0.25s ease;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     will-change: width;
 }
 
@@ -1024,6 +1054,15 @@ body {
     padding: 0 !important;
     overflow: visible;
     background-color: var(--menu-collapsed-bg-color) !important;
+}
+
+.sidebar-title {
+    transition: opacity 0.2s ease;
+}
+
+.sidebar.collapsed .sidebar-title {
+    opacity: 0;
+    pointer-events: none;
 }
 
 .sidebar.collapsed .sidebar-header {
@@ -2469,10 +2508,30 @@ input[type="range"]#highlightOpacity::-moz-range-thumb:hover {
 
 /* Respeita preferências do usuário (acessibilidade) */
 @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
-        animation-duration: 0.001ms !important;
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
-        transition-duration: 0.001ms !important;
+        transition-duration: 0.01ms !important;
         scroll-behavior: auto !important;
+    }
+
+    /* Mantém transforms visuais mas sem animação */
+    .btn:hover,
+    .btn-admin:hover {
+        transform: none !important;
+    }
+
+    .quick-access-card:hover {
+        transform: translateY(-2px) !important;
+    }
+
+    .card-icon::before {
+        display: none !important;
+    }
+
+    .info-card:hover {
+        transform: none !important;
     }
 }
