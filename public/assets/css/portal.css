@@ -2283,7 +2283,7 @@ body {
     position: absolute;
     top: 10px;
     left: 50%;
-    transform: translateX(calc(-50% + 60px)); /* 60px = metade da largura do botão Ajuda + gap */
+    transform: translateX(50px); /* Posiciona à direita do centro, criando gap */
     background: white;
     border: 2px solid var(--primary-color);
     color: #333;
@@ -2298,12 +2298,13 @@ body {
     box-shadow: var(--shadow-sm);
     font-family: var(--base-font-family);
     max-width: 200px;
+    margin-left: 8px; /* Gap entre botão e dropdown */
 }
 
 .tutorial-group-selector-fixed:hover {
     border-color: var(--primary-color-dark);
     box-shadow: var(--shadow-md);
-    transform: translateX(calc(-50% + 60px)) translateY(-1px);
+    transform: translateX(50px) translateY(-1px);
 }
 
 .tutorial-group-selector-fixed:focus {
