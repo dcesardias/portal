@@ -1658,8 +1658,8 @@
                                         clearTimeout(timeoutId);
 
                                         setTimeout(() => {
-                                            isNavigating = false;
                                             currentIndex = newGroup.firstIndex;
+                                            isNavigating = false; // Setar false ANTES de reposition
                                             reposition();
                                             resolve();
                                         }, 500);
@@ -1670,8 +1670,8 @@
                                         loadHandled = true;
 
                                         powerIframe.removeEventListener('load', loadHandler);
-                                        isNavigating = false;
                                         currentIndex = newGroup.firstIndex;
+                                        isNavigating = false; // Setar false ANTES de reposition
                                         reposition();
                                         resolve();
                                     }, 5000);
