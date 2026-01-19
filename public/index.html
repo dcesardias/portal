@@ -753,6 +753,58 @@
                 color: #bdbdbd;
             }
 
+            /* Tutorial Group Selector */
+            .tutorial-group-selector {
+                margin: 0 0 16px 0;
+                padding: 12px 0;
+                border-top: 1px solid #e5e5e5;
+                border-bottom: 1px solid #e5e5e5;
+            }
+
+            [data-theme="dark"] .tutorial-group-selector {
+                border-color: #404040;
+            }
+
+            .tutorial-group-dropdown {
+                width: 100%;
+                padding: 10px 12px;
+                font-size: 14px;
+                border: 2px solid #e5e5e5;
+                border-radius: 8px;
+                background: white;
+                color: #333;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                outline: none;
+                font-family: inherit;
+            }
+
+            .tutorial-group-dropdown:hover {
+                border-color: #0066cc;
+                box-shadow: 0 2px 8px rgba(0, 102, 204, 0.1);
+            }
+
+            .tutorial-group-dropdown:focus {
+                border-color: #0066cc;
+                box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+            }
+
+            [data-theme="dark"] .tutorial-group-dropdown {
+                background: #2d2d2d;
+                border-color: #555;
+                color: #e0e0e0;
+            }
+
+            [data-theme="dark"] .tutorial-group-dropdown:hover {
+                border-color: #4da3ff;
+                box-shadow: 0 2px 8px rgba(77, 163, 255, 0.15);
+            }
+
+            [data-theme="dark"] .tutorial-group-dropdown:focus {
+                border-color: #4da3ff;
+                box-shadow: 0 0 0 3px rgba(77, 163, 255, 0.1);
+            }
+
             @keyframes pulse {
                 0%, 100% { opacity: 1; }
                 50% { opacity: 0.5; }
@@ -1154,10 +1206,27 @@
             `;
 
             // CRÍTICO: Sempre recriar HTML do tooltip para garantir elementos válidos
+            // Gerar dropdown de grupos se houver mais de um
+            let groupSelectHtml = '';
+            if (window.__tutorialGroups && window.__tutorialGroups.length > 1) {
+                const groupOptions = window.__tutorialGroups.map((g, gIdx) => {
+                    const icon = gIdx === 0 ? '🎯' : '📄';
+                    return `<option value="${gIdx}"${gIdx === window.__currentGroupIndex ? ' selected' : ''}>${icon} ${g.name}</option>`;
+                }).join('');
+                groupSelectHtml = `
+                    <div class="tutorial-group-selector">
+                        <select class="tutorial-group-dropdown" aria-label="Selecionar grupo">
+                            ${groupOptions}
+                        </select>
+                    </div>
+                `;
+            }
+
             tt.innerHTML = `
                 <button class="btn-tutorial-close" aria-label="Fechar">×</button>
                 <h3>${step.title || ('Passo ' + (idx + 1))}</h3>
                 <p>${step.description || ''}</p>
+                ${groupSelectHtml}
                 <div class="tutorial-footer">
                     <span class="tutorial-progress">${(idx + 1)} / ${total}</span>
                     <div class="tutorial-buttons">
@@ -1217,7 +1286,23 @@
             const tt = overlay._tooltip;
             
             hl.style.display = 'none';
-            
+
+            // Gerar dropdown de grupos se houver mais de um
+            let groupSelectHtml = '';
+            if (window.__tutorialGroups && window.__tutorialGroups.length > 1) {
+                const groupOptions = window.__tutorialGroups.map((g, gIdx) => {
+                    const icon = gIdx === 0 ? '🎯' : '📄';
+                    return `<option value="${gIdx}"${gIdx === window.__currentGroupIndex ? ' selected' : ''}>${icon} ${g.name}</option>`;
+                }).join('');
+                groupSelectHtml = `
+                    <div class="tutorial-group-selector">
+                        <select class="tutorial-group-dropdown" aria-label="Selecionar grupo">
+                            ${groupOptions}
+                        </select>
+                    </div>
+                `;
+            }
+
             tt.innerHTML = `
                 <button class="btn-tutorial-close" aria-label="Fechar">×</button>
                 <div class="tutorial-tooltip-center">
@@ -1225,6 +1310,7 @@
                 </div>
                 <h3 class="tutorial-tooltip-title">${step.title || ('Passo ' + (idx + 1))}</h3>
                 <p class="tutorial-tooltip-desc">${step.description || ''}</p>
+                ${groupSelectHtml}
                 <div class="tutorial-footer">
                     <span class="tutorial-progress">${(idx + 1)} / ${total}</span>
                     <div class="tutorial-buttons">
@@ -1341,7 +1427,7 @@
                             powerIframe.src = baseUrl + separator + '_t=' + Date.now();
                         });
 
-                        // NOVO: Agrupar steps por página e mostrar group picker
+                        // NOVO: Agrupar steps por página
                         const groups = [];
                         const groupMap = new Map();
 
@@ -1361,122 +1447,13 @@
                             groups[groupIdx].count++;
                         });
 
-                        // Mostrar seletor de grupos
-                        const groupPickerOverlay = makeOverlay();
-                        const gpTooltip = groupPickerOverlay._tooltip;
-                        gpTooltip.style.position = 'fixed';
-                        gpTooltip.style.top = '50%';
-                        gpTooltip.style.left = '50%';
-                        gpTooltip.style.transform = 'translate(-50%, -50%)';
-                        gpTooltip.style.maxWidth = '600px';
-                        gpTooltip.style.width = '90%';
-                        gpTooltip.style.visibility = 'visible';
-
-                        const groupsHtml = groups.map((g, idx) => {
-                            const icon = idx === 0 ? '🎯' : '📄';
-                            const stepText = g.count === 1 ? 'passo' : 'passos';
-                            return `
-                                <button class="btn-tutorial-group" data-group-index="${idx}" title="Clique para começar neste grupo">
-                                    <div class="btn-tutorial-group-icon">${icon}</div>
-                                    <div class="btn-tutorial-group-content">
-                                        <div class="btn-tutorial-group-title">${g.name}</div>
-                                        <div class="btn-tutorial-group-subtitle">${g.count} ${stepText}</div>
-                                    </div>
-                                    <div class="btn-tutorial-group-arrow">›</div>
-                                </button>
-                            `;
-                        }).join('');
-
-                        const title = groups.length === 1 ? 'Iniciar Tutorial' : 'Escolha por onde começar';
-                        const description = groups.length === 1
-                            ? 'Este tutorial possui um grupo com todos os passos.'
-                            : 'Você pode iniciar o tutorial em qualquer página/grupo e pular etapas que já conhece.';
-
-                        gpTooltip.innerHTML = `
-                            <div class="tutorial-tooltip-content tutorial-group-picker">
-                                <button class="btn-tutorial-close" id="closeGroupPicker">×</button>
-                                <div class="tutorial-group-picker-header">
-                                    <div class="tutorial-group-picker-icon">🎓</div>
-                                    <h3>${title}</h3>
-                                    <p>${description}</p>
-                                </div>
-                                <div class="tutorial-group-list">${groupsHtml}</div>
-                            </div>
-                        `;
-
-                        // Aguardar seleção do grupo
-                        const selectedGroup = await new Promise((resolve) => {
-                            const closeBtn = gpTooltip.querySelector('#closeGroupPicker');
-                            closeBtn.onclick = () => {
-                                document.body.removeChild(groupPickerOverlay);
-                                resolve(null); // Cancelar
-                            };
-
-                            gpTooltip.querySelectorAll('.btn-tutorial-group').forEach(btn => {
-                                btn.onclick = () => {
-                                    const groupIdx = parseInt(btn.getAttribute('data-group-index'));
-                                    document.body.removeChild(groupPickerOverlay);
-                                    resolve(groupIdx);
-                                };
-                            });
-                        });
-
-                        // Se cancelou, retornar
-                        if (selectedGroup === null) return;
-
-                        // Verificar se precisa carregar página diferente para o grupo selecionado
-                        const selectedGroupData = groups[selectedGroup];
-                        const targetUrl = selectedGroupData.url;
-                        const currentUrl = powerIframe.src;
-
-                        // Se o grupo está em página diferente, carregar essa página primeiro
-                        if (targetUrl && targetUrl !== currentUrl && targetUrl !== baseUrl) {
-                            console.log('[TUTORIAL] Navegando para página do grupo:', targetUrl);
-
-                            // Mostrar loading overlay
-                            const navLoadingOverlay = makeOverlay();
-                            showLoadingState(navLoadingOverlay);
-
-                            // Aguardar carregamento da nova página
-                            await new Promise((resolve) => {
-                                let loadHandled = false;
-
-                                const loadHandler = () => {
-                                    if (loadHandled) return;
-                                    loadHandled = true;
-
-                                    powerIframe.removeEventListener('load', loadHandler);
-                                    clearTimeout(timeoutId);
-
-                                    setTimeout(() => {
-                                        if (document.body.contains(navLoadingOverlay)) {
-                                            document.body.removeChild(navLoadingOverlay);
-                                        }
-                                        resolve();
-                                    }, 500);
-                                };
-
-                                const timeoutId = setTimeout(() => {
-                                    if (loadHandled) return;
-                                    loadHandled = true;
-
-                                    powerIframe.removeEventListener('load', loadHandler);
-                                    if (document.body.contains(navLoadingOverlay)) {
-                                        document.body.removeChild(navLoadingOverlay);
-                                    }
-                                    resolve();
-                                }, 5000);
-
-                                powerIframe.addEventListener('load', loadHandler);
-
-                                // Carregar URL do grupo com timestamp
-                                const separator = targetUrl.includes('?') ? '&' : '?';
-                                powerIframe.src = targetUrl + separator + '_t=' + Date.now();
-                            });
-                        }
+                        // Armazenar grupos em window para acesso global nas funções de tooltip
+                        window.__tutorialGroups = groups;
+                        window.__currentGroupIndex = 0;
 
                         const overlay = makeOverlay();
-                        let currentIndex = groups[selectedGroup].firstIndex;
+                        let currentIndex = 0; // Sempre inicia no primeiro step (grupo 1)
+                        let currentGroupIndex = 0;
                         let ro = null;
                         let rafId = null;
                         let isNavigating = false;
@@ -1660,35 +1637,108 @@
                             powerIframe.src = url;
                         };
 
+                        const changeGroup = async (newGroupIndex) => {
+                            if (isNavigating) return;
+                            if (newGroupIndex === currentGroupIndex) return;
+
+                            const newGroup = groups[newGroupIndex];
+                            if (!newGroup) return;
+
+                            currentGroupIndex = newGroupIndex;
+                            window.__currentGroupIndex = newGroupIndex;
+
+                            // Verificar se precisa carregar página diferente
+                            const targetUrl = newGroup.url;
+                            const currentUrl = powerIframe.src;
+
+                            if (targetUrl && targetUrl !== currentUrl) {
+                                console.log('[TUTORIAL] Mudando para grupo:', newGroup.name, 'URL:', targetUrl);
+
+                                // Mostrar loading
+                                isNavigating = true;
+                                showLoadingState(overlay);
+
+                                // Aguardar carregamento
+                                await new Promise((resolve) => {
+                                    let loadHandled = false;
+
+                                    const loadHandler = () => {
+                                        if (loadHandled) return;
+                                        loadHandled = true;
+
+                                        powerIframe.removeEventListener('load', loadHandler);
+                                        clearTimeout(timeoutId);
+
+                                        setTimeout(() => {
+                                            isNavigating = false;
+                                            currentIndex = newGroup.firstIndex;
+                                            reposition();
+                                            resolve();
+                                        }, 500);
+                                    };
+
+                                    const timeoutId = setTimeout(() => {
+                                        if (loadHandled) return;
+                                        loadHandled = true;
+
+                                        powerIframe.removeEventListener('load', loadHandler);
+                                        isNavigating = false;
+                                        currentIndex = newGroup.firstIndex;
+                                        reposition();
+                                        resolve();
+                                    }, 5000);
+
+                                    powerIframe.addEventListener('load', loadHandler);
+
+                                    // Carregar URL com timestamp
+                                    const separator = targetUrl.includes('?') ? '&' : '?';
+                                    powerIframe.src = targetUrl + separator + '_t=' + Date.now();
+                                });
+                            } else {
+                                // Mesma página, só muda o índice
+                                currentIndex = newGroup.firstIndex;
+                                reposition();
+                            }
+                        };
+
                         const setupNavigation = () => {
                             const c = overlay._controls;
                             if (!c) return;
-                            
+
                             c.prev.onclick = () => go(-1);
                             c.next.onclick = () => go(1);
                             c.close.onclick = () => close();
-                            
-                            c.prev.onmouseenter = () => { 
-                                if (!c.prev.disabled) c.prev.style.background = '#d0d0d0'; 
+
+                            // Event listener do dropdown de grupos
+                            const dropdown = overlay._tooltip.querySelector('.tutorial-group-dropdown');
+                            if (dropdown) {
+                                dropdown.onchange = (e) => {
+                                    const newGroupIndex = parseInt(e.target.value);
+                                    changeGroup(newGroupIndex);
+                                };
+                            }
+
+                            c.prev.onmouseenter = () => {
+                                if (!c.prev.disabled) c.prev.style.background = '#d0d0d0';
                             };
-                            c.prev.onmouseleave = () => { 
-                                c.prev.style.background = '#e5e5e5'; 
+                            c.prev.onmouseleave = () => {
+                                c.prev.style.background = '#e5e5e5';
                             };
-                            
-                            c.next.onmouseenter = () => { 
-                                c.next.style.background = '#0052a3'; 
+
+                            c.next.onmouseenter = () => {
+                                c.next.style.background = '#0052a3';
                             };
-                            c.next.onmouseleave = () => { 
-                                c.next.style.background = '#0066cc'; 
+                            c.next.onmouseleave = () => {
+                                c.next.style.background = '#0066cc';
                             };
-                            
-                            c.close.onmouseenter = () => { 
-                                c.close.style.background = '#f0f0f0'; 
-                                c.close.style.color = '#333'; 
+
+                            c.close.onmouseenter = () => {
+                                c.close.style.background = '#f0f0f0';
+                                c.close.style.color = '#333';
                             };
-                            c.close.onmouseleave = () => { 
-                                c.close.style.background = 'none'; 
-                                c.close.style.color = '#999'; 
+                            c.close.onmouseleave = () => {
+                                c.close.style.background = 'none';
+                                c.close.style.color = '#999';
                             };
                         };
 
