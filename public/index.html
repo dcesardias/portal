@@ -1307,14 +1307,14 @@
                         // Aguardar carregamento da primeira página
                         await new Promise((resolve) => {
                             let loadHandled = false;
-                            
+
                             const loadHandler = () => {
                                 if (loadHandled) return;
                                 loadHandled = true;
-                                
+
                                 powerIframe.removeEventListener('load', loadHandler);
                                 clearTimeout(timeoutId);
-                                
+
                                 setTimeout(() => {
                                     if (document.body.contains(loadingOverlay)) {
                                         document.body.removeChild(loadingOverlay);
@@ -1322,27 +1322,110 @@
                                     resolve();
                                 }, 500);
                             };
-                            
+
                             const timeoutId = setTimeout(() => {
                                 if (loadHandled) return;
                                 loadHandled = true;
-                                
+
                                 powerIframe.removeEventListener('load', loadHandler);
                                 if (document.body.contains(loadingOverlay)) {
                                     document.body.removeChild(loadingOverlay);
                                 }
                                 resolve();
                             }, 5000);
-                            
+
                             powerIframe.addEventListener('load', loadHandler);
-                            
+
                             // FORÇA reload adicionando timestamp
                             const separator = baseUrl.includes('?') ? '&' : '?';
                             powerIframe.src = baseUrl + separator + '_t=' + Date.now();
                         });
 
+                        // NOVO: Agrupar steps por página e mostrar group picker
+                        const groups = [];
+                        const groupMap = new Map();
+
+                        steps.forEach((step, idx) => {
+                            const url = step.screenUrl || '';
+                            if (!groupMap.has(url)) {
+                                const groupName = step.groupName || (url ? `Página ${groups.length + 1}` : 'Tela Inicial');
+                                groupMap.set(url, groups.length);
+                                groups.push({
+                                    url,
+                                    name: groupName,
+                                    firstIndex: idx,
+                                    count: 0
+                                });
+                            }
+                            const groupIdx = groupMap.get(url);
+                            groups[groupIdx].count++;
+                        });
+
+                        // Mostrar seletor de grupos
+                        const groupPickerOverlay = makeOverlay();
+                        const gpTooltip = groupPickerOverlay._tooltip;
+                        gpTooltip.style.position = 'fixed';
+                        gpTooltip.style.top = '50%';
+                        gpTooltip.style.left = '50%';
+                        gpTooltip.style.transform = 'translate(-50%, -50%)';
+                        gpTooltip.style.maxWidth = '600px';
+                        gpTooltip.style.width = '90%';
+                        gpTooltip.style.visibility = 'visible';
+
+                        const groupsHtml = groups.map((g, idx) => {
+                            const icon = idx === 0 ? '🎯' : '📄';
+                            const stepText = g.count === 1 ? 'passo' : 'passos';
+                            return `
+                                <button class="btn-tutorial-group" data-group-index="${idx}" title="Clique para começar neste grupo">
+                                    <div class="btn-tutorial-group-icon">${icon}</div>
+                                    <div class="btn-tutorial-group-content">
+                                        <div class="btn-tutorial-group-title">${g.name}</div>
+                                        <div class="btn-tutorial-group-subtitle">${g.count} ${stepText}</div>
+                                    </div>
+                                    <div class="btn-tutorial-group-arrow">›</div>
+                                </button>
+                            `;
+                        }).join('');
+
+                        const title = groups.length === 1 ? 'Iniciar Tutorial' : 'Escolha por onde começar';
+                        const description = groups.length === 1
+                            ? 'Este tutorial possui um grupo com todos os passos.'
+                            : 'Você pode iniciar o tutorial em qualquer página/grupo e pular etapas que já conhece.';
+
+                        gpTooltip.innerHTML = `
+                            <div class="tutorial-tooltip-content tutorial-group-picker">
+                                <button class="btn-tutorial-close" id="closeGroupPicker">×</button>
+                                <div class="tutorial-group-picker-header">
+                                    <div class="tutorial-group-picker-icon">🎓</div>
+                                    <h3>${title}</h3>
+                                    <p>${description}</p>
+                                </div>
+                                <div class="tutorial-group-list">${groupsHtml}</div>
+                            </div>
+                        `;
+
+                        // Aguardar seleção do grupo
+                        const selectedGroup = await new Promise((resolve) => {
+                            const closeBtn = gpTooltip.querySelector('#closeGroupPicker');
+                            closeBtn.onclick = () => {
+                                document.body.removeChild(groupPickerOverlay);
+                                resolve(null); // Cancelar
+                            };
+
+                            gpTooltip.querySelectorAll('.btn-tutorial-group').forEach(btn => {
+                                btn.onclick = () => {
+                                    const groupIdx = parseInt(btn.getAttribute('data-group-index'));
+                                    document.body.removeChild(groupPickerOverlay);
+                                    resolve(groupIdx);
+                                };
+                            });
+                        });
+
+                        // Se cancelou, retornar
+                        if (selectedGroup === null) return;
+
                         const overlay = makeOverlay();
-                        let currentIndex = 0;
+                        let currentIndex = groups[selectedGroup].firstIndex;
                         let ro = null;
                         let rafId = null;
                         let isNavigating = false;
