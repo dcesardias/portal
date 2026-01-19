@@ -1440,6 +1440,12 @@
                         let rafId = null;
                         let isNavigating = false;
 
+                        // Adicionar classe "ativo" ao botão de tutorial
+                        const tutorialBtn = document.getElementById('startTutorialBtn');
+                        if (tutorialBtn) {
+                            tutorialBtn.classList.add('tutorial-active');
+                        }
+
                         const reposition = () => {
                             if (rafId) cancelAnimationFrame(rafId);
                             if (isNavigating) return;
@@ -1748,6 +1754,12 @@
                             if (fixedDropdown) {
                                 fixedDropdown.style.display = 'none';
                                 fixedDropdown.__eventAttached = false;
+                            }
+
+                            // Remover classe "ativo" do botão de tutorial
+                            const tutorialBtn = document.getElementById('startTutorialBtn');
+                            if (tutorialBtn) {
+                                tutorialBtn.classList.remove('tutorial-active');
                             }
                         };
 

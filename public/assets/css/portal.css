@@ -2278,6 +2278,33 @@ body {
     font-size: 13px;
 }
 
+/* Estado ativo do botão quando tutorial está em execução */
+.btn-start-tutorial.tutorial-active {
+    background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+    box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.3), var(--shadow-md);
+    animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.btn-start-tutorial.tutorial-active:hover {
+    transform: translateX(-50%) translateY(-1px);
+    filter: brightness(1.05);
+    box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.4), var(--shadow-lg);
+}
+
+[data-theme="dark"] .btn-start-tutorial.tutorial-active {
+    background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+    box-shadow: 0 0 0 3px rgba(46, 204, 113, 0.3), 0 6px 18px rgba(0,0,0,0.35);
+}
+
+@keyframes pulse-glow {
+    0%, 100% {
+        box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.3), var(--shadow-md);
+    }
+    50% {
+        box-shadow: 0 0 0 5px rgba(40, 167, 69, 0.5), var(--shadow-lg);
+    }
+}
+
 /* Dropdown fixo de seleção de grupos (ao lado do botão Ajuda) */
 .tutorial-group-selector-fixed {
     position: absolute;
