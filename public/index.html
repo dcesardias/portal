@@ -757,6 +757,259 @@
                 0%, 100% { opacity: 1; }
                 50% { opacity: 0.5; }
             }
+
+            /* ========================================
+               GROUP PICKER - Seletor de Grupos/Páginas
+               ======================================== */
+
+            .tutorial-group-picker {
+                max-width: 600px !important;
+                width: 90% !important;
+            }
+
+            .tutorial-group-picker-header {
+                text-align: center;
+                margin-bottom: 24px;
+                padding-bottom: 20px;
+                border-bottom: 1px solid #e5e5e5;
+            }
+
+            [data-theme="dark"] .tutorial-group-picker-header {
+                border-bottom-color: #404040;
+            }
+
+            .tutorial-group-picker-icon {
+                font-size: 48px;
+                margin-bottom: 12px;
+                animation: bounce-in 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            }
+
+            @keyframes bounce-in {
+                0% {
+                    transform: scale(0);
+                    opacity: 0;
+                }
+                50% {
+                    transform: scale(1.1);
+                }
+                100% {
+                    transform: scale(1);
+                    opacity: 1;
+                }
+            }
+
+            .tutorial-group-picker h3 {
+                font-size: 24px;
+                font-weight: 700;
+                margin: 0 0 8px 0;
+                color: #0066cc;
+            }
+
+            [data-theme="dark"] .tutorial-group-picker h3 {
+                color: #4da3ff;
+            }
+
+            .tutorial-group-picker p {
+                margin: 0;
+                color: #666;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+
+            [data-theme="dark"] .tutorial-group-picker p {
+                color: #b0b0b0;
+            }
+
+            .tutorial-group-list {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+                max-height: 400px;
+                overflow-y: auto;
+                padding-right: 4px;
+            }
+
+            /* Scrollbar customizada para a lista de grupos */
+            .tutorial-group-list::-webkit-scrollbar {
+                width: 8px;
+            }
+
+            .tutorial-group-list::-webkit-scrollbar-track {
+                background: rgba(0, 0, 0, 0.05);
+                border-radius: 4px;
+            }
+
+            .tutorial-group-list::-webkit-scrollbar-thumb {
+                background: rgba(0, 102, 204, 0.3);
+                border-radius: 4px;
+            }
+
+            .tutorial-group-list::-webkit-scrollbar-thumb:hover {
+                background: rgba(0, 102, 204, 0.5);
+            }
+
+            [data-theme="dark"] .tutorial-group-list::-webkit-scrollbar-track {
+                background: rgba(255, 255, 255, 0.05);
+            }
+
+            [data-theme="dark"] .tutorial-group-list::-webkit-scrollbar-thumb {
+                background: rgba(77, 163, 255, 0.3);
+            }
+
+            .btn-tutorial-group {
+                display: flex;
+                align-items: center;
+                gap: 16px;
+                padding: 16px;
+                background: #f8f9fa;
+                border: 2px solid #e5e5e5;
+                border-radius: 12px;
+                cursor: pointer;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                width: 100%;
+                text-align: left;
+                position: relative;
+                overflow: hidden;
+            }
+
+            .btn-tutorial-group::before {
+                content: '';
+                position: absolute;
+                inset: 0;
+                background: linear-gradient(135deg, rgba(0, 102, 204, 0.05) 0%, rgba(0, 82, 163, 0.08) 100%);
+                opacity: 0;
+                transition: opacity 0.3s ease;
+            }
+
+            .btn-tutorial-group:hover {
+                transform: translateY(-2px);
+                border-color: #0066cc;
+                box-shadow: 0 8px 20px rgba(0, 102, 204, 0.15);
+            }
+
+            .btn-tutorial-group:hover::before {
+                opacity: 1;
+            }
+
+            .btn-tutorial-group:active {
+                transform: translateY(0);
+            }
+
+            [data-theme="dark"] .btn-tutorial-group {
+                background: #3a3a3a;
+                border-color: #555;
+            }
+
+            [data-theme="dark"] .btn-tutorial-group:hover {
+                border-color: #4da3ff;
+                box-shadow: 0 8px 20px rgba(77, 163, 255, 0.2);
+            }
+
+            .btn-tutorial-group-icon {
+                font-size: 32px;
+                flex-shrink: 0;
+                width: 48px;
+                height: 48px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: white;
+                border-radius: 10px;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+                position: relative;
+                z-index: 1;
+            }
+
+            [data-theme="dark"] .btn-tutorial-group-icon {
+                background: #2d2d2d;
+            }
+
+            .btn-tutorial-group-content {
+                flex: 1;
+                min-width: 0;
+                position: relative;
+                z-index: 1;
+            }
+
+            .btn-tutorial-group-title {
+                font-size: 16px;
+                font-weight: 600;
+                color: #333;
+                margin-bottom: 4px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            [data-theme="dark"] .btn-tutorial-group-title {
+                color: #e0e0e0;
+            }
+
+            .btn-tutorial-group-subtitle {
+                font-size: 13px;
+                color: #666;
+            }
+
+            [data-theme="dark"] .btn-tutorial-group-subtitle {
+                color: #b0b0b0;
+            }
+
+            .btn-tutorial-group-arrow {
+                font-size: 24px;
+                color: #0066cc;
+                opacity: 0.5;
+                transition: all 0.3s ease;
+                flex-shrink: 0;
+                position: relative;
+                z-index: 1;
+            }
+
+            .btn-tutorial-group:hover .btn-tutorial-group-arrow {
+                opacity: 1;
+                transform: translateX(4px);
+            }
+
+            [data-theme="dark"] .btn-tutorial-group-arrow {
+                color: #4da3ff;
+            }
+
+            /* Animação de entrada dos botões */
+            .btn-tutorial-group {
+                animation: slide-in-up 0.4s cubic-bezier(0.4, 0, 0.2, 1) both;
+            }
+
+            .btn-tutorial-group:nth-child(1) { animation-delay: 0.05s; }
+            .btn-tutorial-group:nth-child(2) { animation-delay: 0.1s; }
+            .btn-tutorial-group:nth-child(3) { animation-delay: 0.15s; }
+            .btn-tutorial-group:nth-child(4) { animation-delay: 0.2s; }
+            .btn-tutorial-group:nth-child(5) { animation-delay: 0.25s; }
+
+            @keyframes slide-in-up {
+                from {
+                    opacity: 0;
+                    transform: translateY(20px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            /* Acessibilidade - Reduced Motion */
+            @media (prefers-reduced-motion: reduce) {
+                .tutorial-group-picker-icon,
+                .btn-tutorial-group {
+                    animation: none !important;
+                }
+
+                .btn-tutorial-group:hover {
+                    transform: none !important;
+                }
+
+                .btn-tutorial-group:hover .btn-tutorial-group-arrow {
+                    transform: none !important;
+                }
+            }
         `;
         document.head.appendChild(tutorialStyle);
 

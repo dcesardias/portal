@@ -158,14 +158,10 @@ window.PortalTutorial = {
             this.createOverlay();
 
             const groups = this.getTutorialGroups();
-            if (groups.length > 1) {
-                console.log('[TUTORIAL] Exibindo seleção de grupos:', groups.length);
-                this.showGroupPicker(groups);
-                return;
-            }
 
-            this.currentStep = 0;
-            await this.showStep(0);
+            // SEMPRE mostrar seleção de grupos para permitir pular etapas
+            console.log('[TUTORIAL] Exibindo seleção de grupos:', groups.length);
+            this.showGroupPicker(groups);
             
         } catch (error) {
             console.error('[TUTORIAL] Erro ao carregar tutorial:', error);
@@ -181,29 +177,48 @@ window.PortalTutorial = {
 
         const itemsHtml = groups.map((g, idx) => {
             const safeName = this.escapeHtml(g.name);
+            const stepText = g.count === 1 ? 'passo' : 'passos';
+            const icon = idx === 0 ? '🎯' : '📄';
+
             return `
-                <button class="btn-tutorial" style="width:100%;margin-top:8px;" onclick="window.PortalTutorial.startFromGroupIndex(${idx})">
-                    Grupo ${idx + 1}: ${safeName} (${g.count} ${g.count === 1 ? 'passo' : 'passos'})
+                <button class="btn-tutorial-group" onclick="window.PortalTutorial.startFromGroupIndex(${idx})" title="Clique para começar neste grupo">
+                    <div class="btn-tutorial-group-icon">${icon}</div>
+                    <div class="btn-tutorial-group-content">
+                        <div class="btn-tutorial-group-title">${safeName}</div>
+                        <div class="btn-tutorial-group-subtitle">${g.count} ${stepText}</div>
+                    </div>
+                    <div class="btn-tutorial-group-arrow">›</div>
                 </button>
             `;
         }).join('');
 
+        const title = groups.length === 1
+            ? 'Iniciar Tutorial'
+            : 'Escolha por onde começar';
+
+        const description = groups.length === 1
+            ? 'Este tutorial possui um grupo com todos os passos.'
+            : 'Você pode iniciar o tutorial em qualquer página/grupo e pular etapas que já conhece.';
+
         this.tooltip.innerHTML = `
-            <div class="tutorial-tooltip-content">
+            <div class="tutorial-tooltip-content tutorial-group-picker">
                 <button class="btn-tutorial-close" onclick="window.PortalTutorial.endTutorial()">×</button>
-                <h3>Escolha por qual grupo começar</h3>
-                <p>Você pode iniciar o tutorial em qualquer página/grupo.</p>
-                <div style="margin-top:10px;">${itemsHtml}</div>
+                <div class="tutorial-group-picker-header">
+                    <div class="tutorial-group-picker-icon">🎓</div>
+                    <h3>${title}</h3>
+                    <p>${description}</p>
+                </div>
+                <div class="tutorial-group-list">${itemsHtml}</div>
             </div>
         `;
 
         // Centralizar tooltip
-        const margin = 20;
-        const rect = this.tooltip.getBoundingClientRect();
-        const left = Math.max(margin, Math.min((window.innerWidth - rect.width) / 2, window.innerWidth - rect.width - margin));
-        const top = Math.max(margin, Math.min((window.innerHeight - rect.height) / 2, window.innerHeight - rect.height - margin));
-        this.tooltip.style.left = `${left}px`;
-        this.tooltip.style.top = `${top}px`;
+        this.tooltip.style.position = 'fixed';
+        this.tooltip.style.top = '50%';
+        this.tooltip.style.left = '50%';
+        this.tooltip.style.transform = 'translate(-50%, -50%)';
+        this.tooltip.style.maxWidth = '600px';
+        this.tooltip.style.width = '90%';
     },
 
     async startFromGroupIndex(groupIndex) {
