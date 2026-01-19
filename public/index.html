@@ -1424,6 +1424,57 @@
                         // Se cancelou, retornar
                         if (selectedGroup === null) return;
 
+                        // Verificar se precisa carregar página diferente para o grupo selecionado
+                        const selectedGroupData = groups[selectedGroup];
+                        const targetUrl = selectedGroupData.url;
+                        const currentUrl = powerIframe.src;
+
+                        // Se o grupo está em página diferente, carregar essa página primeiro
+                        if (targetUrl && targetUrl !== currentUrl && targetUrl !== baseUrl) {
+                            console.log('[TUTORIAL] Navegando para página do grupo:', targetUrl);
+
+                            // Mostrar loading overlay
+                            const navLoadingOverlay = makeOverlay();
+                            showLoadingState(navLoadingOverlay);
+
+                            // Aguardar carregamento da nova página
+                            await new Promise((resolve) => {
+                                let loadHandled = false;
+
+                                const loadHandler = () => {
+                                    if (loadHandled) return;
+                                    loadHandled = true;
+
+                                    powerIframe.removeEventListener('load', loadHandler);
+                                    clearTimeout(timeoutId);
+
+                                    setTimeout(() => {
+                                        if (document.body.contains(navLoadingOverlay)) {
+                                            document.body.removeChild(navLoadingOverlay);
+                                        }
+                                        resolve();
+                                    }, 500);
+                                };
+
+                                const timeoutId = setTimeout(() => {
+                                    if (loadHandled) return;
+                                    loadHandled = true;
+
+                                    powerIframe.removeEventListener('load', loadHandler);
+                                    if (document.body.contains(navLoadingOverlay)) {
+                                        document.body.removeChild(navLoadingOverlay);
+                                    }
+                                    resolve();
+                                }, 5000);
+
+                                powerIframe.addEventListener('load', loadHandler);
+
+                                // Carregar URL do grupo com timestamp
+                                const separator = targetUrl.includes('?') ? '&' : '?';
+                                powerIframe.src = targetUrl + separator + '_t=' + Date.now();
+                            });
+                        }
+
                         const overlay = makeOverlay();
                         let currentIndex = groups[selectedGroup].firstIndex;
                         let ro = null;
