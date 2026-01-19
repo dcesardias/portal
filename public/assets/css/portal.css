@@ -1069,7 +1069,10 @@ body {
     background-color: var(--menu-collapsed-bg-color) !important;
     border-bottom: 1px solid #2a2d4a;
     justify-content: center;
-    padding: 10px 8px;
+    padding: 16px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
 }
 
 .sidebar.collapsed .sidebar-logo {
@@ -1083,7 +1086,26 @@ body {
 
 .sidebar.collapsed .close-btn {
     transform: none;
-    font-size: 16px;
+    font-size: 24px;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-sm);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    margin: 0 auto;
+}
+
+.sidebar.collapsed .close-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.sidebar.collapsed .close-btn:active {
+    transform: scale(0.98);
 }
 
 /* Corrigido: removido o ::before duplicado no estado collapsed */
@@ -1093,6 +1115,8 @@ body {
 
 .sidebar.collapsed .close-btn::before {
     content: '›';
+    font-size: 28px;
+    font-weight: bold;
 }
 
 .sidebar.collapsed .menu-item {
@@ -1112,6 +1136,11 @@ body {
 }
 
 .sidebar.collapsed .submenu {
+    display: none !important;
+}
+
+/* Oculta as setas de submenu quando o menu está collapsed */
+.sidebar.collapsed .menu-item.has-submenu::after {
     display: none !important;
 }
 
