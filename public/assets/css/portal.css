@@ -2506,6 +2506,1354 @@ input[type="range"]#highlightOpacity::-moz-range-thumb:hover {
     transform: translateY(0) !important;
 }
 
+/* ================================
+   SKELETON LOADERS
+   Placeholders elegantes durante carregamento
+   ================================ */
+
+/* Base skeleton */
+.skeleton {
+    background: linear-gradient(
+        90deg,
+        var(--skeleton-base) 0%,
+        var(--skeleton-shine) 50%,
+        var(--skeleton-base) 100%
+    );
+    background-size: 200% 100%;
+    animation: skeletonLoading 1.5s ease-in-out infinite;
+    border-radius: var(--radius-sm);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Variações de skeleton */
+.skeleton-text {
+    height: 1em;
+    margin-bottom: var(--spacing-sm);
+    border-radius: 4px;
+}
+
+.skeleton-title {
+    height: var(--type-lg);
+    width: 60%;
+    margin-bottom: var(--spacing-lg);
+    border-radius: var(--radius-sm);
+}
+
+.skeleton-card {
+    height: 200px;
+    border-radius: var(--radius-md);
+    margin-bottom: var(--spacing-lg);
+}
+
+.skeleton-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+}
+
+.skeleton-avatar-lg {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+}
+
+.skeleton-button {
+    height: var(--control-height);
+    width: 120px;
+    border-radius: var(--radius-sm);
+}
+
+.skeleton-input {
+    height: var(--control-height);
+    width: 100%;
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--spacing-lg);
+}
+
+/* Skeleton para cards de acesso rápido */
+.skeleton-quick-access {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-xl);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.skeleton-quick-access .skeleton-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-sm);
+}
+
+.skeleton-quick-access .skeleton-title {
+    width: 70%;
+    height: 18px;
+    margin: 0;
+}
+
+.skeleton-quick-access .skeleton-text {
+    width: 90%;
+    height: 14px;
+    margin: 0;
+}
+
+/* Skeleton para lista de relatórios */
+.skeleton-report-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-lg);
+    padding: var(--spacing-lg);
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--spacing-sm);
+}
+
+.skeleton-report-item .skeleton-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+}
+
+.skeleton-report-item .skeleton-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.skeleton-report-item .skeleton-title {
+    width: 60%;
+    height: 16px;
+    margin: 0;
+}
+
+.skeleton-report-item .skeleton-text {
+    width: 40%;
+    height: 12px;
+    margin: 0;
+}
+
+/* Skeleton para tabelas */
+.skeleton-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.skeleton-table tr {
+    border-bottom: 1px solid var(--border-color);
+}
+
+.skeleton-table td {
+    padding: var(--spacing-lg);
+}
+
+.skeleton-table .skeleton {
+    height: 16px;
+    width: 100%;
+}
+
+/* Animação de loading */
+@keyframes skeletonLoading {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* Variáveis de cor para skeleton */
+:root {
+    --skeleton-base: rgba(0, 0, 0, 0.06);
+    --skeleton-shine: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="dark"] {
+    --skeleton-base: rgba(255, 255, 255, 0.06);
+    --skeleton-shine: rgba(255, 255, 255, 0.12);
+}
+
+/* Skeleton com pulse (alternativa ao shimmer) */
+.skeleton-pulse {
+    animation: skeletonPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes skeletonPulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* Container para múltiplos skeletons */
+.skeleton-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.skeleton-group-horizontal {
+    display: flex;
+    gap: var(--spacing-lg);
+}
+
+/* ================================
+   GLASSMORPHISM
+   Efeitos de vidro fosco modernos para modais e overlays
+   ================================ */
+
+/* Overlay com glassmorphism */
+.overlay {
+    backdrop-filter: blur(8px) saturate(150%);
+    -webkit-backdrop-filter: blur(8px) saturate(150%);
+    background: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .overlay {
+    background: rgba(0, 0, 0, 0.6);
+}
+
+/* Modal com glassmorphism */
+.login-modal {
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    background: rgba(255, 255, 255, 0.85) !important;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.1),
+        0 0 0 1px rgba(255, 255, 255, 0.1) inset,
+        0 1px 0 rgba(255, 255, 255, 0.5) inset;
+}
+
+[data-theme="dark"] .login-modal {
+    background: rgba(45, 45, 45, 0.75) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+        0 1px 0 rgba(255, 255, 255, 0.1) inset;
+}
+
+/* Classe utilitária para aplicar glassmorphism em qualquer elemento */
+.glass {
+    backdrop-filter: blur(12px) saturate(150%);
+    -webkit-backdrop-filter: blur(12px) saturate(150%);
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow:
+        0 4px 16px rgba(0, 0, 0, 0.08),
+        0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+}
+
+[data-theme="dark"] .glass {
+    background: rgba(45, 45, 45, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow:
+        0 4px 16px rgba(0, 0, 0, 0.3),
+        0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+}
+
+/* Variações de intensidade do glassmorphism */
+.glass-light {
+    backdrop-filter: blur(8px) saturate(120%);
+    -webkit-backdrop-filter: blur(8px) saturate(120%);
+    background: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .glass-light {
+    background: rgba(45, 45, 45, 0.4);
+}
+
+.glass-heavy {
+    backdrop-filter: blur(20px) saturate(200%);
+    -webkit-backdrop-filter: blur(20px) saturate(200%);
+    background: rgba(255, 255, 255, 0.85);
+}
+
+[data-theme="dark"] .glass-heavy {
+    background: rgba(45, 45, 45, 0.8);
+}
+
+/* Glassmorphism para cards flutuantes */
+.card-glass {
+    backdrop-filter: blur(12px) saturate(150%);
+    -webkit-backdrop-filter: blur(12px) saturate(150%);
+    background: rgba(255, 255, 255, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    box-shadow:
+        0 8px 24px rgba(0, 0, 0, 0.1),
+        0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-theme="dark"] .card-glass {
+    background: rgba(45, 45, 45, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow:
+        0 8px 24px rgba(0, 0, 0, 0.3),
+        0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+}
+
+.card-glass:hover {
+    transform: translateY(-2px);
+    box-shadow:
+        0 12px 32px rgba(0, 0, 0, 0.15),
+        0 0 0 1px rgba(255, 255, 255, 0.15) inset;
+}
+
+[data-theme="dark"] .card-glass:hover {
+    box-shadow:
+        0 12px 32px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+}
+
+/* Popover/Dropdown com glassmorphism */
+.glass-popover {
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow:
+        0 12px 40px rgba(0, 0, 0, 0.12),
+        0 0 0 1px rgba(255, 255, 255, 0.15) inset,
+        0 2px 0 rgba(255, 255, 255, 0.6) inset;
+    border-radius: var(--radius-md);
+}
+
+[data-theme="dark"] .glass-popover {
+    background: rgba(45, 45, 45, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow:
+        0 12px 40px rgba(0, 0, 0, 0.5),
+        0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+        0 2px 0 rgba(255, 255, 255, 0.12) inset;
+}
+
+/* ================================
+   MICROANIMAÇÕES PARA ÍCONES
+   Animações sutis e elegantes para feedback visual
+   ================================ */
+
+/* Animação de bounce suave no hover */
+.icon-bounce:hover {
+    animation: iconBounce 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+@keyframes iconBounce {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-6px);
+    }
+}
+
+/* Animação de rotação suave */
+.icon-spin:hover {
+    animation: iconSpin 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes iconSpin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Animação de pulso (batida do coração) */
+.icon-pulse:hover {
+    animation: iconPulse 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes iconPulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    25% {
+        transform: scale(1.1);
+    }
+    50% {
+        transform: scale(0.95);
+    }
+    75% {
+        transform: scale(1.05);
+    }
+}
+
+/* Animação de shake (tremer) */
+.icon-shake:hover {
+    animation: iconShake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+@keyframes iconShake {
+    0%, 100% {
+        transform: translateX(0);
+    }
+    10%, 30%, 50%, 70%, 90% {
+        transform: translateX(-4px);
+    }
+    20%, 40%, 60%, 80% {
+        transform: translateX(4px);
+    }
+}
+
+/* Animação de flip vertical */
+.icon-flip:hover {
+    animation: iconFlip 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes iconFlip {
+    0% {
+        transform: perspective(400px) rotateY(0);
+    }
+    100% {
+        transform: perspective(400px) rotateY(360deg);
+    }
+}
+
+/* Animação de swing (balanço) */
+.icon-swing:hover {
+    animation: iconSwing 0.8s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+    transform-origin: top center;
+}
+
+@keyframes iconSwing {
+    20% {
+        transform: rotate(15deg);
+    }
+    40% {
+        transform: rotate(-10deg);
+    }
+    60% {
+        transform: rotate(5deg);
+    }
+    80% {
+        transform: rotate(-5deg);
+    }
+    100% {
+        transform: rotate(0deg);
+    }
+}
+
+/* Animação de fade + zoom */
+.icon-zoom:hover {
+    animation: iconZoom 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes iconZoom {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.2);
+        opacity: 0.8;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* Animação de jelly (gelatina) */
+.icon-jelly:hover {
+    animation: iconJelly 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+@keyframes iconJelly {
+    0%, 100% {
+        transform: scale(1, 1);
+    }
+    25% {
+        transform: scale(0.9, 1.1);
+    }
+    50% {
+        transform: scale(1.1, 0.9);
+    }
+    75% {
+        transform: scale(0.95, 1.05);
+    }
+}
+
+/* Animação de glow (brilho pulsante) */
+.icon-glow:hover {
+    animation: iconGlow 1s ease-in-out;
+}
+
+@keyframes iconGlow {
+    0%, 100% {
+        filter: drop-shadow(0 0 0 transparent);
+    }
+    50% {
+        filter: drop-shadow(0 0 8px var(--primary-color));
+    }
+}
+
+/* Animação de tada (atenção) */
+.icon-tada:hover {
+    animation: iconTada 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes iconTada {
+    0%, 100% {
+        transform: scale(1) rotate(0);
+    }
+    10%, 20% {
+        transform: scale(0.9) rotate(-3deg);
+    }
+    30%, 50%, 70%, 90% {
+        transform: scale(1.1) rotate(3deg);
+    }
+    40%, 60%, 80% {
+        transform: scale(1.1) rotate(-3deg);
+    }
+}
+
+/* Aplicar microanimações aos ícones dos cards existentes */
+.card-icon {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.quick-access-card:hover .card-icon {
+    animation: iconBounce 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+/* Ícones de menu com animação suave */
+.menu-item i,
+.menu-item svg {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: inline-block;
+}
+
+.menu-item:hover i,
+.menu-item:hover svg {
+    transform: scale(1.1);
+}
+
+/* Botões com ícones */
+.btn i,
+.btn svg,
+.btn-admin i,
+.btn-admin svg {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: inline-block;
+}
+
+.btn:hover i,
+.btn:hover svg,
+.btn-admin:hover i,
+.btn-admin:hover svg {
+    transform: translateX(2px);
+}
+
+/* Ícone de loading com rotação contínua */
+.icon-loading {
+    animation: iconSpin 1s linear infinite;
+}
+
+/* Ícone de sucesso com bounce */
+.icon-success {
+    animation: iconBounce 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    color: #28a745;
+}
+
+/* Ícone de erro com shake */
+.icon-error {
+    animation: iconShake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+    color: #dc3545;
+}
+
+/* Ícone de aviso com pulse */
+.icon-warning {
+    animation: iconPulse 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    color: #ffc107;
+}
+
+/* ================================
+   SCROLLBAR CUSTOMIZADA
+   Estilização elegante da barra de rolagem
+   ================================ */
+
+/* Webkit browsers (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-color);
+    border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg,
+        rgba(0, 102, 204, 0.6) 0%,
+        rgba(0, 82, 163, 0.6) 100%);
+    border-radius: 6px;
+    border: 2px solid var(--bg-color);
+    transition: background 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg,
+        rgba(0, 102, 204, 0.8) 0%,
+        rgba(0, 82, 163, 0.8) 100%);
+}
+
+::-webkit-scrollbar-thumb:active {
+    background: linear-gradient(180deg,
+        rgba(0, 102, 204, 1) 0%,
+        rgba(0, 82, 163, 1) 100%);
+}
+
+/* Scrollbar corner (quando há scroll vertical e horizontal) */
+::-webkit-scrollbar-corner {
+    background: var(--bg-color);
+}
+
+/* Dark theme scrollbar */
+[data-theme="dark"] ::-webkit-scrollbar-track {
+    background: var(--bg-color);
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg,
+        rgba(0, 102, 204, 0.5) 0%,
+        rgba(0, 82, 163, 0.5) 100%);
+    border-color: var(--bg-color);
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg,
+        rgba(0, 102, 204, 0.7) 0%,
+        rgba(0, 82, 163, 0.7) 100%);
+}
+
+/* Scrollbar para áreas específicas */
+
+/* Scrollbar fina para menu lateral */
+.menu-container::-webkit-scrollbar,
+.sidebar::-webkit-scrollbar {
+    width: 8px;
+}
+
+.menu-container::-webkit-scrollbar-thumb,
+.sidebar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    border: 1px solid transparent;
+}
+
+.menu-container::-webkit-scrollbar-thumb:hover,
+.sidebar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Scrollbar para conteúdo principal */
+.content-area::-webkit-scrollbar,
+.main-content::-webkit-scrollbar {
+    width: 10px;
+}
+
+/* Scrollbar invisível mas funcional (para casos específicos) */
+.scrollbar-hidden {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE 10+ */
+}
+
+.scrollbar-hidden::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+}
+
+/* Scrollbar overlay (sobrepõe o conteúdo) */
+.scrollbar-overlay {
+    overflow: overlay;
+}
+
+.scrollbar-overlay::-webkit-scrollbar {
+    width: 10px;
+    background: transparent;
+}
+
+.scrollbar-overlay::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.scrollbar-overlay::-webkit-scrollbar-thumb {
+    background: rgba(0, 102, 204, 0.4);
+    border: 2px solid transparent;
+}
+
+.scrollbar-overlay::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 102, 204, 0.6);
+}
+
+/* Firefox scrollbar styling */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 102, 204, 0.6) var(--bg-color);
+}
+
+[data-theme="dark"] * {
+    scrollbar-color: rgba(0, 102, 204, 0.5) var(--bg-color);
+}
+
+/* Scrollbar com efeito de glow no hover */
+.scrollbar-glow::-webkit-scrollbar-thumb:hover {
+    box-shadow: 0 0 8px rgba(0, 102, 204, 0.6);
+}
+
+/* Scrollbar arredondada completa */
+.scrollbar-rounded::-webkit-scrollbar-thumb {
+    border-radius: 10px;
+}
+
+.scrollbar-rounded::-webkit-scrollbar-track {
+    border-radius: 10px;
+}
+
+/* ================================
+   LOADING STATES ELEGANTES
+   Estados de carregamento visuais e informativos
+   ================================ */
+
+/* Spinner básico com gradiente */
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(0, 102, 204, 0.1);
+    border-top-color: var(--primary-color);
+    border-radius: 50%;
+    animation: spinnerRotate 0.8s linear infinite;
+}
+
+@keyframes spinnerRotate {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Spinner com tamanhos variados */
+.spinner-sm {
+    width: 20px;
+    height: 20px;
+    border-width: 2px;
+}
+
+.spinner-md {
+    width: 40px;
+    height: 40px;
+    border-width: 3px;
+}
+
+.spinner-lg {
+    width: 60px;
+    height: 60px;
+    border-width: 4px;
+}
+
+/* Spinner com gradiente colorido */
+.spinner-gradient {
+    border: 3px solid transparent;
+    border-top: 3px solid var(--primary-color);
+    border-right: 3px solid rgba(0, 102, 204, 0.7);
+    border-bottom: 3px solid rgba(0, 102, 204, 0.4);
+    border-left: 3px solid rgba(0, 102, 204, 0.1);
+}
+
+/* Dots loader (3 pontos pulando) */
+.dots-loader {
+    display: inline-flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.dots-loader span {
+    width: 10px;
+    height: 10px;
+    background: var(--primary-color);
+    border-radius: 50%;
+    animation: dotsJump 1.4s ease-in-out infinite;
+}
+
+.dots-loader span:nth-child(1) {
+    animation-delay: 0s;
+}
+
+.dots-loader span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.dots-loader span:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes dotsJump {
+    0%, 80%, 100% {
+        transform: scale(0.8);
+        opacity: 0.5;
+    }
+    40% {
+        transform: scale(1.2);
+        opacity: 1;
+    }
+}
+
+/* Pulse loader (círculo expandindo) */
+.pulse-loader {
+    width: 40px;
+    height: 40px;
+    position: relative;
+}
+
+.pulse-loader::before,
+.pulse-loader::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 2px solid var(--primary-color);
+    border-radius: 50%;
+    animation: pulseExpand 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+.pulse-loader::after {
+    animation-delay: 0.75s;
+}
+
+@keyframes pulseExpand {
+    0% {
+        transform: scale(0.5);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(1.5);
+        opacity: 0;
+    }
+}
+
+/* Bar loader (barra de progresso infinita) */
+.bar-loader {
+    width: 100%;
+    height: 4px;
+    background: rgba(0, 102, 204, 0.1);
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+}
+
+.bar-loader::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -50%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(90deg,
+        transparent 0%,
+        var(--primary-color) 50%,
+        transparent 100%);
+    animation: barSlide 1.5s ease-in-out infinite;
+}
+
+@keyframes barSlide {
+    to {
+        left: 150%;
+    }
+}
+
+/* Progress bar determinado */
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: rgba(0, 102, 204, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg,
+        var(--primary-color) 0%,
+        var(--primary-color-dark) 100%);
+    border-radius: 4px;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.progress-bar-fill::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.3) 50%,
+        transparent 100%);
+    animation: progressShimmer 1.5s linear infinite;
+}
+
+@keyframes progressShimmer {
+    from {
+        transform: translateX(-100%);
+    }
+    to {
+        transform: translateX(200%);
+    }
+}
+
+/* Loading overlay para cards/containers */
+.loading-overlay {
+    position: relative;
+    pointer-events: none;
+}
+
+.loading-overlay::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: inherit;
+    z-index: 10;
+}
+
+[data-theme="dark"] .loading-overlay::after {
+    background: rgba(45, 45, 45, 0.8);
+}
+
+/* Spinner dentro do overlay */
+.loading-overlay.with-spinner::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(0, 102, 204, 0.2);
+    border-top-color: var(--primary-color);
+    border-radius: 50%;
+    animation: spinnerRotate 0.8s linear infinite;
+    z-index: 11;
+}
+
+/* Loading button state */
+.btn.is-loading,
+.btn-admin.is-loading {
+    position: relative;
+    color: transparent;
+    pointer-events: none;
+}
+
+.btn.is-loading::after,
+.btn-admin.is-loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spinnerRotate 0.6s linear infinite;
+}
+
+/* Skeleton com wave loading */
+.skeleton-wave {
+    position: relative;
+    overflow: hidden;
+}
+
+.skeleton-wave::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.4) 50%,
+        transparent 100%);
+    animation: waveSlide 1.5s ease-in-out infinite;
+}
+
+[data-theme="dark"] .skeleton-wave::after {
+    background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.1) 50%,
+        transparent 100%);
+}
+
+@keyframes waveSlide {
+    from {
+        transform: translateX(-100%);
+    }
+    to {
+        transform: translateX(100%);
+    }
+}
+
+/* Centrar loaders */
+.loader-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+}
+
+/* Loader com texto */
+.loader-with-text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-lg);
+}
+
+.loader-text {
+    color: var(--text-secondary);
+    font-size: var(--type-sm);
+    font-weight: 500;
+}
+
+/* ================================
+   EMPTY STATES
+   Estados vazios elegantes e informativos
+   ================================ */
+
+/* Container principal de empty state */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: var(--spacing-3xl) var(--spacing-xl);
+    min-height: 300px;
+}
+
+/* Ícone do empty state */
+.empty-state-icon {
+    width: 120px;
+    height: 120px;
+    margin-bottom: var(--spacing-xl);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 64px;
+    color: var(--text-muted);
+    position: relative;
+}
+
+/* Círculo de fundo do ícone */
+.empty-state-icon::before {
+    content: '';
+    position: absolute;
+    inset: -20px;
+    background: linear-gradient(135deg,
+        rgba(0, 102, 204, 0.05) 0%,
+        rgba(0, 82, 163, 0.08) 100%);
+    border-radius: 50%;
+    z-index: -1;
+}
+
+[data-theme="dark"] .empty-state-icon::before {
+    background: linear-gradient(135deg,
+        rgba(0, 102, 204, 0.1) 0%,
+        rgba(0, 82, 163, 0.15) 100%);
+}
+
+/* Animação suave no ícone */
+.empty-state-icon {
+    animation: emptyStateFloat 3s ease-in-out infinite;
+}
+
+@keyframes emptyStateFloat {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+/* Título do empty state */
+.empty-state-title {
+    font-size: var(--type-lg);
+    font-weight: 600;
+    color: var(--text-color);
+    margin-bottom: var(--spacing-sm);
+    line-height: var(--line-heading);
+}
+
+/* Descrição do empty state */
+.empty-state-description {
+    font-size: var(--type-base);
+    color: var(--text-secondary);
+    max-width: 400px;
+    line-height: var(--line-body);
+    margin-bottom: var(--spacing-xl);
+}
+
+/* Botão de ação no empty state */
+.empty-state-action {
+    margin-top: var(--spacing-md);
+}
+
+/* Variações de empty state */
+
+/* Empty state compacto */
+.empty-state-compact {
+    min-height: 200px;
+    padding: var(--spacing-xl);
+}
+
+.empty-state-compact .empty-state-icon {
+    width: 80px;
+    height: 80px;
+    font-size: 48px;
+    margin-bottom: var(--spacing-md);
+}
+
+.empty-state-compact .empty-state-icon::before {
+    inset: -15px;
+}
+
+.empty-state-compact .empty-state-title {
+    font-size: var(--type-md);
+}
+
+.empty-state-compact .empty-state-description {
+    font-size: var(--type-sm);
+}
+
+/* Empty state com ilustração SVG */
+.empty-state-illustration {
+    width: 200px;
+    height: 200px;
+    margin-bottom: var(--spacing-xl);
+    opacity: 0.8;
+}
+
+/* Empty state para busca sem resultados */
+.empty-search {
+    padding: var(--spacing-2xl);
+}
+
+.empty-search .empty-state-icon {
+    color: #ffc107;
+}
+
+.empty-search .empty-state-icon::before {
+    background: linear-gradient(135deg,
+        rgba(255, 193, 7, 0.08) 0%,
+        rgba(255, 193, 7, 0.12) 100%);
+}
+
+/* Empty state para erros */
+.empty-error {
+    padding: var(--spacing-2xl);
+}
+
+.empty-error .empty-state-icon {
+    color: #dc3545;
+}
+
+.empty-error .empty-state-icon::before {
+    background: linear-gradient(135deg,
+        rgba(220, 53, 69, 0.08) 0%,
+        rgba(220, 53, 69, 0.12) 100%);
+}
+
+/* Empty state para lista vazia */
+.empty-list {
+    border: 2px dashed var(--border-color);
+    border-radius: var(--radius-lg);
+    background: var(--info-card-bg);
+    min-height: 250px;
+}
+
+/* Empty state com padrão de fundo */
+.empty-state-pattern {
+    position: relative;
+}
+
+.empty-state-pattern::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+        radial-gradient(circle at 20px 20px, var(--border-color) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.3;
+    pointer-events: none;
+}
+
+/* Empty state para primeira vez (onboarding) */
+.empty-first-time {
+    background: linear-gradient(135deg,
+        rgba(0, 102, 204, 0.02) 0%,
+        rgba(0, 82, 163, 0.05) 100%);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-3xl);
+}
+
+.empty-first-time .empty-state-icon {
+    color: var(--primary-color);
+}
+
+.empty-first-time .empty-state-icon::before {
+    background: linear-gradient(135deg,
+        rgba(0, 102, 204, 0.1) 0%,
+        rgba(0, 82, 163, 0.15) 100%);
+}
+
+/* Lista de passos no empty state */
+.empty-state-steps {
+    list-style: none;
+    padding: 0;
+    margin: var(--spacing-xl) 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    max-width: 400px;
+}
+
+.empty-state-steps li {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    background: var(--card-bg);
+    border-radius: var(--radius-sm);
+    text-align: left;
+    color: var(--text-secondary);
+    font-size: var(--type-sm);
+}
+
+.empty-state-steps li::before {
+    content: attr(data-step);
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    background: linear-gradient(135deg,
+        var(--primary-color) 0%,
+        var(--primary-color-dark) 100%);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: var(--type-xs);
+}
+
+/* Empty state com múltiplas ações */
+.empty-state-actions {
+    display: flex;
+    gap: var(--spacing-md);
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: var(--spacing-lg);
+}
+
+/* Empty state para cards */
+.empty-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-2xl);
+}
+
+/* Animação de entrada do empty state */
+.empty-state {
+    animation: emptyStateFadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes emptyStateFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Ilustrações com CSS puro */
+
+/* Ilustração de pasta vazia */
+.illustration-folder-empty {
+    width: 120px;
+    height: 120px;
+    position: relative;
+    margin: 0 auto var(--spacing-xl);
+}
+
+.illustration-folder-empty::before {
+    content: '';
+    position: absolute;
+    bottom: 20px;
+    left: 0;
+    right: 0;
+    height: 80px;
+    background: var(--border-color);
+    border-radius: 8px;
+    opacity: 0.3;
+}
+
+.illustration-folder-empty::after {
+    content: '';
+    position: absolute;
+    top: 40px;
+    left: 0;
+    width: 40px;
+    height: 30px;
+    background: var(--border-color);
+    border-radius: 4px 4px 0 0;
+    opacity: 0.3;
+}
+
+/* Ilustração de documento vazio */
+.illustration-document-empty {
+    width: 100px;
+    height: 120px;
+    position: relative;
+    margin: 0 auto var(--spacing-xl);
+    background: var(--border-color);
+    border-radius: 8px;
+    opacity: 0.3;
+}
+
+.illustration-document-empty::before {
+    content: '';
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    right: 20px;
+    height: 4px;
+    background: var(--text-muted);
+    border-radius: 2px;
+    box-shadow:
+        0 12px 0 var(--text-muted),
+        0 24px 0 var(--text-muted);
+    opacity: 0.5;
+}
+
 /* Respeita preferências do usuário (acessibilidade) */
 @media (prefers-reduced-motion: reduce) {
     *,
