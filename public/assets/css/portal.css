@@ -2257,7 +2257,7 @@ body {
     display: flex;
     align-items: center;
     gap: 6px;
-    z-index: 100;
+    z-index: 10003; /* Acima do overlay (10000) e tooltip (10002) */
     box-shadow: var(--shadow-sm);
     transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease;
     font-family: var(--base-font-family);
@@ -2319,7 +2319,7 @@ body {
     cursor: pointer;
     font-size: 12px;
     font-weight: 500;
-    z-index: 100;
+    z-index: 10003; /* Acima do overlay (10000) - mesmo nível do botão Ajuda */
     outline: none;
     transition: all 0.3s ease;
     box-shadow: var(--shadow-sm);
