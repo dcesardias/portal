@@ -78,7 +78,11 @@
                             <i class="fas fa-graduation-cap"></i>
                             Ajuda
                         </button>
-                        
+
+                        <select id="tutorialGroupSelector" class="tutorial-group-selector-fixed" style="display:none;" title="Selecionar grupo do tutorial">
+                            <option value="">Selecione um grupo...</option>
+                        </select>
+
                         <button id="refreshIframeBtn" class="btn-refresh-iframe" style="display:none;" title="Atualizar painel">
                             <i class="fas fa-sync-alt"></i>
                         </button>
@@ -1206,27 +1210,10 @@
             `;
 
             // CRÍTICO: Sempre recriar HTML do tooltip para garantir elementos válidos
-            // Gerar dropdown de grupos se houver mais de um
-            let groupSelectHtml = '';
-            if (window.__tutorialGroups && window.__tutorialGroups.length > 1) {
-                const groupOptions = window.__tutorialGroups.map((g, gIdx) => {
-                    const icon = gIdx === 0 ? '🎯' : '📄';
-                    return `<option value="${gIdx}"${gIdx === window.__currentGroupIndex ? ' selected' : ''}>${icon} ${g.name}</option>`;
-                }).join('');
-                groupSelectHtml = `
-                    <div class="tutorial-group-selector">
-                        <select class="tutorial-group-dropdown" aria-label="Selecionar grupo">
-                            ${groupOptions}
-                        </select>
-                    </div>
-                `;
-            }
-
             tt.innerHTML = `
                 <button class="btn-tutorial-close" aria-label="Fechar">×</button>
                 <h3>${step.title || ('Passo ' + (idx + 1))}</h3>
                 <p>${step.description || ''}</p>
-                ${groupSelectHtml}
                 <div class="tutorial-footer">
                     <span class="tutorial-progress">${(idx + 1)} / ${total}</span>
                     <div class="tutorial-buttons">
@@ -1287,22 +1274,6 @@
             
             hl.style.display = 'none';
 
-            // Gerar dropdown de grupos se houver mais de um
-            let groupSelectHtml = '';
-            if (window.__tutorialGroups && window.__tutorialGroups.length > 1) {
-                const groupOptions = window.__tutorialGroups.map((g, gIdx) => {
-                    const icon = gIdx === 0 ? '🎯' : '📄';
-                    return `<option value="${gIdx}"${gIdx === window.__currentGroupIndex ? ' selected' : ''}>${icon} ${g.name}</option>`;
-                }).join('');
-                groupSelectHtml = `
-                    <div class="tutorial-group-selector">
-                        <select class="tutorial-group-dropdown" aria-label="Selecionar grupo">
-                            ${groupOptions}
-                        </select>
-                    </div>
-                `;
-            }
-
             tt.innerHTML = `
                 <button class="btn-tutorial-close" aria-label="Fechar">×</button>
                 <div class="tutorial-tooltip-center">
@@ -1310,7 +1281,6 @@
                 </div>
                 <h3 class="tutorial-tooltip-title">${step.title || ('Passo ' + (idx + 1))}</h3>
                 <p class="tutorial-tooltip-desc">${step.description || ''}</p>
-                ${groupSelectHtml}
                 <div class="tutorial-footer">
                     <span class="tutorial-progress">${(idx + 1)} / ${total}</span>
                     <div class="tutorial-buttons">
@@ -1450,6 +1420,18 @@
                         // Armazenar grupos em window para acesso global nas funções de tooltip
                         window.__tutorialGroups = groups;
                         window.__currentGroupIndex = 0;
+
+                        // Popular dropdown fixo de seleção de grupos
+                        const fixedDropdown = document.getElementById('tutorialGroupSelector');
+                        if (fixedDropdown && groups.length > 1) {
+                            const groupOptions = groups.map((g, gIdx) => {
+                                const icon = gIdx === 0 ? '🎯' : '📄';
+                                return `<option value="${gIdx}">${icon} ${g.name}</option>`;
+                            }).join('');
+                            fixedDropdown.innerHTML = groupOptions;
+                            fixedDropdown.value = '0';
+                            fixedDropdown.style.display = 'block';
+                        }
 
                         const overlay = makeOverlay();
                         let currentIndex = 0; // Sempre inicia no primeiro step (grupo 1)
@@ -1647,6 +1629,12 @@
                             currentGroupIndex = newGroupIndex;
                             window.__currentGroupIndex = newGroupIndex;
 
+                            // Atualizar dropdown fixo
+                            const fixedDropdown = document.getElementById('tutorialGroupSelector');
+                            if (fixedDropdown) {
+                                fixedDropdown.value = newGroupIndex.toString();
+                            }
+
                             // Verificar se precisa carregar página diferente
                             const targetUrl = newGroup.url;
                             const currentUrl = powerIframe.src;
@@ -1709,10 +1697,11 @@
                             c.next.onclick = () => go(1);
                             c.close.onclick = () => close();
 
-                            // Event listener do dropdown de grupos
-                            const dropdown = overlay._tooltip.querySelector('.tutorial-group-dropdown');
-                            if (dropdown) {
-                                dropdown.onchange = (e) => {
+                            // Event listener do dropdown fixo de grupos (fora do tooltip)
+                            const fixedDropdown = document.getElementById('tutorialGroupSelector');
+                            if (fixedDropdown && !fixedDropdown.__eventAttached) {
+                                fixedDropdown.__eventAttached = true;
+                                fixedDropdown.onchange = (e) => {
                                     const newGroupIndex = parseInt(e.target.value);
                                     changeGroup(newGroupIndex);
                                 };
@@ -1752,6 +1741,13 @@
                             } catch (_) {}
                             if (document.body.contains(overlay)) {
                                 document.body.removeChild(overlay);
+                            }
+
+                            // Ocultar dropdown fixo ao fechar tutorial
+                            const fixedDropdown = document.getElementById('tutorialGroupSelector');
+                            if (fixedDropdown) {
+                                fixedDropdown.style.display = 'none';
+                                fixedDropdown.__eventAttached = false;
                             }
                         };
 

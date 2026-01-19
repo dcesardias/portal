@@ -2278,6 +2278,55 @@ body {
     font-size: 13px;
 }
 
+/* Dropdown fixo de seleção de grupos (ao lado do botão Ajuda) */
+.tutorial-group-selector-fixed {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(calc(-50% + 60px)); /* 60px = metade da largura do botão Ajuda + gap */
+    background: white;
+    border: 2px solid var(--primary-color);
+    color: #333;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    z-index: 100;
+    outline: none;
+    transition: all 0.3s ease;
+    box-shadow: var(--shadow-sm);
+    font-family: var(--base-font-family);
+    max-width: 200px;
+}
+
+.tutorial-group-selector-fixed:hover {
+    border-color: var(--primary-color-dark);
+    box-shadow: var(--shadow-md);
+    transform: translateX(calc(-50% + 60px)) translateY(-1px);
+}
+
+.tutorial-group-selector-fixed:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1), var(--shadow-sm);
+}
+
+[data-theme="dark"] .tutorial-group-selector-fixed {
+    background: #2d2d2d;
+    border-color: #4da3ff;
+    color: #e0e0e0;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+}
+
+[data-theme="dark"] .tutorial-group-selector-fixed:hover {
+    border-color: #6bb3ff;
+    box-shadow: 0 10px 26px rgba(0,0,0,0.45);
+}
+
+[data-theme="dark"] .tutorial-group-selector-fixed:focus {
+    box-shadow: 0 0 0 3px rgba(77, 163, 255, 0.15), 0 6px 18px rgba(0,0,0,0.35);
+}
+
 /* Garantir que o container do Power BI tenha position relative */
 .powerbi-container {
     position: relative !important;
