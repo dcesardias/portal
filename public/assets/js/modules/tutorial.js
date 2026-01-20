@@ -401,15 +401,47 @@ window.PortalTutorial = {
     }
 };
 
+// Função de debounce para otimizar resize
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
 // Registrar eventos de redimensionamento para reposicionar elementos
-window.addEventListener('resize', () => {
+const handleTutorialResize = debounce(() => {
     if (window.PortalTutorial.currentTutorial && window.PortalTutorial.currentStep >= 0) {
         const step = window.PortalTutorial.currentTutorial.steps[window.PortalTutorial.currentStep];
         if (step) {
             window.PortalTutorial.positionHighlight(step.highlight);
             window.PortalTutorial.positionTooltip(step);
+            console.log('[TUTORIAL] Reposicionado após resize');
         }
     }
-});
+}, 150); // 150ms de debounce
+
+window.addEventListener('resize', handleTutorialResize);
+
+// Também observar mudanças no iframe do Power BI
+if ('ResizeObserver' in window) {
+    const observeIframe = () => {
+        const iframe = document.querySelector('#powerbiContainer iframe');
+        if (iframe) {
+            const ro = new ResizeObserver(handleTutorialResize);
+            ro.observe(iframe);
+            console.log('[TUTORIAL] ResizeObserver configurado para iframe');
+        } else {
+            // Tentar novamente após um curto delay
+            setTimeout(observeIframe, 1000);
+        }
+    };
+    observeIframe();
+}
 
 console.log('[TUTORIAL] Módulo carregado');

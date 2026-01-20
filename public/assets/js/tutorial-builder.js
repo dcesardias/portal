@@ -1,3 +1,16 @@
+// Função utilitária de debounce para otimizar resize
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
 class TutorialBuilderApp {
     constructor() {
         this.pageId = new URLSearchParams(window.location.search).get('pageId');
@@ -13,26 +26,30 @@ class TutorialBuilderApp {
         this.iframeLoaded = false;
         this.previewIndex = 0;
         this.currentStepType = 'highlight';
-        
+
         // Temporários para navegação
         this.tempNavigationUrl = null;
         this.tempNavigationPageName = null;
-        
+
         // Configuração do relatório Power BI
         this.reportId = null;
         this.tenantId = null;
         this.embedUrlBase = null;
         this.reportConfigured = false;
-        
+
         // URL da tela atual (para agrupamento)
         this.currentScreenUrl = null;
 
         // Nomes customizados por grupo (screenUrl)
         this.groupNames = {};
-        
+
         this.overlayOpacity = 0.75;
         this.highlightOpacity = 0.20;
-        
+
+        // Cache de offsets para evitar recálculos desnecessários
+        this.cachedOffset = null;
+        this.lastIframeRect = null;
+
         this.init();
     }
 
@@ -678,27 +695,62 @@ class TutorialBuilderApp {
 
         setTimeout(checkLoaded, 2000);
 
+        // Configurar ResizeObserver com debounce para melhor performance
         if ('ResizeObserver' in window) {
-            const ro = new ResizeObserver(() => {
+            const handleResize = debounce(() => {
+                // Força recálculo dos offsets do Power BI
+                this.detectPowerBIOffset(iframe, true);
+
+                // Re-renderiza todos os highlights com novos offsets
                 this.renderAllHighlights();
-                if (this.tempHighlight) this.renderTempHighlight(this.tempHighlight);
-            });
+
+                // Re-renderiza highlight temporário se existir
+                if (this.tempHighlight) {
+                    this.renderTempHighlight(this.tempHighlight);
+                }
+
+                console.log('[RESIZE] Highlights reposicionados');
+            }, 150); // 150ms de debounce
+
+            const ro = new ResizeObserver(handleResize);
             ro.observe(iframe);
+
+            // Guarda referência para cleanup
+            this.resizeObserver = ro;
         }
     }
 
-    detectPowerBIOffset(iframe) {
+    detectPowerBIOffset(iframe, forceRecalculate = false) {
         const rect = iframe.getBoundingClientRect();
+
+        // Verifica se precisa recalcular (mudança significativa nas dimensões)
+        const needsRecalculation = forceRecalculate ||
+            !this.lastIframeRect ||
+            Math.abs(this.lastIframeRect.width - rect.width) > 5 ||
+            Math.abs(this.lastIframeRect.height - rect.height) > 5;
+
+        if (!needsRecalculation && this.cachedOffset) {
+            return this.cachedOffset;
+        }
+
+        // Recalcula os offsets baseado nas dimensões atuais
         const topOffset = Math.max(45, Math.min(60, rect.height * 0.06));
         const sideOffset = Math.max(6, rect.width * 0.008);
         const bottomOffset = Math.max(6, rect.height * 0.01);
-        
-        return {
+
+        this.cachedOffset = {
             top: topOffset,
             left: sideOffset,
             right: sideOffset,
             bottom: bottomOffset
         };
+
+        this.lastIframeRect = {
+            width: rect.width,
+            height: rect.height
+        };
+
+        return this.cachedOffset;
     }
 
     async loadPageData() {
