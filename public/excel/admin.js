@@ -307,6 +307,10 @@ async function showTableModal(tableId = null) {
         document.getElementById('tableDescription').value = table.Description || '';
         document.getElementById('tableIcon').value = table.Icon || '';
         document.getElementById('tableGroup').value = table.GroupId || '';
+        const allowFullLoadCheckbox = document.getElementById('allowFullLoad');
+        if (allowFullLoadCheckbox) {
+            allowFullLoadCheckbox.checked = table.AllowFullLoad !== undefined ? !!table.AllowFullLoad : true;
+        }
         
         // Ocultar seção de upload de arquivo na edição
         if (fileUploadSection) {
@@ -317,6 +321,10 @@ async function showTableModal(tableId = null) {
         document.getElementById('tableForm').reset();
         document.getElementById('tableName').disabled = false;
         document.getElementById('fileInfo').classList.remove('show');
+        const allowFullLoadCheckbox = document.getElementById('allowFullLoad');
+        if (allowFullLoadCheckbox) {
+            allowFullLoadCheckbox.checked = true;
+        }
         
         // Mostrar seção de upload na criação
         if (fileUploadSection) {
@@ -393,6 +401,9 @@ async function saveTable() {
         formData.append('displayName', document.getElementById('tableDisplayName').value);
         formData.append('description', document.getElementById('tableDescription').value);
         formData.append('icon', document.getElementById('tableIcon').value);
+
+        const allowFullLoadCheckbox = document.getElementById('allowFullLoad');
+        formData.append('allow_full_load', allowFullLoadCheckbox && allowFullLoadCheckbox.checked ? '1' : '0');
         
         const groupId = document.getElementById('tableGroup').value;
         if (groupId) {

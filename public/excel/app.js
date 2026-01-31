@@ -3,6 +3,9 @@ let currentTable = null;
 let selectedFile = null;
 let tabelas = {};
 
+// Tabela especial: Orçamento Fluxo de Caixa Ajustado
+const ORCAMENTO_FLUXO_CAIXA_TABLE = 'VW_ORCAMENTO_FLUXO_CAIXA_AJUSTADO';
+
 // Elementos DOM
 const tablesList = document.getElementById('tablesList');
 const uploadArea = document.getElementById('uploadArea');
@@ -288,6 +291,7 @@ function selectTable(key, info) {
 // Renderizar upload para tabela padrão
 function renderStandardUpload(key, info) {
     uploadArea.className = 'upload-area';
+    const allowFullLoad = info && info.allowFullLoad !== undefined ? !!info.allowFullLoad : true;
     uploadArea.innerHTML = `
         <div class="upload-content">
             <h2><span class="icon-emoji">${info.icone}</span> <span class="title-text">${info.nome}</span></h2>
@@ -308,15 +312,23 @@ function renderStandardUpload(key, info) {
             <div class="form-group">
                 <label><i class="fas fa-cog"></i> Tipo de Carga</label>
                 <div class="btn-group-toggle">
-                    <button class="btn-toggle active" data-value="completa" id="btnCompleta">
+                    <button class="btn-toggle ${allowFullLoad ? 'active' : ''}" data-value="completa" id="btnCompleta" ${allowFullLoad ? '' : 'disabled'}>
                         <i class="fas fa-sync-alt"></i> Carga Completa
                     </button>
-                    <button class="btn-toggle" data-value="incremental" id="btnIncremental">
+                    <button class="btn-toggle ${allowFullLoad ? '' : 'active'}" data-value="incremental" id="btnIncremental">
                         <i class="fas fa-plus-circle"></i> Carga Incremental
                     </button>
                 </div>
-                <small class="hint-text" id="tipoCargaHint">Substitui todos os dados da tabela</small>
+                <small class="hint-text" id="tipoCargaHint">${allowFullLoad ? 'Substitui todos os dados da tabela' : 'Carga completa desabilitada para esta tabela'}</small>
             </div>
+
+            ${key === ORCAMENTO_FLUXO_CAIXA_TABLE ? `
+            <div class="form-group">
+                <label for="anoBase"><i class="fas fa-calendar-alt"></i> Ano base do orçamento</label>
+                <input type="number" id="anoBase" placeholder="Ex: 2025" min="2000" max="2100">
+                <small class="hint-text">Obrigatório para a carga de orçamento</small>
+            </div>
+            ` : ''}
             
             <div class="dropzone" id="dropzone">
                 <div class="upload-icon"><i class="fas fa-cloud-upload-alt"></i></div>
@@ -342,6 +354,13 @@ function renderStandardUpload(key, info) {
     setupDropzone();
     setupUploadButton();
     setupTipoCargaButtons();
+
+    if (key === ORCAMENTO_FLUXO_CAIXA_TABLE) {
+        const anoBaseInput = document.getElementById('anoBase');
+        if (anoBaseInput) {
+            anoBaseInput.addEventListener('input', updateUploadButtonState);
+        }
+    }
 }
 
 // Renderizar upload para tabela temporária
@@ -468,6 +487,10 @@ function updateUploadButtonState() {
     if (currentTable === 'TABELA_TEMPORARIA') {
         const tableName = document.getElementById('tableName').value.trim();
         uploadBtn.disabled = !selectedFile || !tableName || !/^[A-Za-z0-9_]+$/.test(tableName);
+    } else if (currentTable === ORCAMENTO_FLUXO_CAIXA_TABLE) {
+        const anoBaseInput = document.getElementById('anoBase');
+        const anoBase = anoBaseInput ? anoBaseInput.value.trim() : '';
+        uploadBtn.disabled = !selectedFile || !/^[0-9]{4}$/.test(anoBase);
     } else {
         uploadBtn.disabled = !selectedFile;
     }
@@ -514,6 +537,20 @@ async function handleUpload() {
         } else {
             const tipoCarga = getTipoCargaSelecionado();
             formData.append('tipo_carga', tipoCarga);
+
+            if (currentTable === ORCAMENTO_FLUXO_CAIXA_TABLE) {
+                const anoBaseInput = document.getElementById('anoBase');
+                const anoBase = anoBaseInput ? anoBaseInput.value.trim() : '';
+                if (!/^[0-9]{4}$/.test(anoBase)) {
+                    showAlert('Informe o ano base do orçamento (4 dígitos)', 'error');
+                    progressBar.classList.remove('active');
+                    if (progressText) progressText.style.display = 'none';
+                    uploadBtn.disabled = false;
+                    return;
+                }
+                formData.append('ano_base', anoBase);
+            }
+
             url = `/api/excel/upload/${currentTable}`;
             successMessage = `Upload concluído com sucesso!`;
             
@@ -651,6 +688,7 @@ function setupTipoCargaButtons() {
     if (!btnCompleta || !btnIncremental) return;
     
     btnCompleta.addEventListener('click', () => {
+        if (btnCompleta.disabled) return;
         btnCompleta.classList.add('active');
         btnIncremental.classList.remove('active');
         if (hintText) hintText.textContent = 'Substitui todos os dados da tabela';

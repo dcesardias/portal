@@ -42,6 +42,7 @@ BEGIN
         [ModelFileName] NVARCHAR(255) NULL, -- Nome do arquivo modelo Excel
         [ModelFilePath] NVARCHAR(500) NULL, -- Caminho do arquivo modelo
         [ColumnDefinitions] NVARCHAR(MAX) NULL, -- JSON com definição das colunas
+        [AllowFullLoad] BIT NOT NULL DEFAULT 1, -- Permitir Carga Completa
         [IsActive] BIT NOT NULL DEFAULT 1,
         [CreatedAt] DATETIME NOT NULL DEFAULT GETDATE(),
         [UpdatedAt] DATETIME NOT NULL DEFAULT GETDATE(),

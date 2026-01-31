@@ -67,6 +67,34 @@ app.get(['/chatbot', '/chatbot/'], (req, res) => {
 
 const XLSX = require('xlsx');
 
+// Tabela especial: Orçamento Fluxo de Caixa Ajustado
+const ORCAMENTO_FLUXO_CAIXA_TABLE = 'VW_ORCAMENTO_FLUXO_CAIXA_AJUSTADO';
+
+// Garantir coluna AllowFullLoad em TableDefinitions
+async function ensureAllowFullLoadColumn() {
+    const check = await pool.request().query(`
+        SELECT 1
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_NAME = 'TableDefinitions' AND COLUMN_NAME = 'AllowFullLoad'
+    `);
+    if (check.recordset.length === 0) {
+        console.log('[DB] Adicionando coluna AllowFullLoad em TableDefinitions');
+        await pool.request().query(`
+            ALTER TABLE [dbo].[TableDefinitions]
+            ADD [AllowFullLoad] BIT NOT NULL CONSTRAINT DF_TableDefinitions_AllowFullLoad DEFAULT 1
+        `);
+    }
+}
+
+async function tableDefinitionsHasAllowFullLoad() {
+    const check = await pool.request().query(`
+        SELECT 1
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_NAME = 'TableDefinitions' AND COLUMN_NAME = 'AllowFullLoad'
+    `);
+    return check.recordset.length > 0;
+}
+
 // Mapeamento de tabelas disponíveis para carga
 const TABELAS_DISPONIVEIS = {
     'AFASTAMENTO': { nome: 'Afastamentos', descricao: 'Dados de afastamentos de funcionários', icone: '🏥' },
@@ -75,7 +103,8 @@ const TABELAS_DISPONIVEIS = {
     'MOVIMENTO_PESSOAL': { nome: 'Movimento Pessoal', descricao: 'Movimentações de pessoal', icone: '📋' },
     'MOVIMENTO_PESSOAL_CC': { nome: 'Movimento Pessoal CC', descricao: 'Movimentações de pessoal - Centro de Custo', icone: '💼' },
     'ADP_BENEFICIOS': { nome: 'ADP Benefícios', descricao: 'Dados de benefícios ADP', icone: '🎁' },
-    'ADP_MOTIVO_RESCISAO': { nome: 'ADP Motivo Rescisão', descricao: 'Motivos de rescisão ADP', icone: '📄' }
+    'ADP_MOTIVO_RESCISAO': { nome: 'ADP Motivo Rescisão', descricao: 'Motivos de rescisão ADP', icone: '📄' },
+    [ORCAMENTO_FLUXO_CAIXA_TABLE]: { nome: 'Orçamento Fluxo de Caixa', descricao: 'Carga de orçamento com transformação de meses em linhas', icone: '📈' }
 };
 
 // ROTAS REMOVIDAS - Acesso apenas via painel admin
@@ -114,7 +143,8 @@ app.get('/api/excel/tabelas', async (req, res) => {
                 nome: table.DisplayName,
                 descricao: table.Description,
                 icone: table.Icon,
-                modelFilePath: table.ModelFilePath
+                modelFilePath: table.ModelFilePath,
+                allowFullLoad: table.AllowFullLoad !== undefined ? !!table.AllowFullLoad : true
             };
             
             if (table.GroupId) {
@@ -831,6 +861,24 @@ function convertToSqlType(value, sqlType) {
                         }
                     }
                     
+                    // QUARTO: Tenta formato ISO com hora: YYYY-MM-DD HH:mm:ss(.SSS)
+                    const isoDateTimeMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?)?$/);
+                    if (isoDateTimeMatch) {
+                        const [, year, month, day, hh, mm, ss, ms] = isoDateTimeMatch;
+                        const yearNum = parseInt(year, 10);
+                        const monthNum = parseInt(month, 10);
+                        const dayNum = parseInt(day, 10);
+                        const hourNum = parseInt(hh || '0', 10);
+                        const minNum = parseInt(mm || '0', 10);
+                        const secNum = parseInt(ss || '0', 10);
+                        const msNum = parseInt(ms || '0', 10);
+
+                        const testDate = new Date(yearNum, monthNum - 1, dayNum, hourNum, minNum, secNum, msNum);
+                        if (!isNaN(testDate.getTime())) {
+                            return testDate;
+                        }
+                    }
+
                     // TERCEIRO: Tenta formato DD-MM-YYYY ou DD-MM-YY
                     const brDateMatch2 = value.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
                     if (brDateMatch2) {
@@ -868,6 +916,490 @@ function convertToSqlType(value, sqlType) {
     }
 }
 
+// ===============================
+// Helpers específicos para carga de Orçamento Fluxo de Caixa
+// ===============================
+function simplifyHeader(value) {
+    return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim();
+}
+
+function normalizeHeader(value) {
+    return simplifyHeader(value).replace(/[^a-z0-9]/g, '');
+}
+
+function getMonthInfoFromHeader(header) {
+    const simplified = simplifyHeader(header);
+
+    // Casos simples numéricos (ex.: "1", "01", "m1", "m01", "mes1", "mes01")
+    const simpleNumMatch = simplified.match(/^(?:m|mes)?0?([1-9]|1[0-2])$/i);
+    if (simpleNumMatch) {
+        return { monthNum: parseInt(simpleNumMatch[1], 10), source: header };
+    }
+
+    const monthRegex = /(jan(?:eiro)?|fev(?:ereiro)?|mar(?:co|ço)?|abr(?:il)?|mai(?:o)?|jun(?:ho)?|jul(?:ho)?|ago(?:sto)?|set(?:embro)?|out(?:ubro)?|nov(?:embro)?|dez(?:embro)?)/i;
+    const monthMatch = simplified.match(monthRegex);
+    if (monthMatch) {
+        const key = normalizeHeader(monthMatch[1]);
+        const map = {
+            jan: 1,
+            janeiro: 1,
+            fev: 2,
+            fevereiro: 2,
+            mar: 3,
+            marco: 3,
+            abr: 4,
+            abril: 4,
+            mai: 5,
+            maio: 5,
+            jun: 6,
+            junho: 6,
+            jul: 7,
+            julho: 7,
+            ago: 8,
+            agosto: 8,
+            set: 9,
+            setembro: 9,
+            out: 10,
+            outubro: 10,
+            nov: 11,
+            novembro: 11,
+            dez: 12,
+            dezembro: 12
+        };
+        const monthNum = map[key];
+        if (monthNum) return { monthNum, source: header };
+    }
+
+    const mesNumeroMatch = simplified.match(/\bmes\D*0?([1-9]|1[0-2])\b/);
+    if (mesNumeroMatch) {
+        return { monthNum: parseInt(mesNumeroMatch[1], 10), source: header };
+    }
+
+    // Detecção genérica: mês como número dentro do header (ex.: "2025-02", "M-03")
+    const genericNumMatch = simplified.match(/(?:^|[^0-9])0?([1-9]|1[0-2])(?:[^0-9]|$)/);
+    if (genericNumMatch) {
+        return { monthNum: parseInt(genericNumMatch[1], 10), source: header };
+    }
+
+    return null;
+}
+
+function pickCellValueForColumn(row, excelHeader, col) {
+    if (!excelHeader) return null;
+    const cell = row ? row[excelHeader] : null;
+    if (!cell) return null;
+
+    if (col && col.DATA_TYPE && col.DATA_TYPE.toLowerCase().includes('date')) {
+        const textVal = cell.text && typeof cell.text === 'string' ? cell.text.trim() : '';
+        if (textVal && textVal.match(/^\d{1,2}\/\d{1,2}\/\d{2,4}$/)) {
+            return textVal;
+        }
+        if (cell.raw !== null && cell.raw !== undefined && typeof cell.raw === 'number') {
+            return cell.raw;
+        }
+        if (textVal !== '') return textVal;
+        return cell.raw;
+    }
+
+    if (cell.raw !== undefined && cell.raw !== null) return cell.raw;
+    if (cell.text !== undefined && cell.text !== null) return cell.text;
+    return null;
+}
+
+function formatSqlDateTime(dateObj) {
+    if (!dateObj || isNaN(dateObj.getTime())) return null;
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day} 00:00:00.000`;
+}
+
+function buildHeaderMap(excelHeaders, ignoredHeaders = new Set()) {
+    const map = new Map();
+    excelHeaders.forEach((header) => {
+        if (!header || ignoredHeaders.has(header)) return;
+        const normalized = normalizeHeader(header);
+        if (!map.has(normalized)) map.set(normalized, header);
+    });
+    return map;
+}
+
+function tokenizeHeader(value) {
+    const simplified = simplifyHeader(value);
+    const tokens = simplified.split(/[^a-z0-9]+/).filter(Boolean);
+    const stopwords = new Set(['de', 'da', 'do', 'das', 'dos', 'e', 'em', 'no', 'na', 'para', 'por', 'com']);
+    return tokens.filter(t => t.length > 1 && !stopwords.has(t));
+}
+
+function jaccardSimilarity(a, b) {
+    if (!a.length || !b.length) return 0;
+    const setA = new Set(a);
+    const setB = new Set(b);
+    let intersection = 0;
+    for (const item of setA) {
+        if (setB.has(item)) intersection++;
+    }
+    const union = new Set([...setA, ...setB]).size;
+    return union === 0 ? 0 : intersection / union;
+}
+
+function findBestExcelHeaderForTarget(target, excelHeaders, normalizedHeaderMap) {
+    const normalizedTarget = normalizeHeader(target);
+    if (normalizedHeaderMap.has(normalizedTarget)) return normalizedHeaderMap.get(normalizedTarget);
+
+    const targetTokens = tokenizeHeader(target);
+    let bestHeader = null;
+    let bestScore = 0;
+
+    for (const header of excelHeaders) {
+        const headerTokens = tokenizeHeader(header);
+        const score = jaccardSimilarity(targetTokens, headerTokens);
+        if (score > bestScore) {
+            bestScore = score;
+            bestHeader = header;
+        }
+    }
+
+    return bestScore >= 0.25 ? bestHeader : null;
+}
+
+function preferDsOverCdHeader(targetCol, header, excelHeaders) {
+    if (!header) return header;
+    if (targetCol !== 'Conta Contábil' && targetCol !== 'Centro Custo') return header;
+
+    const normalizedHeader = normalizeHeader(header);
+    if (!normalizedHeader.startsWith('cd')) return header;
+
+    const candidates = excelHeaders.filter(h => normalizeHeader(h).startsWith('ds'));
+    if (candidates.length === 0) return header;
+
+    let bestCandidate = null;
+    let bestScore = 0;
+    const targetTokens = tokenizeHeader(targetCol);
+    for (const candidate of candidates) {
+        const score = jaccardSimilarity(targetTokens, tokenizeHeader(candidate));
+        if (score > bestScore) {
+            bestScore = score;
+            bestCandidate = candidate;
+        }
+    }
+
+    return bestCandidate || header;
+}
+
+function findExcelHeaderForAliases(aliasList, normalizedHeaderMap) {
+    for (const alias of aliasList) {
+        if (normalizedHeaderMap.has(alias)) return normalizedHeaderMap.get(alias);
+    }
+    for (const alias of aliasList) {
+        if (alias.length < 4) continue;
+        for (const [norm, header] of normalizedHeaderMap.entries()) {
+            if (norm.includes(alias)) return header;
+        }
+    }
+    return null;
+}
+
+async function readExcelWithRawAndText(filePath) {
+    const fileContent = fs.readFileSync(filePath, 'utf8');
+    const isTabDelimited = fileContent.includes('\t') && !fileContent.startsWith('PK');
+
+    let dataText, dataRaw;
+
+    if (isTabDelimited) {
+        console.log('[UPLOAD ORCAMENTO] Arquivo detectado como TSV (tab-delimited), lendo como texto puro');
+        let content = fileContent;
+        if (content.includes('�')) {
+            console.log('[UPLOAD ORCAMENTO] Detectado problema de encoding, relendo como Windows-1252');
+            const iconv = require('iconv-lite');
+            const buffer = fs.readFileSync(filePath);
+            content = iconv.decode(buffer, 'windows-1252');
+        }
+        const lines = content.trim().split('\n');
+        const headers = lines[0].split('\t').map(h => h.trim());
+        const parsedData = [];
+        for (let i = 1; i < lines.length; i++) {
+            if (lines[i].trim() === '') continue;
+            const values = lines[i].split('\t');
+            const row = {};
+            headers.forEach((header, idx) => {
+                const value = values[idx] ? values[idx].trim() : '';
+                row[header] = value;
+            });
+            parsedData.push(row);
+        }
+        dataText = parsedData;
+        dataRaw = parsedData;
+    } else {
+        const workbook = XLSX.readFile(filePath, { cellText: false, cellDates: false });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        dataText = XLSX.utils.sheet_to_json(worksheet, { defval: null, raw: false });
+        dataRaw = XLSX.utils.sheet_to_json(worksheet, { defval: null, raw: true });
+    }
+
+    const data = dataRaw.map((row, idx) => {
+        const cleanRow = {};
+        const rawRow = row;
+        const textRow = dataText[idx] || {};
+        Object.keys(rawRow).forEach(key => {
+            const cleanKey = key ? key.trim() : key;
+            cleanRow[cleanKey] = {
+                raw: rawRow[key],
+                text: textRow[key] !== undefined ? (typeof textRow[key] === 'string' ? textRow[key].trim() : textRow[key]) : undefined
+            };
+        });
+        return cleanRow;
+    });
+
+    const allExcelColumns = data.length > 0 ? Object.keys(data[0]) : [];
+    const excelColumns = allExcelColumns.filter(col => col && col.trim() !== '' && !col.startsWith('__EMPTY'));
+
+    return { data, allExcelColumns, excelColumns };
+}
+
+async function handleOrcamentoFluxoCaixaUpload(req, res, tabela, tipoCarga, sessionId) {
+    const anoBaseRaw = req.body.ano_base;
+    const anoBase = parseInt(anoBaseRaw, 10);
+    if (!anoBaseRaw || !Number.isFinite(anoBase) || anoBase < 1900 || anoBase > 2100) {
+        return res.status(400).json({ error: 'Ano base inválido. Informe um ano válido (ex.: 2025).' });
+    }
+
+    if (!req.file) {
+        return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+    }
+
+    if (!poolFonte || !poolFonte.connected) {
+        return res.status(503).json({ error: 'Banco Fonte não conectado' });
+    }
+
+    sendProgress(sessionId, { stage: 'reading', message: 'Lendo arquivo Excel...', progress: 5 });
+
+    const { data, allExcelColumns, excelColumns } = await readExcelWithRawAndText(req.file.path);
+
+    if (data.length === 0) {
+        fs.unlinkSync(req.file.path);
+        sendProgress(sessionId, { stage: 'error', message: 'Arquivo vazio', progress: 0 });
+        return res.status(400).json({ error: 'Arquivo Excel vazio' });
+    }
+
+    sendProgress(sessionId, { stage: 'read', message: `${data.length} linhas encontradas`, progress: 10 });
+
+    const monthColumns = [];
+    const monthHeaders = new Set();
+    excelColumns.forEach((header) => {
+        const info = getMonthInfoFromHeader(header);
+        if (info && !monthHeaders.has(header)) {
+            monthColumns.push({ header, monthNum: info.monthNum });
+            monthHeaders.add(header);
+        }
+    });
+
+    const hasMonthColumns = monthColumns.length > 0;
+    const normalizedHeaderMap = buildHeaderMap(excelColumns, monthHeaders);
+
+    console.log('[UPLOAD ORCAMENTO] Todas as colunas do Excel:', allExcelColumns);
+    console.log('[UPLOAD ORCAMENTO] Colunas válidas do Excel:', excelColumns);
+    console.log('[UPLOAD ORCAMENTO] Colunas de meses detectadas:', monthColumns);
+    console.log('[UPLOAD ORCAMENTO] Primeira linha do Excel (com raw/text):', JSON.stringify(data[0]));
+
+    const schemaResult = await poolFonte.request().query(`
+        SELECT
+            c.name AS COLUMN_NAME,
+            t.name AS DATA_TYPE,
+            c.is_nullable AS IS_NULLABLE,
+            c.max_length AS CHARACTER_MAXIMUM_LENGTH,
+            c.precision AS NUMERIC_PRECISION,
+            c.scale AS NUMERIC_SCALE,
+            c.is_identity AS IS_IDENTITY
+        FROM sys.columns c
+        INNER JOIN sys.types t ON c.user_type_id = t.user_type_id
+        WHERE c.object_id = OBJECT_ID('dbo.${tabela}')
+        ORDER BY c.column_id
+    `);
+
+    const columns = schemaResult.recordset.filter(col => !col.IS_IDENTITY && col.COLUMN_NAME !== 'DataCarga');
+    const columnNames = columns.map(c => c.COLUMN_NAME);
+
+    console.log('[UPLOAD ORCAMENTO] Colunas da tabela (em ordem):', columnNames);
+
+    const aliasMap = {
+        'Origem': ['origem'],
+        'Previsto x Realizado': ['previstoxrealizado', 'previstorealizado', 'previstoxreal', 'previsto_realizado'],
+        'Dt Transação Contábil': ['dttransacaocontabil', 'datatransacaocontabil', 'dttransacao', 'datatransacao'],
+        'NMês': ['nmes', 'mes', 'mesnumero', 'mesnum'],
+        'Valor': ['valor', 'valorbase', 'valoror', 'valor_orcamento'],
+        'CLASSIFICACAO': ['classificacao'],
+        'GRUPO_CLASSIFICACAO': ['grupoclassificacao'],
+        'Decendio': ['decendio', 'decendioo'],
+        'TRANSACAO_FINANCEIRA': ['transacaofinanceira', 'movimentoinvestimentocx', 'movimentoinvestimento'],
+        'ITEM_RELATORIO': ['itemrelatorio', 'itemrelatorioo'],
+        'Conta Contábil': ['dscontacontabilcx', 'dscontacontabil', 'ds_conta_contabil', 'contacontabil', 'conta', 'contacontabilcx', 'cdcontacontabilcx'],
+        'Beneficiario': ['beneficiario', 'beneficiarioo'],
+        'Titulo': ['titulo'],
+        'Centro Custo': ['dscentrocustocx', 'dscentrocusto', 'ds_centro_custo', 'centrocusto', 'centrodecusto', 'centrocustocx', 'cdcentrocustocx'],
+        'Tipo_Titulo': ['tipotitulo'],
+        'Ano Transação Contábil': ['anotransacaocontabil', 'anotransacao', 'ano'],
+        'GRUPO': ['grupo'],
+        'Desc Unidade Negócio': ['descunidadenegocio', 'descricaounidadenegocio', 'unidadenegocio', 'unidadedenegociocx'],
+        'AREA': ['area'],
+        'Grupo CRAT': ['grupocrat', 'grupocratcx'],
+        'Linha CRAT': ['linhacrat', 'linhacratcx'],
+        'DS_CAIXA': ['dscaixa', 'descacaixa', 'classificaixa', 'linhacaixa', 'classificacaixa'],
+        'DS_ESTABELECIMENTO': ['dsestabelecimento', 'descestabelecimento', 'estabelecimento', 'estabelecimentocx'],
+        'Movimento': ['movimento', 'movimentocx'],
+        'Tipo Contábil': ['tipocontabil', 'tipocontabilcx'],
+        'Impacto em Caixa': ['impactoemcaixa', 'impactacaixacx', 'impactocaixacx'],
+        'Histórico Razão': ['historicorazao', 'historico', 'razao'],
+        'Novo Mês': ['novomes', 'mesnovo', 'mes_novo'],
+        'Desc Estabelecimento': ['descestabelecimento', 'estabelecimento'],
+        'Valor Original': ['valororiginal', 'valor_origem'],
+        'Valor Alterado': ['valoralterado', 'valorajustado'],
+        'NR_SEQUENCIA': ['nrsequencia', 'sequencia', 'nrseqprojreccx', 'nrseqprojetoreccx'],
+        'GER_Linha': ['gerlinha', 'linhager'],
+        'GER_Grupo': ['gergrupo', 'grupoger'],
+        'GER_Grupo_Contas': ['gergrupocontas', 'gergrupo_contas', 'contasger', 'grupocontascx']
+    };
+
+    const excelColumnByTarget = new Map();
+    columnNames.forEach(targetCol => {
+        const aliases = aliasMap[targetCol] || [normalizeHeader(targetCol)];
+        let header = findExcelHeaderForAliases(aliases, normalizedHeaderMap);
+        if (!header) {
+            header = findBestExcelHeaderForTarget(targetCol, excelColumns.filter(h => !monthHeaders.has(h)), normalizedHeaderMap);
+        }
+        header = preferDsOverCdHeader(targetCol, header, excelColumns.filter(h => !monthHeaders.has(h)));
+        if (header) excelColumnByTarget.set(targetCol, header);
+    });
+
+    console.log('[UPLOAD ORCAMENTO] Mapeamento de colunas detectado:', Object.fromEntries(excelColumnByTarget.entries()));
+
+    if (tipoCarga === 'completa') {
+        sendProgress(sessionId, { stage: 'cleaning', message: 'Limpando tabela...', progress: 15 });
+        await poolFonte.request().query(`DELETE FROM dbo.[${tabela}]`);
+        sendProgress(sessionId, { stage: 'cleaned', message: 'Tabela limpa', progress: 20 });
+    }
+
+    const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+    const rowsToInsert = [];
+    if (hasMonthColumns) {
+        data.forEach((row) => {
+            monthColumns.forEach((monthCol) => {
+                const cell = row[monthCol.header];
+                const rawValue = cell ? (cell.raw !== undefined && cell.raw !== null ? cell.raw : cell.text) : null;
+                if (rawValue === null || rawValue === undefined || rawValue === '') return;
+                rowsToInsert.push({ row, monthNum: monthCol.monthNum, monthValue: rawValue });
+            });
+        });
+    } else {
+        data.forEach((row) => rowsToInsert.push({ row, monthNum: null, monthValue: null }));
+    }
+
+    const totalRows = rowsToInsert.length;
+    sendProgress(sessionId, { stage: 'inserting', message: `Iniciando inserção de ${totalRows} linhas...`, progress: 25, total: totalRows });
+
+    const batchSize = 1000;
+    let totalInserted = 0;
+
+    for (let i = 0; i < rowsToInsert.length; i += batchSize) {
+        const batch = rowsToInsert.slice(i, i + batchSize);
+        const transaction = new sql.Transaction(poolFonte);
+        await transaction.begin();
+
+        try {
+            for (const item of batch) {
+                const request = new sql.Request(transaction);
+                const params = [];
+
+                columns.forEach((col, idx) => {
+                    const paramName = `param${idx}`;
+                    const colName = col.COLUMN_NAME;
+                    let rawValue = null;
+
+                    if (colName === 'Ano Transação Contábil') {
+                        rawValue = anoBase;
+                    } else if (colName === 'Dt Transação Contábil' && item.monthNum) {
+                        const dateObj = new Date(anoBase, item.monthNum - 1, 1, 0, 0, 0, 0);
+                        rawValue = formatSqlDateTime(dateObj);
+                    } else if (colName === 'NMês' && item.monthNum) {
+                        rawValue = item.monthNum;
+                    } else if (colName === 'Novo Mês' && item.monthNum) {
+                        rawValue = monthNames[item.monthNum - 1];
+                    } else if (colName === 'Valor' && item.monthNum) {
+                        rawValue = item.monthValue;
+                    } else if (colName === 'Valor Original' && item.monthNum && !excelColumnByTarget.has(colName)) {
+                        rawValue = item.monthValue;
+                    } else if (colName === 'Valor Alterado' && item.monthNum && !excelColumnByTarget.has(colName)) {
+                        rawValue = item.monthValue;
+                    } else {
+                        const excelHeader = excelColumnByTarget.get(colName);
+                        rawValue = pickCellValueForColumn(item.row, excelHeader, col);
+                    }
+
+                    let conversionType = col.DATA_TYPE;
+                    const baseType = String(col.DATA_TYPE || '').toLowerCase();
+                    if (baseType === 'decimal' || baseType === 'numeric') {
+                        const p = col.NUMERIC_PRECISION != null ? parseInt(col.NUMERIC_PRECISION, 10) : 18;
+                        const s = col.NUMERIC_SCALE != null ? parseInt(col.NUMERIC_SCALE, 10) : 0;
+                        conversionType = `${baseType}(${Number.isFinite(p) ? p : 18},${Number.isFinite(s) ? s : 0})`;
+                    }
+
+                    const value = convertToSqlType(rawValue, conversionType);
+                    const sqlDataType = getSqlDataTypeFromColumn(col);
+
+                    request.input(paramName, sqlDataType, value);
+                    params.push(`@${paramName}`);
+                });
+
+                const insertQuery = `INSERT INTO dbo.[${tabela}] (${columnNames.map(c => `[${c}]`).join(',')}) VALUES (${params.join(',')})`;
+                await request.query(insertQuery);
+                totalInserted++;
+
+                if (totalInserted % 100 === 0 || totalInserted === totalRows) {
+                    const percentComplete = 25 + Math.floor((totalInserted / totalRows) * 70);
+                    sendProgress(sessionId, {
+                        stage: 'inserting',
+                        message: `Inserindo dados: ${totalInserted}/${totalRows} linhas`,
+                        progress: percentComplete,
+                        current: totalInserted,
+                        total: totalRows
+                    });
+                }
+            }
+
+            await transaction.commit();
+        } catch (err) {
+            await transaction.rollback();
+            throw err;
+        }
+    }
+
+    fs.unlinkSync(req.file.path);
+
+    sendProgress(sessionId, { stage: 'completed', message: 'Upload concluído com sucesso!', progress: 100, total_inserido: totalInserted });
+
+    setTimeout(() => {
+        const client = progressClients.get(sessionId);
+        if (client) {
+            client.end();
+            progressClients.delete(sessionId);
+        }
+    }, 1000);
+
+    return res.json({
+        success: true,
+        message: `${tipoCarga === 'completa' ? 'Carga completa' : 'Carga incremental'} concluída`,
+        total_inserido: totalInserted,
+        tabela: tabela,
+        sessionId
+    });
+}
+
 // Upload e processamento de arquivo Excel para tabela predefinida
 app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, res) => {
     const { tabela } = req.params;
@@ -888,6 +1420,37 @@ app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, re
     // Fallback para tabelas hardcoded
     if (!tableExists && !TABELAS_DISPONIVEIS[tabela]) {
         return res.status(404).json({ error: 'Tabela não encontrada' });
+    }
+
+    // Respeitar configuração AllowFullLoad (se existir no banco)
+    try {
+        if (await tableDefinitionsHasAllowFullLoad()) {
+            const allowResult = await pool.request()
+                .input('tableName', sql.VarChar(100), tabela)
+                .query('SELECT AllowFullLoad FROM TableDefinitions WHERE TableName = @tableName AND IsActive = 1');
+
+            if (allowResult.recordset.length > 0) {
+                const allowFullLoad = allowResult.recordset[0].AllowFullLoad;
+                if (allowFullLoad === 0 && tipoCarga === 'completa') {
+                    return res.status(400).json({ error: 'Carga completa desabilitada para esta tabela. Utilize carga incremental.' });
+                }
+            }
+        }
+    } catch (err) {
+        console.warn('Erro ao validar AllowFullLoad:', err.message);
+    }
+
+    // Carga específica: Orçamento Fluxo de Caixa Ajustado
+    if (tabela === ORCAMENTO_FLUXO_CAIXA_TABLE) {
+        try {
+            return await handleOrcamentoFluxoCaixaUpload(req, res, tabela, tipoCarga, sessionId);
+        } catch (err) {
+            console.error('Erro no upload orçamento:', err);
+            if (req.file && fs.existsSync(req.file.path)) {
+                fs.unlinkSync(req.file.path);
+            }
+            return res.status(500).json({ error: err.message });
+        }
     }
     
     if (!req.file) {
@@ -999,20 +1562,22 @@ app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, re
         // Obter estrutura da tabela
         const schemaResult = await poolFonte.request().query(`
             SELECT
-                COLUMN_NAME,
-                DATA_TYPE,
-                IS_NULLABLE,
-                CHARACTER_MAXIMUM_LENGTH,
-                NUMERIC_PRECISION,
-                NUMERIC_SCALE
-            FROM INFORMATION_SCHEMA.COLUMNS
-            WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = '${tabela}'
-            ORDER BY ORDINAL_POSITION
+                c.name AS COLUMN_NAME,
+                t.name AS DATA_TYPE,
+                c.is_nullable AS IS_NULLABLE,
+                c.max_length AS CHARACTER_MAXIMUM_LENGTH,
+                c.precision AS NUMERIC_PRECISION,
+                c.scale AS NUMERIC_SCALE,
+                c.is_identity AS IS_IDENTITY
+            FROM sys.columns c
+            INNER JOIN sys.types t ON c.user_type_id = t.user_type_id
+            WHERE c.object_id = OBJECT_ID('dbo.${tabela}')
+            ORDER BY c.column_id
         `);
         
-        // Filtrar colunas automáticas (Id e DataCarga) - essas não vêm do Excel
+        // Filtrar colunas automáticas (identity e DataCarga) - essas não vêm do Excel
         const columns = schemaResult.recordset.filter(col => 
-            col.COLUMN_NAME !== 'Id' && col.COLUMN_NAME !== 'DataCarga'
+            !col.IS_IDENTITY && col.COLUMN_NAME !== 'DataCarga'
         );
         const columnNames = columns.map(c => c.COLUMN_NAME);
         
@@ -1100,18 +1665,20 @@ app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, re
                 // Recarregar schema para refletir os tipos ajustados
                 const schemaReload = await poolFonte.request().query(`
                     SELECT
-                        COLUMN_NAME,
-                        DATA_TYPE,
-                        IS_NULLABLE,
-                        CHARACTER_MAXIMUM_LENGTH,
-                        NUMERIC_PRECISION,
-                        NUMERIC_SCALE
-                    FROM INFORMATION_SCHEMA.COLUMNS
-                    WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = '${tabela}'
-                    ORDER BY ORDINAL_POSITION
+                        c.name AS COLUMN_NAME,
+                        t.name AS DATA_TYPE,
+                        c.is_nullable AS IS_NULLABLE,
+                        c.max_length AS CHARACTER_MAXIMUM_LENGTH,
+                        c.precision AS NUMERIC_PRECISION,
+                        c.scale AS NUMERIC_SCALE,
+                        c.is_identity AS IS_IDENTITY
+                    FROM sys.columns c
+                    INNER JOIN sys.types t ON c.user_type_id = t.user_type_id
+                    WHERE c.object_id = OBJECT_ID('dbo.${tabela}')
+                    ORDER BY c.column_id
                 `);
 
-                const refreshed = schemaReload.recordset.filter(col => col.COLUMN_NAME !== 'Id' && col.COLUMN_NAME !== 'DataCarga');
+                const refreshed = schemaReload.recordset.filter(col => !col.IS_IDENTITY && col.COLUMN_NAME !== 'DataCarga');
                 // Mantém a ordem original das colunas filtradas
                 columns.length = 0;
                 refreshed.forEach(c => columns.push(c));
@@ -1623,6 +2190,10 @@ app.post('/api/excel/table-definitions', uploadExcel.single('modelFile'), async 
     
     try {
         const { tableName, displayName, description, icon, groupId } = req.body;
+        const allowFullLoad = String(req.body.allow_full_load ?? '1') === '1';
+
+        await ensureAllowFullLoadColumn();
+        const hasAllowFullLoad = await tableDefinitionsHasAllowFullLoad();
         
         if (!tableName || !displayName) {
             return res.status(400).json({ error: 'Nome da tabela e nome de exibição são obrigatórios' });
@@ -1712,28 +2283,39 @@ app.post('/api/excel/table-definitions', uploadExcel.single('modelFile'), async 
             return res.status(400).json({ error: 'Já existe uma tabela com este nome' });
         }
         
-        // Criar a tabela no banco Fonte com tipos detectados
-        const columnDefinitionsSQL = columns.map(col => `[${col.name}] ${col.type} NULL`).join(',\n                    ');
-        
-        const createTableSQL = `
-            IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = '${tableName}')
-            BEGIN
+        // Verificar se tabela ou view já existe no banco Fonte
+        const objectCheck = await poolFonte.request().query(`
+            SELECT
+                OBJECT_ID('dbo.${tableName}', 'U') AS TableId,
+                OBJECT_ID('dbo.${tableName}', 'V') AS ViewId
+        `);
+        const objectRow = objectCheck.recordset[0] || {};
+        const existsInFonte = !!objectRow.TableId || !!objectRow.ViewId;
+
+        if (!existsInFonte) {
+            // Criar a tabela no banco Fonte com tipos detectados
+            const columnDefinitionsSQL = columns.map(col => `[${col.name}] ${col.type} NULL`).join(',\n                    ');
+            
+            const createTableSQL = `
                 CREATE TABLE [dbo].[${tableName}] (
                     Id INT IDENTITY(1,1) PRIMARY KEY,
                     ${columnDefinitionsSQL},
                     DataCarga DATETIME DEFAULT GETDATE()
                 )
-            END
-        `;
+            `;
+            
+            console.log('[CRIAR TABELA] SQL:', createTableSQL);
+            sendProgress(sessionId, { stage: 'creating', message: 'Criando estrutura da tabela...', progress: 0 });
+            await poolFonte.request().query(createTableSQL);
+            console.log(`[CRIAR TABELA] Tabela ${tableName} criada com sucesso no banco Fonte`);
+            sendProgress(sessionId, { stage: 'created', message: 'Tabela criada com sucesso', progress: 5 });
+        } else {
+            console.log(`[CRIAR TABELA] Objeto ${tableName} já existe no banco Fonte. Pulando criação e inserção de dados do modelo.`);
+            sendProgress(sessionId, { stage: 'created', message: 'Tabela/view já existe no banco Fonte', progress: 5 });
+        }
         
-        console.log('[CRIAR TABELA] SQL:', createTableSQL);
-        sendProgress(sessionId, { stage: 'creating', message: 'Criando estrutura da tabela...', progress: 0 });
-        await poolFonte.request().query(createTableSQL);
-        console.log(`[CRIAR TABELA] Tabela ${tableName} criada com sucesso no banco Fonte`);
-        sendProgress(sessionId, { stage: 'created', message: 'Tabela criada com sucesso', progress: 5 });
-        
-        // Inserir dados do modelo na tabela
-        if (data.length > 1) {
+        // Inserir dados do modelo na tabela (apenas se foi criada agora)
+        if (!existsInFonte && data.length > 1) {
             const dataRows = data.slice(1).filter(row => row.some(cell => cell !== null && cell !== ''));
             
             if (dataRows.length > 0) {
@@ -1822,7 +2404,7 @@ app.post('/api/excel/table-definitions', uploadExcel.single('modelFile'), async 
         }
         
         // Registrar definição no banco PowerBIPortal
-        const result = await pool.request()
+        const insertRequest = pool.request()
             .input('tableName', sql.VarChar(100), tableName)
             .input('displayName', sql.NVarChar(200), displayName)
             .input('description', sql.NVarChar(500), description || null)
@@ -1830,16 +2412,24 @@ app.post('/api/excel/table-definitions', uploadExcel.single('modelFile'), async 
             .input('groupId', sql.Int, groupId || null)
             .input('modelFileName', sql.NVarChar(255), modelFileName)
             .input('modelFilePath', sql.NVarChar(500), modelFilePath)
-            .input('columnDefinitions', sql.NVarChar(sql.MAX), columnDefinitions)
-            .query(`
-                INSERT INTO TableDefinitions 
-                    (TableName, DisplayName, Description, Icon, GroupId, 
-                     ModelFileName, ModelFilePath, ColumnDefinitions)
-                OUTPUT INSERTED.*
-                VALUES 
-                    (@tableName, @displayName, @description, @icon, @groupId,
-                     @modelFileName, @modelFilePath, @columnDefinitions)
-            `);
+            .input('columnDefinitions', sql.NVarChar(sql.MAX), columnDefinitions);
+
+        let insertColumns = `TableName, DisplayName, Description, Icon, GroupId, ModelFileName, ModelFilePath, ColumnDefinitions`;
+        let insertValues = `@tableName, @displayName, @description, @icon, @groupId, @modelFileName, @modelFilePath, @columnDefinitions`;
+
+        if (hasAllowFullLoad) {
+            insertRequest.input('allowFullLoad', sql.Bit, allowFullLoad ? 1 : 0);
+            insertColumns += ', AllowFullLoad';
+            insertValues += ', @allowFullLoad';
+        }
+
+        const result = await insertRequest.query(`
+            INSERT INTO TableDefinitions 
+                (${insertColumns})
+            OUTPUT INSERTED.*
+            VALUES 
+                (${insertValues})
+        `);
         
         sendProgress(sessionId, { stage: 'completed', message: 'Tabela criada e dados inseridos com sucesso!', progress: 100 });
         
@@ -1879,6 +2469,10 @@ app.put('/api/excel/table-definitions/:id', uploadExcel.single('modelFile'), asy
     
     try {
         const { displayName, description, icon, groupId } = req.body;
+        const allowFullLoad = String(req.body.allow_full_load ?? '1') === '1';
+
+        await ensureAllowFullLoadColumn();
+        const hasAllowFullLoad = await tableDefinitionsHasAllowFullLoad();
         
         let updateFields = {
             displayName: displayName,
@@ -1969,6 +2563,12 @@ app.put('/api/excel/table-definitions/:id', uploadExcel.single('modelFile'), asy
                 Icon = @icon,
                 GroupId = @groupId,
                 UpdatedAt = GETDATE()`;
+
+        if (hasAllowFullLoad) {
+            request.input('allowFullLoad', sql.Bit, allowFullLoad ? 1 : 0);
+            query += `,
+                AllowFullLoad = @allowFullLoad`;
+        }
         
         if (updateFields.modelFileName) {
             request
