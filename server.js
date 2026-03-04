@@ -1091,6 +1091,153 @@ function preferDsOverCdHeader(targetCol, header, excelHeaders) {
     return bestCandidate || header;
 }
 
+function isMovimentoHeader(header) {
+    const norm = normalizeHeader(header);
+    return norm.includes('movimento');
+}
+
+function isTransacaoFinanceiraHeader(header) {
+    const norm = normalizeHeader(header);
+    return norm.includes('transacao') || norm.includes('financeir');
+}
+
+function enforceMovimentoMapping(excelHeaders, excelColumnByTarget) {
+    if (!excelHeaders || excelHeaders.length === 0) return;
+
+    const movimentoHeaders = excelHeaders.filter(h => isMovimentoHeader(h));
+    if (movimentoHeaders.length === 0) return;
+
+    const currentMovimento = excelColumnByTarget.get('Movimento');
+    if (!currentMovimento || !isMovimentoHeader(currentMovimento)) {
+        excelColumnByTarget.set('Movimento', movimentoHeaders[0]);
+    }
+
+    const currentTransacao = excelColumnByTarget.get('TRANSACAO_FINANCEIRA');
+    if (currentTransacao && isMovimentoHeader(currentTransacao) && !isTransacaoFinanceiraHeader(currentTransacao)) {
+        excelColumnByTarget.set('TRANSACAO_FINANCEIRA', null);
+    }
+}
+
+async function getAiColumnMapping(excelHeaders, targetColumns, contextName) {
+    if (!DIRECT_LINE_SECRET) {
+        console.warn('[AI-MAP] Direct Line não configurado; pulando mapeamento por IA.');
+        return null;
+    }
+
+    const rules = `INSTRUÇÃO ABSOLUTA: Responda APENAS com um JSON válido.
+
+Você é um assistente especializado em mapear colunas de planilhas para colunas de banco.
+
+TABELA/CONTEXTO: ${contextName}
+
+COLUNAS DO EXCEL (origem):
+${JSON.stringify(excelHeaders, null, 2)}
+
+COLUNAS DO BANCO (destino):
+${JSON.stringify(targetColumns, null, 2)}
+
+REGRAS OBRIGATÓRIAS:
+1. Retorne um JSON no formato {"COLUNA_DESTINO": "COLUNA_EXCEL" | null}
+2. Use EXATAMENTE os nomes das colunas do banco (destino) como chaves.
+3. O valor deve ser EXATAMENTE um dos nomes do Excel (origem) ou null.
+4. Se não houver correspondência clara, use null.
+5. Não invente colunas.
+6. Não inclua explicações nem texto adicional.
+7. Priorize semântica (ex.: Movimento deve mapear para coluna que contém "movimento").
+8. Se houver coluna com prefixo DS_ e outra CD_ para o mesmo conceito, prefira DS_.
+9. NÃO use colunas de meses para mapear campos de dimensão.
+
+Responda APENAS com o JSON.`;
+
+    try {
+        console.log('[AI-MAP] Iniciando conversa com Direct Line...');
+        const convResp = await fetchFn(`${DIRECT_LINE_ENDPOINT}/conversations`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${DIRECT_LINE_SECRET}` }
+        });
+        if (!convResp.ok) {
+            const errorText = await convResp.text().catch(() => 'Erro desconhecido');
+            console.error(`[AI-MAP] Falha ao iniciar conversa: ${convResp.status} - ${errorText}`);
+            return null;
+        }
+        const conv = await convResp.json();
+        const conversationId = conv.conversationId;
+
+        const activity = { type: 'message', from: { id: 'user' }, text: rules };
+        const postResp = await fetchFn(`${DIRECT_LINE_ENDPOINT}/conversations/${conversationId}/activities`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${DIRECT_LINE_SECRET}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(activity)
+        });
+        if (!postResp.ok) {
+            const errorText = await postResp.text().catch(() => 'Erro desconhecido');
+            console.error(`[AI-MAP] Falha ao enviar mensagem: ${postResp.status} - ${errorText}`);
+            return null;
+        }
+
+        let watermark;
+        let replyText = '';
+        for (let i = 0; i < 25; i++) {
+            const url = `${DIRECT_LINE_ENDPOINT}/conversations/${conversationId}/activities${watermark ? `?watermark=${watermark}` : ''}`;
+            const actResp = await fetchFn(url, {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${DIRECT_LINE_SECRET}` }
+            });
+            if (!actResp.ok) {
+                const errorText = await actResp.text().catch(() => 'Erro desconhecido');
+                console.error(`[AI-MAP] Falha ao obter resposta: ${actResp.status} - ${errorText}`);
+                return null;
+            }
+            const payload = await actResp.json();
+            watermark = payload.watermark;
+            const activities = (payload.activities || []).filter(a => a.type === 'message' && a.from && a.from.id && a.from.id !== 'user');
+            const last = activities.length ? activities[activities.length - 1] : null;
+            if (last && last.text) {
+                replyText = last.text;
+                break;
+            }
+            await sleep(800);
+        }
+
+        if (!replyText) {
+            console.warn('[AI-MAP] Timeout aguardando resposta');
+            return null;
+        }
+
+        let jsonText = replyText.trim();
+        const jsonBlockMatch = replyText.match(/```json\s*([\s\S]*?)\s*```/i);
+        if (jsonBlockMatch) {
+            jsonText = jsonBlockMatch[1];
+        } else {
+            jsonText = jsonText.replace(/```/g, '').trim();
+        }
+
+        const mapping = JSON.parse(jsonText);
+        if (!mapping || typeof mapping !== 'object') return null;
+
+        const allowedHeaders = new Set(excelHeaders);
+        const cleaned = {};
+        for (const target of targetColumns) {
+            const value = mapping[target];
+            if (value === null || value === undefined) {
+                cleaned[target] = null;
+            } else if (allowedHeaders.has(value)) {
+                cleaned[target] = value;
+            } else {
+                cleaned[target] = null;
+            }
+        }
+
+        return cleaned;
+    } catch (err) {
+        console.error('[AI-MAP] Erro ao mapear colunas:', err.message);
+        return null;
+    }
+}
+
 function findExcelHeaderForAliases(aliasList, normalizedHeaderMap) {
     for (const alias of aliasList) {
         if (normalizedHeaderMap.has(alias)) return normalizedHeaderMap.get(alias);
@@ -1236,7 +1383,7 @@ async function handleOrcamentoFluxoCaixaUpload(req, res, tabela, tipoCarga, sess
         'CLASSIFICACAO': ['classificacao'],
         'GRUPO_CLASSIFICACAO': ['grupoclassificacao'],
         'Decendio': ['decendio', 'decendioo'],
-        'TRANSACAO_FINANCEIRA': ['transacaofinanceira', 'movimentoinvestimentocx', 'movimentoinvestimento'],
+        'TRANSACAO_FINANCEIRA': ['transacaofinanceira', 'transacao_financeira', 'transacaofin'],
         'ITEM_RELATORIO': ['itemrelatorio', 'itemrelatorioo'],
         'Conta Contábil': ['dscontacontabilcx', 'dscontacontabil', 'ds_conta_contabil', 'contacontabil', 'conta', 'contacontabilcx', 'cdcontacontabilcx'],
         'Beneficiario': ['beneficiario', 'beneficiarioo'],
@@ -1275,6 +1422,21 @@ async function handleOrcamentoFluxoCaixaUpload(req, res, tabela, tipoCarga, sess
         header = preferDsOverCdHeader(targetCol, header, excelColumns.filter(h => !monthHeaders.has(h)));
         if (header) excelColumnByTarget.set(targetCol, header);
     });
+
+    // Mapeamento assistido por IA (se disponível)
+    const excelHeadersForAi = excelColumns.filter(h => !monthHeaders.has(h));
+    const aiMapping = await getAiColumnMapping(excelHeadersForAi, columnNames, 'VW_ORCAMENTO_FLUXO_CAIXA_AJUSTADO');
+    if (aiMapping) {
+        Object.entries(aiMapping).forEach(([targetCol, header]) => {
+            if (header) {
+                excelColumnByTarget.set(targetCol, header);
+            } else if (!excelColumnByTarget.has(targetCol)) {
+                excelColumnByTarget.set(targetCol, null);
+            }
+        });
+    }
+
+    enforceMovimentoMapping(excelHeadersForAi, excelColumnByTarget);
 
     console.log('[UPLOAD ORCAMENTO] Mapeamento de colunas detectado:', Object.fromEntries(excelColumnByTarget.entries()));
 
