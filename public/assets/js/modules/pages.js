@@ -1,6 +1,4 @@
 window.PortalPages = {
-    powerBIModalState: null,
-
     normalizePages(pages) {
         return pages.map(p => ({
             id: p.Id || p.id,
@@ -61,8 +59,8 @@ window.PortalPages = {
         
         if (container) {
             if (page.powerbiUrl) {
-                this.showPowerBIWaitingState(page);
-                await this.openPowerBIWithAccountPrompt(page);
+                const escapeHtml = window.PortalUtils ? window.PortalUtils.escapeHtml : (text => text);
+                container.innerHTML = `<iframe src="${escapeHtml(page.powerbiUrl)}" frameborder="0" allowFullScreen="true"></iframe>`;
                 
                 if (refreshBtn) {
                     refreshBtn.style.display = 'flex';
@@ -77,8 +75,8 @@ window.PortalPages = {
                             const icon = newBtn.querySelector('i');
                             if (icon) icon.style.animation = 'spin 0.5s linear';
                             
-                            const currentSrc = this.withCacheBuster(iframe.src);
-                            iframe.src = 'about:blank';
+                            const currentSrc = iframe.src;
+                            iframe.src = '';
                             setTimeout(() => {
                                 iframe.src = currentSrc;
                                 if (icon) icon.style.animation = '';
@@ -250,227 +248,6 @@ window.PortalPages = {
         // Emoji ou texto
         const escapeHtml = window.PortalUtils ? window.PortalUtils.escapeHtml : (text => text);
         return escapeHtml(icon);
-    },
-
-    withCacheBuster(url) {
-        try {
-            const normalized = new URL(url, window.location.origin);
-            normalized.searchParams.set('_portalTs', Date.now().toString());
-            return normalized.toString();
-        } catch (_) {
-            const separator = url.includes('?') ? '&' : '?';
-            return `${url}${separator}_portalTs=${Date.now()}`;
-        }
-    },
-
-    renderPowerBIFrame(url) {
-        const container = document.getElementById('powerbiContainer');
-        if (!container) return;
-
-        const escapeHtml = window.PortalUtils ? window.PortalUtils.escapeHtml : (text => text);
-        container.innerHTML = `<iframe src="${escapeHtml(this.withCacheBuster(url))}" frameborder="0" allowFullScreen="true"></iframe>`;
-    },
-
-    showPowerBIWaitingState(page) {
-        const container = document.getElementById('powerbiContainer');
-        if (!container) return;
-
-        const escapeHtml = window.PortalUtils ? window.PortalUtils.escapeHtml : (text => text);
-        container.innerHTML = `
-            <div class="powerbi-state">
-                <div class="powerbi-state__card">
-                    <div class="powerbi-state__icon">🔐</div>
-                    <h3 class="powerbi-state__title">${escapeHtml(page.title || 'Painel Power BI')}</h3>
-                    <p class="powerbi-state__text">Antes de carregar o relatório, escolha se deseja abrir direto ou tentar trocar a conta Microsoft desta sessão.</p>
-                </div>
-            </div>
-        `;
-    },
-
-    showPowerBICancelledState(page) {
-        const container = document.getElementById('powerbiContainer');
-        if (!container) return;
-
-        const escapeHtml = window.PortalUtils ? window.PortalUtils.escapeHtml : (text => text);
-        container.innerHTML = `
-            <div class="powerbi-state">
-                <div class="powerbi-state__card">
-                    <div class="powerbi-state__icon">📊</div>
-                    <h3 class="powerbi-state__title">Abertura cancelada</h3>
-                    <p class="powerbi-state__text">O painel ${escapeHtml(page.title || '')} ainda não foi carregado. Você pode abrir direto ou tentar trocar a conta Microsoft antes de continuar.</p>
-                    <div class="powerbi-state__actions">
-                        <button type="button" class="btn" id="powerbiStateDirectBtn">Abrir direto</button>
-                        <button type="button" class="btn btn-admin" id="powerbiStateSwitchBtn">Trocar conta Microsoft</button>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        const directBtn = document.getElementById('powerbiStateDirectBtn');
-        const switchBtn = document.getElementById('powerbiStateSwitchBtn');
-        if (directBtn) {
-            directBtn.addEventListener('click', () => {
-                this.openPowerBIWithAccountPrompt(page, 'direct-only');
-            });
-        }
-        if (switchBtn) {
-            switchBtn.addEventListener('click', () => {
-                this.openPowerBIWithAccountPrompt(page, 'prefer-switch');
-            });
-        }
-    },
-
-    showPowerBILogoutProgressState(page) {
-        const container = document.getElementById('powerbiContainer');
-        if (!container) return;
-
-        const escapeHtml = window.PortalUtils ? window.PortalUtils.escapeHtml : (text => text);
-        container.innerHTML = `
-            <div class="powerbi-state">
-                <div class="powerbi-state__card">
-                    <div class="powerbi-state__spinner" aria-hidden="true"></div>
-                    <h3 class="powerbi-state__title">Trocando conta Microsoft</h3>
-                    <p class="powerbi-state__text">Tentando encerrar a sessão Microsoft atual antes de abrir ${escapeHtml(page.title || 'o painel')}. Se uma janela auxiliar abriu, conclua o fluxo nela.</p>
-                </div>
-            </div>
-        `;
-    },
-
-    getPowerBIAccountModal() {
-        const modal = document.getElementById('msAccountModal');
-        const closeBtn = document.getElementById('msAccountModalClose');
-        const directBtn = document.getElementById('msAccountDirectBtn');
-        const switchBtn = document.getElementById('msAccountSwitchBtn');
-        const lead = document.getElementById('msAccountModalLead');
-
-        return { modal, closeBtn, directBtn, switchBtn, lead };
-    },
-
-    async promptPowerBIAccountChoice(page, mode = 'default') {
-        const { modal, closeBtn, directBtn, switchBtn, lead } = this.getPowerBIAccountModal();
-        if (!modal || !directBtn || !switchBtn || !lead) {
-            return mode === 'prefer-switch' ? 'switch' : 'direct';
-        }
-
-        const escapeHtml = window.PortalUtils ? window.PortalUtils.escapeHtml : (text => text);
-        lead.textContent = `Como deseja abrir o painel ${escapeHtml(page.title || 'selecionado')}?`;
-
-        if (mode === 'direct-only') {
-            return 'direct';
-        }
-
-        return new Promise(resolve => {
-            const cleanup = () => {
-                modal.classList.remove('is-open');
-                modal.setAttribute('aria-hidden', 'true');
-                directBtn.removeEventListener('click', onDirect);
-                switchBtn.removeEventListener('click', onSwitch);
-                modal.removeEventListener('click', onBackdrop);
-                document.removeEventListener('keydown', onKeyDown);
-                if (closeBtn) closeBtn.removeEventListener('click', onCancel);
-            };
-
-            const onDirect = () => {
-                cleanup();
-                resolve('direct');
-            };
-
-            const onSwitch = () => {
-                cleanup();
-                resolve('switch');
-            };
-
-            const onCancel = () => {
-                cleanup();
-                resolve('cancel');
-            };
-
-            const onBackdrop = (event) => {
-                if (event.target === modal) {
-                    onCancel();
-                }
-            };
-
-            const onKeyDown = (event) => {
-                if (event.key === 'Escape') {
-                    onCancel();
-                }
-            };
-
-            modal.classList.add('is-open');
-            modal.setAttribute('aria-hidden', 'false');
-            directBtn.addEventListener('click', onDirect);
-            switchBtn.addEventListener('click', onSwitch);
-            modal.addEventListener('click', onBackdrop);
-            document.addEventListener('keydown', onKeyDown);
-            if (closeBtn) closeBtn.addEventListener('click', onCancel);
-        });
-    },
-
-    async attemptMicrosoftLogout() {
-        const popupWidth = 520;
-        const popupHeight = 720;
-        const left = Math.max(0, Math.round(window.screenX + ((window.outerWidth - popupWidth) / 2)));
-        const top = Math.max(0, Math.round(window.screenY + ((window.outerHeight - popupHeight) / 2)));
-        const features = `popup=yes,width=${popupWidth},height=${popupHeight},left=${left},top=${top}`;
-        const popup = window.open('/microsoft-logout-start.html', 'portalMicrosoftLogout', features);
-
-        if (!popup) {
-            alert('Não foi possível abrir a janela de logout da Microsoft. Verifique se o navegador bloqueou pop-ups para este portal.');
-            return false;
-        }
-
-        popup.focus();
-
-        return new Promise(resolve => {
-            let finished = false;
-            let timeoutId = null;
-            let pollId = null;
-
-            const cleanup = (result) => {
-                if (finished) return;
-                finished = true;
-                window.removeEventListener('message', onMessage);
-                if (timeoutId) window.clearTimeout(timeoutId);
-                if (pollId) window.clearInterval(pollId);
-                resolve(result);
-            };
-
-            const onMessage = (event) => {
-                if (event.origin !== window.location.origin) return;
-                if (event.data && event.data.type === 'portal-microsoft-logout-complete') {
-                    cleanup(true);
-                }
-            };
-
-            window.addEventListener('message', onMessage);
-
-            pollId = window.setInterval(() => {
-                if (popup.closed) {
-                    cleanup(true);
-                }
-            }, 500);
-
-            timeoutId = window.setTimeout(() => {
-                cleanup(false);
-            }, 15000);
-        });
-    },
-
-    async openPowerBIWithAccountPrompt(page, mode = 'default') {
-        const choice = await this.promptPowerBIAccountChoice(page, mode);
-
-        if (choice === 'cancel') {
-            this.showPowerBICancelledState(page);
-            return;
-        }
-
-        if (choice === 'switch') {
-            this.showPowerBILogoutProgressState(page);
-            await this.attemptMicrosoftLogout();
-        }
-
-        this.renderPowerBIFrame(page.powerbiUrl);
     }
 };
 
