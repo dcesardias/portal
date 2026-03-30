@@ -1,13 +1,4 @@
 window.PortalMenu = {
-    getMapDbEntry() {
-        return {
-            id: 'mapdb-tool',
-            name: 'MapDB',
-            icon: '🗺️',
-            href: '/mapdb/'
-        };
-    },
-
     normalizeMenu(items) {
         if (!items || !Array.isArray(items)) return [];
         return items.map(it => ({
@@ -30,7 +21,6 @@ window.PortalMenu = {
         
         // Renderizar botão Home
         this.renderHomeButton(container);
-        this.renderMapDbButton(container);
         
         // Renderizar itens do menu
         const sortedMenu = [...window.PortalApp.menuData].sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -75,31 +65,6 @@ window.PortalMenu = {
         
         homeBtnWrapper.appendChild(homeBtn);
         container.appendChild(homeBtnWrapper);
-    },
-
-    renderMapDbButton(container) {
-        const entry = this.getMapDbEntry();
-        const wrapper = document.createElement('div');
-        const button = document.createElement('button');
-        button.className = 'menu-item';
-        button.setAttribute('data-item-id', entry.id);
-
-        if (window.PortalIcons) {
-            button.innerHTML = window.PortalIcons.renderIconHTML(entry.icon);
-        } else {
-            button.innerHTML = `<span class="menu-icon">${entry.icon}</span>`;
-        }
-
-        const label = document.createElement('span');
-        label.textContent = entry.name;
-        button.appendChild(label);
-
-        button.onclick = () => {
-            window.location.href = entry.href;
-        };
-
-        wrapper.appendChild(button);
-        container.appendChild(wrapper);
     },
 
     renderMenuItem(item, level = 0) {

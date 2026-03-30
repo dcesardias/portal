@@ -1,15 +1,6 @@
 window.PortalPages = {
     powerBIModalState: null,
 
-    getMapDbCard() {
-        return {
-            title: 'MapDB',
-            subtitle: 'Explorador de dependências de banco',
-            icon: '🗺️',
-            href: '/mapdb/'
-        };
-    },
-
     normalizePages(pages) {
         return pages.map(p => ({
             id: p.Id || p.id,
@@ -241,24 +232,6 @@ window.PortalPages = {
             
             container.appendChild(card);
         });
-
-        const mapDbCard = this.getMapDbCard();
-        const card = document.createElement('div');
-        card.className = 'quick-access-card';
-        card.innerHTML = `
-            <div class="card-icon">${this.renderCardIcon(mapDbCard.icon)}</div>
-            <div class="card-content">
-                <h3 class="card-title">${mapDbCard.title}</h3>
-                <p class="card-subtitle">${mapDbCard.subtitle}</p>
-            </div>
-            <div class="card-arrow">→</div>
-        `;
-
-        card.addEventListener('click', () => {
-            window.location.href = mapDbCard.href;
-        });
-
-        container.appendChild(card);
     },
 
     renderCardIcon(icon) {
