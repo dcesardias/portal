@@ -988,6 +988,17 @@ body {
     line-height: var(--line-tight);
 }
 
+.admin-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.admin-header .btn-logout {
+    min-height: 36px;
+    padding: 8px 14px;
+}
+
 .admin-header .close-btn {
     width: 36px;
     height: 36px;
@@ -1994,6 +2005,14 @@ body {
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
+    align-items: center;
+}
+
+.admin-panel .admin-toolbar .btn,
+.admin-panel .admin-toolbar .btn-admin,
+.admin-panel .admin-toolbar .btn-system-load {
+    width: auto;
+    flex: 0 0 auto;
 }
 
 .admin-panel .admin-actions-row {
