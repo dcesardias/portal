@@ -84,11 +84,15 @@ window.PortalAuth = {
                 document.getElementById('overlay').classList.remove('show');
                 document.getElementById('adminButton').textContent = 'Configurações';
                 await window.PortalData.loadDataFromAPI();
-                setTimeout(() => {
-                    if (window.PortalAdmin) {
-                        window.PortalAdmin.openAdminPanel();
-                    }
-                }, 300);
+                if (window.PortalApp.isAdmin) {
+                    setTimeout(() => {
+                        if (window.PortalAdmin) {
+                            window.PortalAdmin.openAdminPanel();
+                        }
+                    }, 300);
+                } else {
+                    alert('Login realizado com sucesso. Este usuario nao possui acesso administrativo ao portal.');
+                }
             } else {
                 errorDiv.textContent = 'Usuário ou senha inválidos'; 
                 errorDiv.classList.add('show');

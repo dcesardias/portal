@@ -53,6 +53,19 @@ export function createConnection(req) {
     saveToDisk();
     return conn;
 }
+export function setConnection(conn) {
+    connections.set(conn.id, conn);
+    return conn;
+}
+export function replaceConnections(nextConnections) {
+    connections.clear();
+    for (const conn of nextConnections) {
+        connections.set(conn.id, conn);
+    }
+}
+export function clearConnections() {
+    connections.clear();
+}
 export function getConnection(id) {
     return connections.get(id);
 }

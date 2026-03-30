@@ -52,6 +52,7 @@ window.PortalAdmin = {
         this.loadPagesList();
         this.loadMenuStructure();
         this.updatePageSelect();
+        this.loadUsersList();
         this.loadDataDictionaries();
         
         // Inicializar dropdowns de ícones - com delay maior para garantir que o DOM está pronto
@@ -312,6 +313,223 @@ window.PortalAdmin = {
             opt.textContent = p.title || (`Página ${p.id}`);
             sel.appendChild(opt);
         });
+    },
+
+    async loadUsersList() {
+        const container = document.getElementById('usersList');
+        if (!container) return;
+
+        if (!window.PortalApp.authToken || !window.PortalApp.isAdmin) {
+            container.innerHTML = '<div class="admin-placeholder">Acesso restrito a administradores.</div>';
+            return;
+        }
+
+        container.innerHTML = '<div class="admin-placeholder">Carregando usuários...</div>';
+
+        try {
+            const response = await fetch(`${window.PortalApp.API_URL}/users`, {
+                headers: {
+                    'Authorization': `Bearer ${window.PortalApp.authToken}`
+                }
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ error: response.statusText }));
+                throw new Error(errorData.error || 'Erro ao carregar usuários');
+            }
+
+            const users = await response.json();
+
+            if (!Array.isArray(users) || users.length === 0) {
+                container.innerHTML = '<div class="admin-placeholder">Nenhum usuário encontrado.</div>';
+                return;
+            }
+
+            container.innerHTML = '';
+            users.forEach((user) => {
+                const item = document.createElement('div');
+                item.className = 'menu-list-item';
+
+                const infoDiv = document.createElement('div');
+                const title = document.createElement('strong');
+                title.textContent = user.fullName || user.username;
+                infoDiv.appendChild(title);
+
+                if (user.isAdmin) {
+                    const adminBadge = document.createElement('span');
+                    adminBadge.style.cssText = 'margin-left: 8px; padding: 2px 6px; background: #14532d; color: white; border-radius: 10px; font-size: 10px;';
+                    adminBadge.textContent = 'ADMIN';
+                    infoDiv.appendChild(adminBadge);
+                }
+
+                if (!user.isActive) {
+                    const inactiveBadge = document.createElement('span');
+                    inactiveBadge.style.cssText = 'margin-left: 8px; padding: 2px 6px; background: #6b7280; color: white; border-radius: 10px; font-size: 10px;';
+                    inactiveBadge.textContent = 'INATIVO';
+                    infoDiv.appendChild(inactiveBadge);
+                }
+
+                infoDiv.appendChild(document.createElement('br'));
+                const details = document.createElement('small');
+                details.style.color = 'var(--text-secondary)';
+                const email = user.email || 'Sem e-mail';
+                const lastLogin = user.lastLogin ? ` • Último login: ${new Date(user.lastLogin).toLocaleString('pt-BR')}` : '';
+                details.textContent = `${user.username} • ${email}${lastLogin}`;
+                infoDiv.appendChild(details);
+
+                const actionsDiv = document.createElement('div');
+                actionsDiv.className = 'menu-list-item-actions';
+                actionsDiv.innerHTML = `
+                    <button class="btn-small btn-edit" onclick="editUser(${user.id})">Editar</button>
+                    <button class="btn-small btn-delete" onclick="deleteUser(${user.id}, '${String(user.username).replace(/'/g, "\\'")}')">Excluir</button>
+                `;
+
+                item.appendChild(infoDiv);
+                item.appendChild(actionsDiv);
+                container.appendChild(item);
+            });
+        } catch (error) {
+            console.error('Erro ao carregar usuários:', error);
+            container.innerHTML = `<div class="admin-placeholder">${error.message || 'Erro ao carregar usuários.'}</div>`;
+        }
+    },
+
+    clearUserForm() {
+        document.getElementById('userUsernameInput').value = '';
+        document.getElementById('userFullNameInput').value = '';
+        document.getElementById('userEmailInput').value = '';
+        document.getElementById('userPasswordInput').value = '';
+        document.getElementById('userIsAdminCheckbox').checked = false;
+        document.getElementById('userIsActiveCheckbox').checked = true;
+    },
+
+    cancelUserEdit() {
+        window.PortalApp.editingUserId = null;
+        this.clearUserForm();
+        document.getElementById('saveUserBtn').textContent = 'Salvar Usuário';
+        document.getElementById('cancelUserEditBtn').style.display = 'none';
+    },
+
+    async editUser(id) {
+        try {
+            const response = await fetch(`${window.PortalApp.API_URL}/users`, {
+                headers: {
+                    'Authorization': `Bearer ${window.PortalApp.authToken}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Erro ao carregar dados do usuário');
+            }
+
+            const users = await response.json();
+            const user = Array.isArray(users) ? users.find((item) => item.id === id) : null;
+            if (!user) {
+                alert('Usuário não encontrado.');
+                return;
+            }
+
+            window.PortalApp.editingUserId = id;
+            document.getElementById('userUsernameInput').value = user.username || '';
+            document.getElementById('userFullNameInput').value = user.fullName || '';
+            document.getElementById('userEmailInput').value = user.email || '';
+            document.getElementById('userPasswordInput').value = '';
+            document.getElementById('userIsAdminCheckbox').checked = !!user.isAdmin;
+            document.getElementById('userIsActiveCheckbox').checked = !!user.isActive;
+            document.getElementById('saveUserBtn').textContent = 'Atualizar Usuário';
+            document.getElementById('cancelUserEditBtn').style.display = 'inline-block';
+        } catch (error) {
+            console.error('Erro ao editar usuário:', error);
+            alert(error.message || 'Erro ao carregar usuário');
+        }
+    },
+
+    async saveUser() {
+        if (!window.PortalApp.authToken || !window.PortalApp.isAdmin) {
+            alert('Faça login como administrador para gerenciar usuários.');
+            return;
+        }
+
+        const username = document.getElementById('userUsernameInput').value.trim();
+        const fullName = document.getElementById('userFullNameInput').value.trim();
+        const email = document.getElementById('userEmailInput').value.trim();
+        const password = document.getElementById('userPasswordInput').value;
+        const isAdmin = document.getElementById('userIsAdminCheckbox').checked;
+        const isActive = document.getElementById('userIsActiveCheckbox').checked;
+
+        if (!username) {
+            alert('Informe o usuário.');
+            return;
+        }
+
+        if (!window.PortalApp.editingUserId && !password) {
+            alert('Informe a senha para criar o usuário.');
+            return;
+        }
+
+        try {
+            const isEditing = !!window.PortalApp.editingUserId;
+            const response = await fetch(
+                isEditing ? `${window.PortalApp.API_URL}/users/${window.PortalApp.editingUserId}` : `${window.PortalApp.API_URL}/users`,
+                {
+                    method: isEditing ? 'PUT' : 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${window.PortalApp.authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username,
+                        fullName: fullName || null,
+                        email: email || null,
+                        password: password || null,
+                        isAdmin,
+                        isActive
+                    })
+                }
+            );
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ error: response.statusText }));
+                throw new Error(errorData.error || 'Erro ao salvar usuário');
+            }
+
+            this.cancelUserEdit();
+            await this.loadUsersList();
+            alert(isEditing ? 'Usuário atualizado com sucesso!' : 'Usuário criado com sucesso!');
+        } catch (error) {
+            console.error('Erro ao salvar usuário:', error);
+            alert(error.message || 'Erro ao salvar usuário');
+        }
+    },
+
+    async deleteUser(id, username) {
+        if (!confirm(`Deseja realmente remover o usuário "${username}"?`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`${window.PortalApp.API_URL}/users/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${window.PortalApp.authToken}`
+                }
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ error: response.statusText }));
+                throw new Error(errorData.error || 'Erro ao excluir usuário');
+            }
+
+            if (window.PortalApp.editingUserId === id) {
+                this.cancelUserEdit();
+            }
+
+            await this.loadUsersList();
+            alert('Usuário removido com sucesso!');
+        } catch (error) {
+            console.error('Erro ao excluir usuário:', error);
+            alert(error.message || 'Erro ao excluir usuário');
+        }
     },
 
     findMenuItemById(items, id) {
@@ -2523,6 +2741,11 @@ window.movePageUp = (id) => window.PortalAdmin.movePageUp(id);
 window.movePageDown = (id) => window.PortalAdmin.movePageDown(id);
 window.moveMenuItemUp = (id) => window.PortalAdmin.moveMenuItemUp(id);
 window.moveMenuItemDown = (id) => window.PortalAdmin.moveMenuItemDown(id);
+window.loadUsersList = () => window.PortalAdmin.loadUsersList();
+window.saveUser = () => window.PortalAdmin.saveUser();
+window.editUser = (id) => window.PortalAdmin.editUser(id);
+window.deleteUser = (id, username) => window.PortalAdmin.deleteUser(id, username);
+window.cancelUserEdit = () => window.PortalAdmin.cancelUserEdit();
 window.loadDataDictionaries = () => window.PortalAdmin.loadDataDictionaries();
 window.manageDictionaryStructure = (id) => window.PortalAdmin.manageDictionaryStructure(id);
 window.closeDictionaryStructureManager = () => window.PortalAdmin.closeDictionaryStructureManager();
@@ -2559,6 +2782,10 @@ window.switchTab = (tab, event) => {
     if (tab === 'dictionary' && window.PortalAdmin) {
         console.log('Dictionary tab activated, loading dictionaries...');
         window.PortalAdmin.loadDataDictionaries();
+    }
+
+    if (tab === 'users' && window.PortalAdmin) {
+        window.PortalAdmin.loadUsersList();
     }
     
     // NOVO: Reconstruir dropdowns de ícones ao trocar para abas que os usam

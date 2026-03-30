@@ -159,6 +159,7 @@
             <div class="tabs">
                 <button class="tab active" onclick="switchTab('pages', event)">Páginas</button>
                 <button class="tab" onclick="switchTab('menu', event)">Menu</button>
+                <button class="tab" onclick="switchTab('users', event)">Usuários</button>
                 <button class="tab" onclick="switchTab('dictionary', event)">Dicionário IA</button>
                 <button class="tab" onclick="switchTab('config', event)">Configurações</button>
             </div>
@@ -280,6 +281,57 @@
                     💡 <strong>Hierarquia Multinível:</strong> Você pode criar subitens dentro de subitens sem limite de profundidade. Categorias podem conter outras categorias e itens.
                 </div>
                 <div class="menu-list" id="menuStructure"></div>
+            </div>
+
+            <div class="tab-content" id="usersTab">
+                <h3>Gerenciar Usuários</h3>
+                <p class="admin-desc">
+                    Os usuários cadastrados aqui podem acessar o MapDB com login e senha. Administradores também podem abrir o painel administrativo do portal.
+                </p>
+
+                <div class="form-group">
+                    <label>Usuário</label>
+                    <input type="text" id="userUsernameInput" placeholder="Ex: joao.silva">
+                </div>
+
+                <div class="form-group">
+                    <label>Nome Completo</label>
+                    <input type="text" id="userFullNameInput" placeholder="Ex: João Silva">
+                </div>
+
+                <div class="form-group">
+                    <label>E-mail</label>
+                    <input type="email" id="userEmailInput" placeholder="usuario@aacd.org.br">
+                </div>
+
+                <div class="form-group">
+                    <label>Senha</label>
+                    <input type="password" id="userPasswordInput" placeholder="Obrigatória ao criar; opcional ao editar">
+                    <small class="admin-help">Ao editar, deixe em branco para manter a senha atual.</small>
+                </div>
+
+                <div class="form-group admin-form-spaced">
+                    <label class="admin-checkbox-row">
+                        <input type="checkbox" id="userIsAdminCheckbox">
+                        <span>Conceder acesso administrativo ao portal</span>
+                    </label>
+                    <label class="admin-checkbox-row">
+                        <input type="checkbox" id="userIsActiveCheckbox" checked>
+                        <span>Usuário ativo</span>
+                    </label>
+                </div>
+
+                <div class="admin-actions-row">
+                    <button class="btn btn-admin" id="saveUserBtn" onclick="saveUser()">Salvar Usuário</button>
+                    <button class="btn" id="cancelUserEditBtn" style="display:none;" onclick="cancelUserEdit()">Cancelar</button>
+                </div>
+
+                <h4 class="admin-section-title">Usuários Cadastrados</h4>
+                <div class="menu-list" id="usersList">
+                    <div class="admin-placeholder">
+                        Carregando usuários...
+                    </div>
+                </div>
             </div>
 
             <div class="tab-content" id="configTab">
