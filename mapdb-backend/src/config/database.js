@@ -4,7 +4,7 @@ export function buildConfig(conn, database) {
     return {
         server: conn.server,
         port: conn.port,
-        database: database || 'master',
+        database: database || conn.defaultDatabase || 'master',
         user: conn.authenticationType === 'sql' ? conn.user : undefined,
         password: conn.authenticationType === 'sql' ? conn.password : undefined,
         options: {
@@ -16,7 +16,7 @@ export function buildConfig(conn, database) {
     };
 }
 function poolKey(connectionId, database) {
-    return `${connectionId}::${database || 'master'}`;
+    return `${connectionId}::${database || 'default'}`;
 }
 export async function getPool(conn, database) {
     const key = poolKey(conn.id, database);

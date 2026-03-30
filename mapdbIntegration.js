@@ -12,6 +12,7 @@ function sanitizeConnection(conn) {
         name: conn.name,
         engine: conn.engine,
         server: conn.server,
+        defaultDatabase: conn.defaultDatabase,
         port: conn.port,
         authenticationType: conn.authenticationType,
         user: conn.user
@@ -24,6 +25,7 @@ function normalizeConnectionRow(row) {
         name: row.Name,
         engine: row.Engine,
         server: row.ServerName,
+        defaultDatabase: row.DefaultDatabase,
         port: row.Port,
         authenticationType: row.AuthenticationType,
         user: row.Username,
@@ -80,6 +82,7 @@ async function loadUserConnections(pool, userId) {
                 Engine,
                 ServerName,
                 Port,
+                DefaultDatabase,
                 AuthenticationType,
                 Username,
                 PasswordValue,
@@ -107,6 +110,7 @@ async function ensureOwnedConnection(pool, userId, connectionId) {
                 Engine,
                 ServerName,
                 Port,
+                DefaultDatabase,
                 AuthenticationType,
                 Username,
                 PasswordValue,
@@ -140,6 +144,7 @@ async function ensureMapDbTables(pool) {
                 Engine NVARCHAR(20) NOT NULL,
                 ServerName NVARCHAR(255) NOT NULL,
                 Port INT NOT NULL,
+                DefaultDatabase NVARCHAR(255) NULL,
                 AuthenticationType NVARCHAR(20) NOT NULL,
                 Username NVARCHAR(255) NULL,
                 PasswordValue NVARCHAR(500) NULL,
@@ -162,6 +167,11 @@ async function ensureMapDbTables(pool) {
         BEGIN
             CREATE INDEX IX_MapDBConnections_UserId_Name
                 ON dbo.MapDBConnections(UserId, Name);
+        END;
+
+        IF COL_LENGTH('dbo.MapDBConnections', 'DefaultDatabase') IS NULL
+        BEGIN
+            ALTER TABLE dbo.MapDBConnections ADD DefaultDatabase NVARCHAR(255) NULL;
         END;
     `);
 }
@@ -229,6 +239,13 @@ async function mountMapDb({ app, express, baseDir, getPool, authenticateToken })
         res.json((req.mapDbConnections || []).map(sanitizeConnection));
     });
 
+    app.get('/mapdb/api/connections/:id', authenticateToken, mapDbSync, mapDbEnsureConnectionAccess, async (req, res) => {
+        res.json({
+            ...req.mapDbConnection,
+            password: undefined,
+        });
+    });
+
     app.post('/mapdb/api/connections', authenticateToken, async (req, res) => {
         try {
             const currentPool = getPool();
@@ -240,6 +257,7 @@ async function mountMapDb({ app, express, baseDir, getPool, authenticateToken })
             const engine = body.engine === 'oracle' ? 'oracle' : 'sqlserver';
             const name = String(body.name || '').trim();
             const serverName = String(body.server || '').trim();
+            const defaultDatabase = body.defaultDatabase ? String(body.defaultDatabase).trim() : null;
             const authenticationType = engine === 'oracle'
                 ? 'sql'
                 : (body.authenticationType === 'windows' ? 'windows' : 'sql');
@@ -260,6 +278,7 @@ async function mountMapDb({ app, express, baseDir, getPool, authenticateToken })
                 .input('name', sql.NVarChar(150), name)
                 .input('engine', sql.NVarChar(20), engine)
                 .input('serverName', sql.NVarChar(255), serverName)
+                .input('defaultDatabase', sql.NVarChar(255), defaultDatabase)
                 .input('port', sql.Int, port)
                 .input('authenticationType', sql.NVarChar(20), authenticationType)
                 .input('username', sql.NVarChar(255), username)
@@ -270,13 +289,13 @@ async function mountMapDb({ app, express, baseDir, getPool, authenticateToken })
                 .input('sid', sql.NVarChar(255), sid)
                 .query(`
                     INSERT INTO dbo.MapDBConnections (
-                        UserId, Name, Engine, ServerName, Port, AuthenticationType,
+                        UserId, Name, Engine, ServerName, Port, DefaultDatabase, AuthenticationType,
                         Username, PasswordValue, Encrypt, TrustServerCertificate,
                         ServiceName, Sid, UpdatedAt
                     )
                     OUTPUT INSERTED.Id
                     VALUES (
-                        @userId, @name, @engine, @serverName, @port, @authenticationType,
+                        @userId, @name, @engine, @serverName, @port, @defaultDatabase, @authenticationType,
                         @username, @passwordValue, @encrypt, @trustServerCertificate,
                         @serviceName, @sid, GETDATE()
                     )
@@ -287,6 +306,7 @@ async function mountMapDb({ app, express, baseDir, getPool, authenticateToken })
                 name,
                 engine,
                 server: serverName,
+                defaultDatabase: defaultDatabase || undefined,
                 port,
                 authenticationType,
                 user: username || undefined,
@@ -313,6 +333,105 @@ async function mountMapDb({ app, express, baseDir, getPool, authenticateToken })
         } catch (error) {
             console.error('[MapDB] Erro ao criar conexao:', error);
             return res.status(500).json({ error: error.message || 'Erro ao salvar conexao' });
+        }
+    });
+
+    app.put('/mapdb/api/connections/:id', authenticateToken, mapDbSync, mapDbEnsureConnectionAccess, async (req, res) => {
+        try {
+            const currentPool = getPool();
+            if (!currentPool || !currentPool.connected) {
+                return res.status(503).json({ error: 'Banco de configuracao indisponivel' });
+            }
+
+            const existing = req.mapDbConnection;
+            const body = req.body || {};
+            const engine = body.engine === 'oracle' ? 'oracle' : 'sqlserver';
+            const name = String(body.name || '').trim();
+            const serverName = String(body.server || '').trim();
+            const defaultDatabase = body.defaultDatabase ? String(body.defaultDatabase).trim() : null;
+            const authenticationType = engine === 'oracle'
+                ? 'sql'
+                : (body.authenticationType === 'windows' ? 'windows' : 'sql');
+            const port = Number(body.port) || (engine === 'oracle' ? 1521 : 1433);
+            const username = body.user ? String(body.user).trim() : null;
+            const passwordValue = body.password ? String(body.password) : (existing.password || null);
+            const encrypt = body.encrypt === true;
+            const trustServerCertificate = body.trustServerCertificate !== false;
+            const serviceName = body.serviceName ? String(body.serviceName).trim() : null;
+            const sid = body.sid ? String(body.sid).trim() : null;
+
+            if (!name || !serverName) {
+                return res.status(400).json({ error: 'Nome e servidor sao obrigatorios' });
+            }
+
+            await currentPool.request()
+                .input('userId', sql.Int, req.user.id)
+                .input('id', sql.UniqueIdentifier, existing.id)
+                .input('name', sql.NVarChar(150), name)
+                .input('engine', sql.NVarChar(20), engine)
+                .input('serverName', sql.NVarChar(255), serverName)
+                .input('defaultDatabase', sql.NVarChar(255), defaultDatabase)
+                .input('port', sql.Int, port)
+                .input('authenticationType', sql.NVarChar(20), authenticationType)
+                .input('username', sql.NVarChar(255), username)
+                .input('passwordValue', sql.NVarChar(500), passwordValue)
+                .input('encrypt', sql.Bit, encrypt)
+                .input('trustServerCertificate', sql.Bit, trustServerCertificate)
+                .input('serviceName', sql.NVarChar(255), serviceName)
+                .input('sid', sql.NVarChar(255), sid)
+                .query(`
+                    UPDATE dbo.MapDBConnections
+                    SET Name = @name,
+                        Engine = @engine,
+                        ServerName = @serverName,
+                        DefaultDatabase = @defaultDatabase,
+                        Port = @port,
+                        AuthenticationType = @authenticationType,
+                        Username = @username,
+                        PasswordValue = @passwordValue,
+                        Encrypt = @encrypt,
+                        TrustServerCertificate = @trustServerCertificate,
+                        ServiceName = @serviceName,
+                        Sid = @sid,
+                        UpdatedAt = GETDATE()
+                    WHERE UserId = @userId AND Id = @id
+                `);
+
+            if (existing.engine === 'oracle') {
+                const oracleDatabase = await modules.loadOracleDatabase();
+                await oracleDatabase.closeOraclePool(existing.id);
+            } else {
+                await modules.database.closePool(existing.id);
+            }
+
+            if (engine === 'oracle' && existing.engine !== 'oracle') {
+                const oracleDatabase = await modules.loadOracleDatabase();
+                await oracleDatabase.closeOraclePool(existing.id);
+            }
+            if (engine !== 'oracle' && existing.engine === 'oracle') {
+                await modules.database.closePool(existing.id);
+            }
+
+            await syncConnectionsForUser(modules, currentPool, req.user.id);
+
+            return res.json(sanitizeConnection({
+                ...existing,
+                name,
+                engine,
+                server: serverName,
+                defaultDatabase: defaultDatabase || undefined,
+                port,
+                authenticationType,
+                user: username || undefined,
+                password: passwordValue || undefined,
+                encrypt,
+                trustServerCertificate,
+                serviceName: serviceName || undefined,
+                sid: sid || undefined,
+            }));
+        } catch (error) {
+            console.error('[MapDB] Erro ao atualizar conexao:', error);
+            return res.status(500).json({ error: error.message || 'Erro ao atualizar conexao' });
         }
     });
 
