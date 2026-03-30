@@ -293,10 +293,13 @@ body {
     padding: 12px;
     border-top: 1px solid rgba(255,255,255,0.06);
     display: flex;
+    flex-direction: column;
     justify-content: center;
+    gap: 10px;
     background: transparent;
 }
 
+.sidebar-footer .btn,
 .sidebar-footer .btn-admin {
     width: calc(100% - 16px);
 }
@@ -2339,6 +2342,11 @@ body {
     padding: 20px 10px;
     text-align: center;
     background: var(--menu-collapsed-bg-color, #4A4A4A);
+}
+
+.sidebar.collapsed .sidebar-footer .btn,
+.sidebar.collapsed .sidebar-footer .btn-admin {
+    width: 100%;
 }
 
 .btn-refresh-iframe {

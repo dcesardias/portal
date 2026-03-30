@@ -20,6 +20,7 @@
             <div id="menuContainer"></div>
             <div class="sidebar-footer">
                 <button class="btn btn-admin" id="adminButton" onclick="toggleAdmin()">Configurações</button>
+                <button class="btn" id="changePasswordButton" onclick="openChangePasswordModal()" style="display:none;">Minha Senha</button>
             </div>
         </div>
 
@@ -118,6 +119,28 @@
                 <input type="password" id="loginPassword" name="admin_password" placeholder="Digite sua senha" autocomplete="current-password">
             </div>
             <button class="btn btn-admin" id="loginButton" type="button">Entrar</button>
+        </form>
+    </div>
+
+    <div class="login-modal" id="changePasswordModal">
+        <form id="changePasswordForm" autocomplete="off" action="javascript:void(0)">
+            <div class="login-header">
+                <h2>Alterar Senha</h2>
+            </div>
+            <div class="error-message" id="changePasswordError"></div>
+            <div class="form-group">
+                <label>Senha Atual</label>
+                <input type="password" id="currentPasswordInput" placeholder="Digite sua senha atual" autocomplete="current-password">
+            </div>
+            <div class="form-group">
+                <label>Nova Senha</label>
+                <input type="password" id="newPasswordInput" placeholder="Mínimo de 6 caracteres" autocomplete="new-password">
+            </div>
+            <div class="form-group">
+                <label>Confirmar Nova Senha</label>
+                <input type="password" id="confirmNewPasswordInput" placeholder="Repita a nova senha" autocomplete="new-password">
+            </div>
+            <button class="btn" id="changePasswordSubmitButton" type="button">Salvar Nova Senha</button>
         </form>
     </div>
 

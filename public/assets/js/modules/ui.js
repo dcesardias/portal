@@ -27,8 +27,10 @@ window.PortalUI = {
         this.setupThemeToggle();
         this.setupSidebar();
         this.setupAdminButton();
+        this.setupChangePasswordButton();
         this.setupLoginButton();
         this.setupLoginModal(); // Nova função para configurar o modal
+        this.setupChangePasswordModal();
         this.setupMenuTypeSelect();
         this.setupIconInputs();
         this.setupLogoUpload();
@@ -71,6 +73,17 @@ window.PortalUI = {
         }
     },
 
+    setupChangePasswordButton() {
+        const changePasswordBtn = document.getElementById('changePasswordButton');
+        if (changePasswordBtn) {
+            changePasswordBtn.addEventListener('click', () => {
+                if (window.PortalAuth) {
+                    window.PortalAuth.openChangePasswordModal();
+                }
+            });
+        }
+    },
+
     setupLoginButton() {
         const loginBtn = document.getElementById('loginButton');
         if (loginBtn) {
@@ -100,6 +113,45 @@ window.PortalUI = {
         if (loginPassword) {
             loginPassword.addEventListener('keypress', handleEnterKey);
         }
+    },
+
+    setupChangePasswordModal() {
+        const changePasswordButton = document.getElementById('changePasswordSubmitButton');
+        if (changePasswordButton) {
+            changePasswordButton.addEventListener('click', () => {
+                if (window.PortalAuth) {
+                    window.PortalAuth.doChangePassword();
+                }
+            });
+        }
+
+        const handleEnterKey = (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (window.PortalAuth) {
+                    window.PortalAuth.doChangePassword();
+                }
+            }
+        };
+
+        ['currentPasswordInput', 'newPasswordInput', 'confirmNewPasswordInput'].forEach((id) => {
+            const input = document.getElementById(id);
+            if (input) {
+                input.addEventListener('keypress', handleEnterKey);
+            }
+        });
+    },
+
+    syncOverlayState() {
+        const overlay = document.getElementById('overlay');
+        if (!overlay) return;
+
+        const shouldShow = ['loginModal', 'changePasswordModal', 'adminPanel'].some((id) => {
+            const element = document.getElementById(id);
+            return !!element && element.classList.contains('show');
+        });
+
+        overlay.classList.toggle('show', shouldShow);
     },
 
     setupMenuTypeSelect() {
@@ -199,12 +251,18 @@ window.PortalUI = {
         // Configurar fechamento do modal de login
         const overlay = document.getElementById('overlay');
         const loginModal = document.getElementById('loginModal');
+        const changePasswordModal = document.getElementById('changePasswordModal');
         
         if (overlay) {
             overlay.addEventListener('click', (e) => {
                 // Fechar modal se clicar no overlay (fundo)
                 if (e.target === overlay) {
-                    this.closeLoginModal();
+                    if (loginModal && loginModal.classList.contains('show')) {
+                        this.closeLoginModal();
+                    }
+                    if (changePasswordModal && changePasswordModal.classList.contains('show')) {
+                        this.closeChangePasswordModal();
+                    }
                 }
             });
         }
@@ -214,6 +272,9 @@ window.PortalUI = {
             if (e.key === 'Escape') {
                 if (loginModal && loginModal.classList.contains('show')) {
                     this.closeLoginModal();
+                }
+                if (changePasswordModal && changePasswordModal.classList.contains('show')) {
+                    this.closeChangePasswordModal();
                 }
             }
         });
@@ -289,15 +350,10 @@ window.PortalUI = {
 
     closeLoginModal() {
         const loginModal = document.getElementById('loginModal');
-        const overlay = document.getElementById('overlay');
         const errorDiv = document.getElementById('loginError');
         
         if (loginModal) {
             loginModal.classList.remove('show');
-        }
-        
-        if (overlay) {
-            overlay.classList.remove('show');
         }
         
         // Limpar campos do formulário
@@ -312,6 +368,31 @@ window.PortalUI = {
             errorDiv.classList.remove('show');
             errorDiv.textContent = '';
         }
+
+        this.syncOverlayState();
+    },
+
+    closeChangePasswordModal() {
+        const changePasswordModal = document.getElementById('changePasswordModal');
+        const errorDiv = document.getElementById('changePasswordError');
+        const currentPasswordInput = document.getElementById('currentPasswordInput');
+        const newPasswordInput = document.getElementById('newPasswordInput');
+        const confirmNewPasswordInput = document.getElementById('confirmNewPasswordInput');
+
+        if (changePasswordModal) {
+            changePasswordModal.classList.remove('show');
+        }
+
+        if (currentPasswordInput) currentPasswordInput.value = '';
+        if (newPasswordInput) newPasswordInput.value = '';
+        if (confirmNewPasswordInput) confirmNewPasswordInput.value = '';
+
+        if (errorDiv) {
+            errorDiv.classList.remove('show');
+            errorDiv.textContent = '';
+        }
+
+        this.syncOverlayState();
     },
 
     // ...existing code...
@@ -320,6 +401,7 @@ window.PortalUI = {
 // Expor funções globais para compatibilidade
 window.toggleTheme = () => window.PortalUI.toggleTheme();
 window.closeLoginModal = () => window.PortalUI.closeLoginModal(); // Nova função global
+window.closeChangePasswordModal = () => window.PortalUI.closeChangePasswordModal();
 window.switchTab = (tab, event) => {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));

@@ -42,7 +42,11 @@ window.PortalAdmin = {
     openAdminPanel() {
         const panel = document.getElementById('adminPanel');
         panel.classList.add('show');
-        document.getElementById('overlay').classList.add('show');
+        if (window.PortalUI && typeof window.PortalUI.syncOverlayState === 'function') {
+            window.PortalUI.syncOverlayState();
+        } else {
+            document.getElementById('overlay').classList.add('show');
+        }
         
         const savedWidth = localStorage.getItem('adminPanelWidth');
         if (savedWidth) {
@@ -80,7 +84,11 @@ window.PortalAdmin = {
 
     closeAdminPanel() {
         document.getElementById('adminPanel').classList.remove('show');
-        document.getElementById('overlay').classList.remove('show');
+        if (window.PortalUI && typeof window.PortalUI.syncOverlayState === 'function') {
+            window.PortalUI.syncOverlayState();
+        } else {
+            document.getElementById('overlay').classList.remove('show');
+        }
     },
 
     // NOVO MÉTODO: openTutorialBuilder

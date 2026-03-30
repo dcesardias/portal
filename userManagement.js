@@ -42,6 +42,56 @@ function ensureAdmin(req, res) {
 function createUserManagementRouter({ getPool, authenticateToken, sql, bcrypt }) {
     const router = express.Router();
 
+    router.post('/me/password', authenticateToken, async (req, res) => {
+        try {
+            const pool = getPool();
+            if (!pool || !pool.connected) {
+                return res.status(503).json({ error: 'Banco de dados indisponivel' });
+            }
+
+            const currentPassword = normalizeNullableString(req.body.currentPassword, 200);
+            const newPassword = normalizeNullableString(req.body.newPassword, 200);
+
+            if (!currentPassword || !newPassword) {
+                return res.status(400).json({ error: 'Senha atual e nova senha sao obrigatorias' });
+            }
+
+            if (newPassword.length < 6) {
+                return res.status(400).json({ error: 'A nova senha deve ter pelo menos 6 caracteres' });
+            }
+
+            const userResult = await pool.request()
+                .input('id', sql.Int, req.user.id)
+                .query('SELECT TOP 1 Id, PasswordHash, IsActive FROM dbo.Users WHERE Id = @id');
+
+            if (userResult.recordset.length === 0 || !userResult.recordset[0].IsActive) {
+                return res.status(404).json({ error: 'Usuario nao encontrado ou inativo' });
+            }
+
+            const user = userResult.recordset[0];
+            const validPassword = await bcrypt.compare(currentPassword, user.PasswordHash);
+            if (!validPassword) {
+                return res.status(400).json({ error: 'Senha atual invalida' });
+            }
+
+            const isSamePassword = await bcrypt.compare(newPassword, user.PasswordHash);
+            if (isSamePassword) {
+                return res.status(400).json({ error: 'A nova senha deve ser diferente da atual' });
+            }
+
+            const passwordHash = await bcrypt.hash(newPassword, 10);
+            await pool.request()
+                .input('id', sql.Int, req.user.id)
+                .input('passwordHash', sql.NVarChar(500), passwordHash)
+                .query('UPDATE dbo.Users SET PasswordHash = @passwordHash WHERE Id = @id');
+
+            return res.json({ message: 'Senha atualizada com sucesso' });
+        } catch (error) {
+            console.error('[Users] Erro ao alterar a propria senha:', error);
+            return res.status(500).json({ error: 'Erro ao alterar senha' });
+        }
+    });
+
     router.get('/', authenticateToken, async (req, res) => {
         if (!ensureAdmin(req, res)) return;
 
