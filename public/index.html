@@ -20,7 +20,6 @@
             <div id="menuContainer"></div>
             <div class="sidebar-footer">
                 <button class="btn btn-admin" id="adminButton" onclick="toggleAdmin()">Configurações</button>
-                <button class="btn" id="changePasswordButton" onclick="openChangePasswordModal()" style="display:none;">Minha Senha</button>
             </div>
         </div>
 
@@ -176,6 +175,9 @@
         </div>
         <div class="admin-content">
             <div class="admin-toolbar">
+                <button class="btn" id="adminChangePasswordButton" onclick="openChangePasswordModal()" style="display:none;">
+                    <i class="fas fa-key"></i> Minha Senha
+                </button>
                 <button class="btn btn-admin" onclick="window.open('/mapdb/', '_blank')">
                     <i class="fas fa-project-diagram"></i> MapDB
                 </button>

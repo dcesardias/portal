@@ -27,7 +27,7 @@ window.PortalUI = {
         this.setupThemeToggle();
         this.setupSidebar();
         this.setupAdminButton();
-        this.setupChangePasswordButton();
+        this.setupAdminChangePasswordButton();
         this.setupLoginButton();
         this.setupLoginModal(); // Nova função para configurar o modal
         this.setupChangePasswordModal();
@@ -73,10 +73,10 @@ window.PortalUI = {
         }
     },
 
-    setupChangePasswordButton() {
-        const changePasswordBtn = document.getElementById('changePasswordButton');
-        if (changePasswordBtn) {
-            changePasswordBtn.addEventListener('click', () => {
+    setupAdminChangePasswordButton() {
+        const adminChangePasswordBtn = document.getElementById('adminChangePasswordButton');
+        if (adminChangePasswordBtn) {
+            adminChangePasswordBtn.addEventListener('click', () => {
                 if (window.PortalAuth) {
                     window.PortalAuth.openChangePasswordModal();
                 }

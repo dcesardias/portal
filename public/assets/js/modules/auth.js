@@ -5,9 +5,9 @@ window.PortalAuth = {
             adminButton.textContent = 'Configurações';
         }
 
-        const changePasswordButton = document.getElementById('changePasswordButton');
-        if (changePasswordButton) {
-            changePasswordButton.style.display = window.PortalApp.currentUser ? 'block' : 'none';
+        const adminChangePasswordButton = document.getElementById('adminChangePasswordButton');
+        if (adminChangePasswordButton) {
+            adminChangePasswordButton.style.display = window.PortalApp.currentUser ? 'inline-flex' : 'none';
         }
     },
 
