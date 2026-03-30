@@ -1,4 +1,15 @@
 window.PortalSearch = {
+    getMapDbEntry() {
+        return {
+            type: 'tool',
+            title: 'MapDB',
+            subtitle: 'Explorador de dependências de banco',
+            description: 'Abrir aplicação MapDB',
+            href: '/mapdb/',
+            keywords: ['mapdb', 'dependencias', 'dependências', 'database', 'sql', 'objetos']
+        };
+    },
+
     setupSearch() {
         const searchInput = document.getElementById('searchInput');
         const searchResults = document.getElementById('searchResults');
@@ -91,6 +102,19 @@ window.PortalSearch = {
         };
         
         searchMenuItems(window.PortalApp.menuData);
+
+        const mapDbEntry = this.getMapDbEntry();
+        const haystack = [mapDbEntry.title, mapDbEntry.subtitle, mapDbEntry.description, ...mapDbEntry.keywords]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase();
+
+        if (haystack.includes(lowerQuery)) {
+            results.push({
+                ...mapDbEntry,
+                relevance: 2
+            });
+        }
         
         results.sort((a, b) => b.relevance - a.relevance);
         
@@ -102,7 +126,7 @@ window.PortalSearch = {
                 
                 const badge = document.createElement('span');
                 badge.className = 'result-type-badge';
-                badge.textContent = result.type === 'page' ? 'Página' : 'Menu';
+                badge.textContent = result.type === 'page' ? 'Página' : (result.type === 'tool' ? 'App' : 'Menu');
                 
                 const content = document.createElement('div');
                 content.style.flex = '1';
@@ -133,6 +157,8 @@ window.PortalSearch = {
                         if (window.PortalPages) {
                             window.PortalPages.loadPage(result.id);
                         }
+                    } else if (result.type === 'tool' && result.href) {
+                        window.location.href = result.href;
                     } else if (result.type === 'menu' && result.pageId) {
                         if (window.PortalPages) {
                             window.PortalPages.loadPage(result.pageId);

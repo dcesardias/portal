@@ -121,6 +121,27 @@
         </form>
     </div>
 
+    <div class="ms-account-modal" id="msAccountModal" aria-hidden="true">
+        <div class="ms-account-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="msAccountModalTitle">
+            <div class="ms-account-modal__header">
+                <h2 id="msAccountModalTitle">Abrir painel do Power BI</h2>
+                <button type="button" class="ms-account-modal__close" id="msAccountModalClose" aria-label="Fechar">×</button>
+            </div>
+            <div class="ms-account-modal__body">
+                <p class="ms-account-modal__lead" id="msAccountModalLead">
+                    Escolha como deseja abrir este painel.
+                </p>
+                <p class="ms-account-modal__note">
+                    A troca de conta é uma tentativa best-effort. Como a sessão Microsoft fica fora do domínio deste portal, o navegador pode manter parte do login ativo.
+                </p>
+            </div>
+            <div class="ms-account-modal__actions">
+                <button type="button" class="btn" id="msAccountDirectBtn">Abrir direto</button>
+                <button type="button" class="btn btn-admin" id="msAccountSwitchBtn">Trocar conta Microsoft</button>
+            </div>
+        </div>
+    </div>
+
     <div class="admin-panel" id="adminPanel">
         <div class="resize-handle" id="resizeHandle"></div>
         <div class="admin-header">

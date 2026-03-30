@@ -7,6 +7,7 @@ const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { pathToFileURL } = require('url');
 
 try { require('dotenv').config(); } catch (e) { console.warn('dotenv não encontrado (opcional)'); }
 
@@ -21,6 +22,59 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 const fetchFn = (typeof fetch !== 'undefined')
     ? fetch
     : (...args) => import('node-fetch').then(({ default: f }) => f(...args));
+
+let mapDbMounted = false;
+
+async function mountMapDb() {
+    if (mapDbMounted) {
+        return;
+    }
+
+    const mapDbFrontendDir = path.join(__dirname, 'public', 'mapdb');
+    const mapDbBackendDir = path.join(__dirname, 'mapdb-backend', 'src');
+    const mapDbIndexFile = path.join(mapDbFrontendDir, 'index.html');
+
+    if (!fs.existsSync(mapDbIndexFile)) {
+        console.warn('[MapDB] Frontend não encontrado em public/mapdb. Rota /mapdb ficará indisponível.');
+        return;
+    }
+
+    if (!fs.existsSync(mapDbBackendDir)) {
+        console.warn('[MapDB] Backend não encontrado em mapdb-backend/src. API /mapdb/api ficará indisponível.');
+        return;
+    }
+
+    const [
+        { connectionsRouter },
+        { databasesRouter },
+        { objectsRouter },
+        { dependenciesRouter },
+        { scriptRouter },
+        { errorHandler },
+    ] = await Promise.all([
+        import(pathToFileURL(path.join(mapDbBackendDir, 'routes', 'connections.js')).href),
+        import(pathToFileURL(path.join(mapDbBackendDir, 'routes', 'databases.js')).href),
+        import(pathToFileURL(path.join(mapDbBackendDir, 'routes', 'objects.js')).href),
+        import(pathToFileURL(path.join(mapDbBackendDir, 'routes', 'dependencies.js')).href),
+        import(pathToFileURL(path.join(mapDbBackendDir, 'routes', 'script.js')).href),
+        import(pathToFileURL(path.join(mapDbBackendDir, 'middleware', 'errorHandler.js')).href),
+    ]);
+
+    app.use('/mapdb/api/connections', connectionsRouter);
+    app.use('/mapdb/api/connections', databasesRouter);
+    app.use('/mapdb/api/connections', objectsRouter);
+    app.use('/mapdb/api/connections', dependenciesRouter);
+    app.use('/mapdb/api/connections', scriptRouter);
+    app.use('/mapdb/api', errorHandler);
+
+    app.use('/mapdb', express.static(mapDbFrontendDir));
+    app.get(/^\/mapdb(?:\/(?!api(?:\/|$)).*)?$/, (_req, res) => {
+        res.sendFile(mapDbIndexFile);
+    });
+
+    mapDbMounted = true;
+    console.log('[MapDB] Aplicação montada em /mapdb');
+}
 
 app.use(cors());
 // CORRIGIDO: Aumentar limite para aceitar imagens grandes em base64
@@ -5614,6 +5668,7 @@ app.delete('/api/tutorials/:id', authenticateToken, async (req, res) => {
 async function startServer() {
     await initDB();
     await ensurePagesOrderColumn();
+    await mountMapDb();
     // Garantir rota /chatbot mesmo se regras de rewrite modificarem a URL
     // Colocada aqui perto do start para evitar qualquer interferência de outras rotas/middlewares.
     // Se o IIS reescrever /chatbot -> /public/chatbot, podemos também atender /public/chatbot.
