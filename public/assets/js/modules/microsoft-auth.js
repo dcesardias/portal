@@ -76,11 +76,30 @@ window.PortalMicrosoftAuth = {
         return !!(this.config && this.config.enabled && this.config.clientId && this.config.tenantId);
     },
 
-    getRedirectRequest() {
+    getBaseRequest() {
         return {
             scopes: Array.isArray(this.config?.loginScopes) ? this.config.loginScopes : ['openid', 'profile', 'offline_access', 'User.Read'],
             prompt: this.config?.forceAccountSelection === false ? undefined : 'select_account'
         };
+    },
+
+    getPopupRequest() {
+        const popupWidth = 520;
+        const popupHeight = 720;
+        const left = Math.max(0, Math.round(window.screenX + ((window.outerWidth - popupWidth) / 2)));
+        const top = Math.max(0, Math.round(window.screenY + ((window.outerHeight - popupHeight) / 2)));
+
+        return {
+            ...this.getBaseRequest(),
+            popupWindowAttributes: {
+                popupSize: { width: popupWidth, height: popupHeight },
+                popupPosition: { top, left }
+            }
+        };
+    },
+
+    getRedirectRequest() {
+        return this.getBaseRequest();
     },
 
     async ensurePowerBIAccount(page) {
@@ -109,15 +128,29 @@ window.PortalMicrosoftAuth = {
         sessionStorage.setItem(this.skipPromptKey, '1');
 
         try {
-            await this.msalInstance.loginRedirect(this.getRedirectRequest());
-        } catch (error) {
-            console.error('[MSAUTH] Falha ao iniciar loginRedirect:', error);
+            const popupResult = await this.msalInstance.loginPopup(this.getPopupRequest());
+            if (popupResult && popupResult.account) {
+                this.msalInstance.setActiveAccount(popupResult.account);
+                sessionStorage.setItem(this.activeAccountKey, popupResult.account.username || popupResult.account.homeAccountId || '');
+            }
+
             sessionStorage.removeItem(this.skipPromptKey);
             sessionStorage.removeItem(this.pendingPageKey);
-            alert('Nao foi possivel iniciar o login Microsoft para abrir o painel.');
-        }
+            return true;
+        } catch (error) {
+            console.warn('[MSAUTH] loginPopup falhou; tentando fallback via redirect:', error);
 
-        return false;
+            try {
+                await this.msalInstance.loginRedirect(this.getRedirectRequest());
+            } catch (redirectError) {
+                console.error('[MSAUTH] Falha ao iniciar loginRedirect:', redirectError);
+                sessionStorage.removeItem(this.skipPromptKey);
+                sessionStorage.removeItem(this.pendingPageKey);
+                alert('Nao foi possivel iniciar o login Microsoft para abrir o painel.');
+            }
+
+            return false;
+        }
     },
 
     async finishStartup() {

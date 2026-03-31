@@ -65,7 +65,7 @@ window.PortalPages = {
                         container.innerHTML = `
                             <div class="placeholder placeholder--microsoft-auth">
                                 <div class="powerbi-icon">🔐</div>
-                                <h3 class="powerbi-placeholder-title">Redirecionando para Microsoft</h3>
+                                <h3 class="powerbi-placeholder-title">Abrindo autenticação Microsoft</h3>
                                 <p class="powerbi-placeholder-desc">Escolha a conta Microsoft desejada para continuar no Power BI.</p>
                             </div>
                         `;
