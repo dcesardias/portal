@@ -2,6 +2,8 @@ window.PortalMicrosoftAuth = {
     config: null,
     msalInstance: null,
     initialized: false,
+    initializationFailed: false,
+    lastInitErrorMessage: '',
     pendingPageKey: 'portal.microsoft.pendingPageId',
     skipPromptKey: 'portal.microsoft.skipPromptOnce',
     activeAccountKey: 'portal.microsoft.activeAccount',
@@ -24,8 +26,9 @@ window.PortalMicrosoftAuth = {
             }
 
             if (!window.msal || !window.msal.PublicClientApplication) {
-                console.warn('[MSAUTH] msal-browser indisponivel; autenticacao Microsoft desativada.');
-                this.config.enabled = false;
+                this.initializationFailed = true;
+                this.lastInitErrorMessage = 'Biblioteca msal-browser não foi carregada pelo portal.';
+                console.warn('[MSAUTH] msal-browser indisponivel; autenticacao Microsoft nao inicializada.');
                 this.initialized = true;
                 return;
             }
@@ -62,7 +65,8 @@ window.PortalMicrosoftAuth = {
             }
         } catch (error) {
             console.error('[MSAUTH] Falha na inicializacao:', error);
-            this.config = { enabled: false };
+            this.initializationFailed = true;
+            this.lastInitErrorMessage = error && error.message ? error.message : 'Falha ao inicializar autenticacao Microsoft.';
         } finally {
             this.initialized = true;
         }
@@ -84,6 +88,11 @@ window.PortalMicrosoftAuth = {
 
         if (!this.isEnabled()) {
             return true;
+        }
+
+        if (this.initializationFailed || !this.msalInstance) {
+            alert(`A autenticacao Microsoft nao foi inicializada corretamente neste portal. Detalhes: ${this.lastInitErrorMessage || 'erro desconhecido'}`);
+            return false;
         }
 
         const pageId = String(page.id);

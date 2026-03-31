@@ -31,6 +31,7 @@ app.use(cors());
 // CORRIGIDO: Aumentar limite para aceitar imagens grandes em base64
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use('/vendor/msal-browser', express.static(path.join(__dirname, 'node_modules', '@azure', 'msal-browser', 'lib')));
 
 // Evita cache do Tutorial Builder (iframe costuma cachear agressivamente)
 // Mantém a URL e comportamento; apenas força o browser a buscar a versão atual.
