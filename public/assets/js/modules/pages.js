@@ -6,10 +6,35 @@ window.PortalPages = {
             subtitle: p.Subtitle || p.subtitle,
             description: p.Description || p.description,
             powerbiUrl: p.PowerBIUrl || p.powerbiUrl || '',
+            redirectPowerBIUrl: p.RedirectPowerBIUrl || p.redirectPowerBIUrl || '',
+            redirectEmails: p.RedirectEmails || p.redirectEmails || '',
             showInHome: p.ShowInHome !== undefined ? p.ShowInHome : (p.showInHome !== false),
             icon: p.Icon || p.icon || null,
             order: p.Order !== undefined ? p.Order : (p.order || 0)
         }));
+    },
+
+    resolvePowerBIUrl(page) {
+        const defaultUrl = page.powerbiUrl || '';
+        const redirectUrl = page.redirectPowerBIUrl || '';
+        const redirectEmails = page.redirectEmails || '';
+
+        if (!redirectUrl || !redirectEmails || !window.PortalMicrosoftAuth || typeof window.PortalMicrosoftAuth.getSignedInEmail !== 'function') {
+            return defaultUrl;
+        }
+
+        const signedInEmail = window.PortalMicrosoftAuth.getSignedInEmail();
+        if (!signedInEmail) {
+            return defaultUrl;
+        }
+
+        const normalizedEmail = signedInEmail.trim().toLowerCase();
+        const allowedEmails = String(redirectEmails)
+            .split(/[;,\n\r]+/)
+            .map(item => item.trim().toLowerCase())
+            .filter(Boolean);
+
+        return allowedEmails.includes(normalizedEmail) ? redirectUrl : defaultUrl;
     },
 
     async loadPage(pageId, clickedElement) {
@@ -76,7 +101,8 @@ window.PortalPages = {
                 }
 
                 const escapeHtml = window.PortalUtils ? window.PortalUtils.escapeHtml : (text => text);
-                container.innerHTML = `<iframe src="${escapeHtml(page.powerbiUrl)}" frameborder="0" allowFullScreen="true"></iframe>`;
+                const effectivePowerBIUrl = this.resolvePowerBIUrl(page);
+                container.innerHTML = `<iframe src="${escapeHtml(effectivePowerBIUrl)}" frameborder="0" allowFullScreen="true"></iframe>`;
                 
                 if (refreshBtn) {
                     refreshBtn.style.display = 'flex';

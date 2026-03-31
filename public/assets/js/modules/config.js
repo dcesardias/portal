@@ -4,6 +4,8 @@ window.PortalConfig = {
         pageSubtitle: 500,
         pageDescription: 4000,
         powerBIUrl: 2000,
+        pageRedirectPowerBIUrl: 2000,
+        pageRedirectEmails: 4000,
         pageIcon: 500,
         menuName: 200,
         menuIcon: 500

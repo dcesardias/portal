@@ -2993,6 +2993,33 @@ async function ensurePagesOrderColumn() {
     }
 }
 
+async function ensurePagesRedirectColumns() {
+    if (!pool || !pool.connected) return;
+    try {
+        const redirectUrlCheck = await pool.request().query(`
+            SELECT 1
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = 'Pages' AND COLUMN_NAME = 'RedirectPowerBIUrl'
+        `);
+        if (redirectUrlCheck.recordset.length === 0) {
+            console.log('[MIGRATION] Adicionando coluna RedirectPowerBIUrl em Pages...');
+            await pool.request().query(`ALTER TABLE dbo.Pages ADD RedirectPowerBIUrl NVARCHAR(2000) NULL;`);
+        }
+
+        const redirectEmailsCheck = await pool.request().query(`
+            SELECT 1
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = 'Pages' AND COLUMN_NAME = 'RedirectEmails'
+        `);
+        if (redirectEmailsCheck.recordset.length === 0) {
+            console.log('[MIGRATION] Adicionando coluna RedirectEmails em Pages...');
+            await pool.request().query(`ALTER TABLE dbo.Pages ADD RedirectEmails NVARCHAR(MAX) NULL;`);
+        }
+    } catch (e) {
+        console.warn('[MIGRATION] Falha ao garantir colunas de redirecionamento em Pages:', e.message || e);
+    }
+}
+
 function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -3143,21 +3170,23 @@ app.post('/api/pages', authenticateToken, async (req, res) => {
         return res.status(403).json({ error: 'Acesso negado' });
     }
     try {
-        const { title, subtitle, description, powerBIUrl, showInHome, icon, order } = req.body;
+        const { title, subtitle, description, powerBIUrl, redirectPowerBIUrl, redirectEmails, showInHome, icon, order } = req.body;
 
         const result = await pool.request()
             .input('title', sql.NVarChar, title)
             .input('subtitle', sql.NVarChar, subtitle)
             .input('description', sql.NVarChar, description)
             .input('powerBIUrl', sql.NVarChar, powerBIUrl)
+            .input('redirectPowerBIUrl', sql.NVarChar, redirectPowerBIUrl || null)
+            .input('redirectEmails', sql.NVarChar(sql.MAX), redirectEmails || null)
             .input('showInHome', sql.Bit, showInHome !== false ? 1 : 0)
             .input('icon', sql.NVarChar, icon || null)
             .input('order', sql.Int, Number.isInteger(order) ? order : null)
             .query(`
-                INSERT INTO Pages (Title, Subtitle, Description, PowerBIUrl, ShowInHome, Icon, [Order])
+                INSERT INTO Pages (Title, Subtitle, Description, PowerBIUrl, RedirectPowerBIUrl, RedirectEmails, ShowInHome, Icon, [Order])
                 OUTPUT INSERTED.*
                 SELECT 
-                    @title, @subtitle, @description, @powerBIUrl, @showInHome, @icon,
+                    @title, @subtitle, @description, @powerBIUrl, @redirectPowerBIUrl, @redirectEmails, @showInHome, @icon,
                     COALESCE(@order, (SELECT ISNULL(MAX([Order]), 0) + 10 FROM Pages))
             `);
 
@@ -3173,7 +3202,7 @@ app.put('/api/pages/:id', authenticateToken, async (req, res) => {
         return res.status(403).json({ error: 'Acesso negado' });
     }
     try {
-        const { title, subtitle, description, powerBIUrl, showInHome, icon, order } = req.body;
+        const { title, subtitle, description, powerBIUrl, redirectPowerBIUrl, redirectEmails, showInHome, icon, order } = req.body;
 
         const result = await pool.request()
             .input('id', sql.Int, req.params.id)
@@ -3181,6 +3210,8 @@ app.put('/api/pages/:id', authenticateToken, async (req, res) => {
             .input('subtitle', sql.NVarChar, subtitle)
             .input('description', sql.NVarChar, description)
             .input('powerBIUrl', sql.NVarChar, powerBIUrl)
+            .input('redirectPowerBIUrl', sql.NVarChar, redirectPowerBIUrl || null)
+            .input('redirectEmails', sql.NVarChar(sql.MAX), redirectEmails || null)
             .input('showInHome', sql.Bit, showInHome !== false ? 1 : 0)
             .input('icon', sql.NVarChar, icon || null)
             .input('order', sql.Int, Number.isInteger(order) ? order : null)
@@ -3190,6 +3221,8 @@ app.put('/api/pages/:id', authenticateToken, async (req, res) => {
                     Subtitle = @subtitle,
                     Description = @description,
                     PowerBIUrl = @powerBIUrl,
+                    RedirectPowerBIUrl = @redirectPowerBIUrl,
+                    RedirectEmails = @redirectEmails,
                     ShowInHome = @showInHome,
                     Icon = @icon,
                     [Order] = COALESCE(@order, [Order]),
@@ -5653,6 +5686,7 @@ app.delete('/api/tutorials/:id', authenticateToken, async (req, res) => {
 async function startServer() {
     await initDB();
     await ensurePagesOrderColumn();
+    await ensurePagesRedirectColumns();
     await ensureMapDbTables(pool);
     await mountMapDb({
         app,

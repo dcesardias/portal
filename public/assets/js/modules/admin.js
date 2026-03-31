@@ -198,6 +198,14 @@ window.PortalAdmin = {
                 iconBadge.title = 'Tem ícone personalizado';
                 titleDiv.appendChild(iconBadge);
             }
+
+            if (page.redirectPowerBIUrl && page.redirectEmails) {
+                const redirectBadge = document.createElement('span');
+                redirectBadge.style.cssText = 'margin-left: 8px; padding: 2px 6px; background: #7c3aed; color: white; border-radius: 10px; font-size: 10px;';
+                redirectBadge.textContent = 'REDIRECT';
+                redirectBadge.title = 'Tem redirecionamento opcional por e-mail Microsoft';
+                titleDiv.appendChild(redirectBadge);
+            }
             
             titleDiv.appendChild(document.createElement('br'));
             const subtitleSmall = document.createElement('small');
@@ -560,6 +568,8 @@ window.PortalAdmin = {
         document.getElementById('pageSubtitleInput').value = page.subtitle || '';
         document.getElementById('pageDescInput').value = page.description || '';
         document.getElementById('powerbiUrlInput').value = page.powerbiUrl || '';
+        document.getElementById('redirectPowerbiUrlInput').value = page.redirectPowerBIUrl || '';
+        document.getElementById('redirectEmailsInput').value = page.redirectEmails || '';
         document.getElementById('showInHomeCheckbox').checked = page.showInHome !== false;
         
         const iconInput = document.getElementById('pageIconInput');
@@ -629,6 +639,8 @@ window.PortalAdmin = {
         const rawSubtitle = document.getElementById('pageSubtitleInput').value;
         const rawDescription = document.getElementById('pageDescInput').value;
         const rawPowerBIUrl = document.getElementById('powerbiUrlInput').value;
+        const rawRedirectPowerBIUrl = document.getElementById('redirectPowerbiUrlInput').value;
+        const rawRedirectEmails = document.getElementById('redirectEmailsInput').value;
         const showInHome = document.getElementById('showInHomeCheckbox').checked;
         const rawIcon = document.getElementById('pageIconInput').value;
 
@@ -646,6 +658,8 @@ window.PortalAdmin = {
             subtitle: this.prepareStringForDb(rawSubtitle, window.PortalConfig.MAX_LENGTHS.pageSubtitle),
             description: this.prepareStringForDb(rawDescription, window.PortalConfig.MAX_LENGTHS.pageDescription),
             powerBIUrl: this.prepareStringForDb(rawPowerBIUrl, window.PortalConfig.MAX_LENGTHS.powerBIUrl),
+            redirectPowerBIUrl: this.prepareStringForDb(rawRedirectPowerBIUrl, window.PortalConfig.MAX_LENGTHS.pageRedirectPowerBIUrl),
+            redirectEmails: this.prepareStringForDb(rawRedirectEmails, window.PortalConfig.MAX_LENGTHS.pageRedirectEmails),
             icon: this.prepareStringForDb(rawIcon || '', window.PortalConfig.MAX_LENGTHS.pageIcon)
         };
         
@@ -674,6 +688,8 @@ window.PortalAdmin = {
                     subtitle: prepared.subtitle.value, 
                     description: prepared.description.value, 
                     powerBIUrl: prepared.powerBIUrl.value,
+                    redirectPowerBIUrl: prepared.redirectPowerBIUrl.value || null,
+                    redirectEmails: prepared.redirectEmails.value || null,
                     showInHome: showInHome,
                     icon: prepared.icon.value || null,
                     order: pageOrder
@@ -857,6 +873,8 @@ window.PortalAdmin = {
         document.getElementById('pageSubtitleInput').value = '';
         document.getElementById('pageDescInput').value = '';
         document.getElementById('powerbiUrlInput').value = '';
+        document.getElementById('redirectPowerbiUrlInput').value = '';
+        document.getElementById('redirectEmailsInput').value = '';
         document.getElementById('showInHomeCheckbox').checked = true;
         const iconInput = document.getElementById('pageIconInput');
         if (iconInput) {

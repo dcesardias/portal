@@ -76,6 +76,16 @@ window.PortalMicrosoftAuth = {
         return !!(this.config && this.config.enabled && this.config.clientId && this.config.tenantId);
     },
 
+    getSignedInEmail() {
+        if (!this.msalInstance) return '';
+
+        const account = this.msalInstance.getActiveAccount() || this.msalInstance.getAllAccounts()[0] || null;
+        if (!account) return '';
+
+        const claims = account.idTokenClaims || {};
+        return claims.preferred_username || claims.email || account.username || '';
+    },
+
     getBaseRequest() {
         return {
             scopes: Array.isArray(this.config?.loginScopes) ? this.config.loginScopes : ['openid', 'profile', 'offline_access', 'User.Read'],

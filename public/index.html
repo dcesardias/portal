@@ -192,6 +192,20 @@
                     <input type="text" id="powerbiUrlInput" placeholder="https://app.powerbi.com/view?r=...">
                 </div>
                 <div class="form-group">
+                    <label>URL de Redirecionamento do Power BI (opcional)</label>
+                    <input type="text" id="redirectPowerbiUrlInput" placeholder="https://app.powerbi.com/view?r=...">
+                    <small class="admin-help">
+                        Se preenchida, esta URL será usada apenas para os e-mails Microsoft informados abaixo.
+                    </small>
+                </div>
+                <div class="form-group">
+                    <label>E-mails Microsoft que usarão o redirecionamento (opcional)</label>
+                    <textarea id="redirectEmailsInput" placeholder="usuario1@aacd.org.br&#10;usuario2@aacd.org.br" rows="4"></textarea>
+                    <small class="admin-help">
+                        Informe um e-mail por linha. Também aceita vírgula ou ponto e vírgula.
+                    </small>
+                </div>
+                <div class="form-group">
                     <label class="admin-inline-row">
                         <input type="checkbox" id="showInHomeCheckbox" checked>
                         <span>Mostrar na tela inicial (Acesso Rápido)</span>

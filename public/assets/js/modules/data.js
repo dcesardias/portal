@@ -106,6 +106,8 @@ window.PortalData = {
             subtitle: p.Subtitle || p.subtitle,
             description: p.Description || p.description,
             powerbiUrl: p.PowerBIUrl || p.powerbiUrl || '',
+            redirectPowerBIUrl: p.RedirectPowerBIUrl || p.redirectPowerBIUrl || '',
+            redirectEmails: p.RedirectEmails || p.redirectEmails || '',
             showInHome: p.ShowInHome !== undefined ? p.ShowInHome : (p.showInHome !== false),
             icon: p.Icon || p.icon || null,
             order: p.Order !== undefined ? p.Order : (p.order || 0)
