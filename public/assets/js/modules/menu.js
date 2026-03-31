@@ -89,6 +89,10 @@ window.PortalMenu = {
                 button.classList.toggle('expanded');
                 const submenu = button.nextElementSibling;
                 if (submenu) submenu.classList.toggle('show');
+
+                if (window.PortalPages) {
+                    window.PortalPages.loadGroupHome(item.id, button);
+                }
             };
             
             const submenu = document.createElement('div');
@@ -120,6 +124,12 @@ window.PortalMenu = {
             const nameSpan = document.createElement('span');
             nameSpan.textContent = item.name;
             button.appendChild(nameSpan);
+
+            button.onclick = () => {
+                if (window.PortalPages) {
+                    window.PortalPages.loadGroupHome(item.id, button);
+                }
+            };
             
             const submenu = document.createElement('div');
             submenu.className = 'submenu';

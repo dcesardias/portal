@@ -9,6 +9,7 @@ window.PortalApp = {
     menuData: [],
     pagesData: [],
     selectedPageId: null,
+    selectedGroupId: null,
     editingPageId: null,
     editingMenuId: null
 };

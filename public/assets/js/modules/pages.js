@@ -14,6 +14,163 @@ window.PortalPages = {
         }));
     },
 
+    findMenuItemById(items, id) {
+        for (const item of items || []) {
+            if (item.id === id) return item;
+            if (item.children && item.children.length) {
+                const found = this.findMenuItemById(item.children, id);
+                if (found) return found;
+            }
+        }
+        return null;
+    },
+
+    setActiveMenuItem(clickedElement, itemId) {
+        document.querySelectorAll('#menuContainer .menu-item').forEach(item => item.classList.remove('active'));
+
+        let menuItem = clickedElement;
+        if (!menuItem && itemId !== undefined && itemId !== null) {
+            menuItem = document.querySelector(`#menuContainer .menu-item[data-item-id="${itemId}"]`);
+        }
+
+        if (menuItem) {
+            menuItem.classList.add('active');
+        }
+
+        return menuItem;
+    },
+
+    expandMenuPathFromElement(menuItem) {
+        if (!menuItem) return;
+
+        if (menuItem.classList.contains('has-submenu')) {
+            menuItem.classList.add('expanded');
+            const submenu = menuItem.nextElementSibling;
+            if (submenu && submenu.classList.contains('submenu')) {
+                submenu.classList.add('show');
+            }
+        }
+
+        let parent = menuItem.closest('.submenu');
+        while (parent) {
+            parent.classList.add('show');
+            const parentButton = parent.previousElementSibling;
+            if (parentButton && parentButton.classList.contains('has-submenu')) {
+                parentButton.classList.add('expanded');
+            }
+            parent = parent.parentElement?.closest('.submenu');
+        }
+    },
+
+    showOnlyView(viewId) {
+        const home = document.getElementById('homeView');
+        const group = document.getElementById('groupView');
+        const page = document.getElementById('pageView');
+
+        if (home) home.style.display = viewId === 'homeView' ? 'block' : 'none';
+        if (group) group.style.display = viewId === 'groupView' ? 'block' : 'none';
+        if (page) page.style.display = viewId === 'pageView' ? 'block' : 'none';
+    },
+
+    getGroupCardSubtitle(item) {
+        if (item.type === 'category') {
+            const count = Array.isArray(item.children) ? item.children.length : 0;
+            return count === 1 ? 'Grupo • 1 item' : `Grupo • ${count} itens`;
+        }
+
+        const page = window.PortalApp.pagesData.find(p => p.id === item.pageId);
+        return page?.subtitle || page?.description || 'Página do portal';
+    },
+
+    renderGroupCards(groupItem) {
+        const container = document.getElementById('groupCards');
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        const children = [...(groupItem.children || [])].sort((a, b) => {
+            const aOrder = a.order ?? 0;
+            const bOrder = b.order ?? 0;
+            if (aOrder === bOrder) return (a.id || 0) - (b.id || 0);
+            return aOrder - bOrder;
+        });
+
+        if (children.length === 0) {
+            container.innerHTML = `
+                <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #999;">
+                    <div style="font-size: 48px; margin-bottom: 16px;">📂</div>
+                    <p>Este grupo ainda não possui itens cadastrados.</p>
+                </div>
+            `;
+            return;
+        }
+
+        children.forEach((item, index) => {
+            const card = document.createElement('div');
+            card.className = 'quick-access-card';
+
+            const icon = item.icon || (item.type === 'category' ? '📁' : '📊');
+            const title = item.name || 'Item sem nome';
+            const subtitle = this.getGroupCardSubtitle(item);
+            const escapeHtml = window.PortalUtils ? window.PortalUtils.escapeHtml : (text => text);
+
+            card.innerHTML = `
+                <div class="card-icon">${this.renderCardIcon(icon)}</div>
+                <div class="card-content">
+                    <h3 class="card-title">${escapeHtml(title)}</h3>
+                    <p class="card-subtitle">${escapeHtml(subtitle)}</p>
+                </div>
+                <div class="card-arrow">→</div>
+            `;
+
+            card.style.animationDelay = `${0.05 + (index * 0.05)}s`;
+
+            card.addEventListener('click', () => {
+                if (item.type === 'category') {
+                    this.loadGroupHome(item.id);
+                    return;
+                }
+
+                if (item.pageId) {
+                    this.loadPage(item.pageId);
+                }
+            });
+
+            container.appendChild(card);
+        });
+    },
+
+    loadGroupHome(groupId, clickedElement) {
+        const groupItem = this.findMenuItemById(window.PortalApp.menuData, groupId);
+        if (!groupItem) return;
+
+        window.PortalApp.selectedPageId = null;
+        window.PortalApp.selectedGroupId = groupId;
+
+        this.showOnlyView('groupView');
+
+        const pageTitleEl = document.getElementById('pageTitle');
+        const pageSubtitleEl = document.getElementById('pageSubtitle');
+        const groupTitleEl = document.getElementById('groupViewTitle');
+        const groupSubtitleEl = document.getElementById('groupViewSubtitle');
+        const groupSectionTitleEl = document.getElementById('groupViewSectionTitle');
+
+        const childCount = Array.isArray(groupItem.children) ? groupItem.children.length : 0;
+        const subtitle = childCount === 1
+            ? 'Explore o item disponível neste grupo.'
+            : `Explore os ${childCount} itens disponíveis neste grupo.`;
+
+        if (pageTitleEl) pageTitleEl.textContent = groupItem.name || 'Grupo';
+        if (pageSubtitleEl) pageSubtitleEl.textContent = subtitle;
+        if (groupTitleEl) groupTitleEl.textContent = groupItem.name || 'Grupo';
+        if (groupSubtitleEl) groupSubtitleEl.textContent = subtitle;
+        if (groupSectionTitleEl) groupSectionTitleEl.textContent = `Itens em ${groupItem.name || 'Grupo'}`;
+
+        const activeMenuItem = this.setActiveMenuItem(clickedElement, groupId);
+        this.expandMenuPathFromElement(activeMenuItem);
+        this.renderGroupCards(groupItem);
+    },
+
     resolvePowerBIUrl(page) {
         const defaultUrl = page.powerbiUrl || '';
         const redirectUrl = page.redirectPowerBIUrl || '';
@@ -42,11 +199,8 @@ window.PortalPages = {
         if (!page) return;
         
         window.PortalApp.selectedPageId = pageId;
-        const homeView = document.getElementById('homeView');
-        const pageView = document.getElementById('pageView');
-        
-        if (homeView) homeView.style.display = 'none';
-        if (pageView) pageView.style.display = 'block';
+        window.PortalApp.selectedGroupId = null;
+        this.showOnlyView('pageView');
 
         const headerTitleEl = document.querySelector('.page-title');
         const headerSubtitleEl = document.querySelector('.page-subtitle');
@@ -56,27 +210,16 @@ window.PortalPages = {
         const descEl = document.getElementById('pageDescription');
         if (descEl) descEl.textContent = page.description || '';
 
-        document.querySelectorAll('#menuContainer .menu-item').forEach(item => item.classList.remove('active'));
-        
         if (!clickedElement) {
-            const menuItem = document.querySelector(`#menuContainer .menu-item[data-page-id="${pageId}"]`);
+            const menuItem = this.setActiveMenuItem(null, undefined) || document.querySelector(`#menuContainer .menu-item[data-page-id="${pageId}"]`);
             if (menuItem) {
                 menuItem.classList.add('active');
-                let parent = menuItem.closest('.submenu');
-                while (parent) {
-                    parent.classList.add('show');
-                    const parentButton = parent.previousElementSibling;
-                    if (parentButton && parentButton.classList.contains('has-submenu')) {
-                        parentButton.classList.add('expanded');
-                    }
-                    parent = parent.parentElement?.closest('.submenu');
-                }
+                this.expandMenuPathFromElement(menuItem);
             }
         } else {
             const menuItem = clickedElement.closest('.menu-item') || clickedElement;
-            if (menuItem) {
-                menuItem.classList.add('active');
-            }
+            this.setActiveMenuItem(menuItem);
+            this.expandMenuPathFromElement(menuItem);
         }
 
         const container = document.getElementById('powerbiContainer');
@@ -188,10 +331,8 @@ window.PortalPages = {
 
     showHome() {
         window.PortalApp.selectedPageId = null;
-        const home = document.getElementById('homeView');
-        const pageV = document.getElementById('pageView');
-        if (home) home.style.display = 'block';
-        if (pageV) pageV.style.display = 'none';
+        window.PortalApp.selectedGroupId = null;
+        this.showOnlyView('homeView');
 
         // Atualizar o título e subtítulo do header
         const pageTitleEl = document.getElementById('pageTitle');
