@@ -516,6 +516,10 @@ body {
     box-sizing: border-box;
 }
 
+.powerbi-container .placeholder--microsoft-auth {
+    gap: 10px;
+}
+
 .powerbi-icon {
     font-size: 48px;
     color: #f2c811;

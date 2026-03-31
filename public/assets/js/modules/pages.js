@@ -59,6 +59,22 @@ window.PortalPages = {
         
         if (container) {
             if (page.powerbiUrl) {
+                if (window.PortalMicrosoftAuth && typeof window.PortalMicrosoftAuth.ensurePowerBIAccount === 'function') {
+                    const canRenderReport = await window.PortalMicrosoftAuth.ensurePowerBIAccount(page);
+                    if (!canRenderReport) {
+                        container.innerHTML = `
+                            <div class="placeholder placeholder--microsoft-auth">
+                                <div class="powerbi-icon">🔐</div>
+                                <h3 class="powerbi-placeholder-title">Redirecionando para Microsoft</h3>
+                                <p class="powerbi-placeholder-desc">Escolha a conta Microsoft desejada para continuar no Power BI.</p>
+                            </div>
+                        `;
+
+                        if (refreshBtn) refreshBtn.style.display = 'none';
+                        return;
+                    }
+                }
+
                 const escapeHtml = window.PortalUtils ? window.PortalUtils.escapeHtml : (text => text);
                 container.innerHTML = `<iframe src="${escapeHtml(page.powerbiUrl)}" frameborder="0" allowFullScreen="true"></iframe>`;
                 

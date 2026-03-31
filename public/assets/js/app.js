@@ -19,6 +19,7 @@ async function loadModules() {
         'utils',    // Primeiro - utilitários básicos
         'data',     // Segundo - manipulação de dados
         'config',   // Terceiro - configurações
+        'microsoft-auth',
         'menu',     // Quarto - menu
         'pages',    // Quinto - páginas  
         'auth',     // Sexto - autenticação
@@ -74,6 +75,10 @@ document.addEventListener('DOMContentLoaded', async function() {
         // Configurar componentes da UI
         if (window.PortalUI) {
             window.PortalUI.setupComponents();
+        }
+
+        if (window.PortalMicrosoftAuth && typeof window.PortalMicrosoftAuth.finishStartup === 'function') {
+            await window.PortalMicrosoftAuth.finishStartup();
         }
         
         console.log('Portal ready!');

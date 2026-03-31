@@ -1,0 +1,138 @@
+window.PortalMicrosoftAuth = {
+    config: null,
+    msalInstance: null,
+    initialized: false,
+    pendingPageKey: 'portal.microsoft.pendingPageId',
+    skipPromptKey: 'portal.microsoft.skipPromptOnce',
+    activeAccountKey: 'portal.microsoft.activeAccount',
+
+    async init() {
+        if (this.initialized) return;
+
+        try {
+            const response = await fetch(`${window.PortalApp.API_URL}/microsoft-auth/config?cb=${Date.now()}`, {
+                cache: 'no-store'
+            });
+            if (!response.ok) {
+                throw new Error(`Config HTTP ${response.status}`);
+            }
+
+            this.config = await response.json();
+            if (!this.isEnabled()) {
+                this.initialized = true;
+                return;
+            }
+
+            if (!window.msal || !window.msal.PublicClientApplication) {
+                console.warn('[MSAUTH] msal-browser indisponivel; autenticacao Microsoft desativada.');
+                this.config.enabled = false;
+                this.initialized = true;
+                return;
+            }
+
+            const redirectUri = `${window.location.origin}/`;
+            this.msalInstance = new window.msal.PublicClientApplication({
+                auth: {
+                    clientId: this.config.clientId,
+                    authority: this.config.authority,
+                    redirectUri,
+                    postLogoutRedirectUri: redirectUri,
+                    navigateToLoginRequestUrl: false
+                },
+                cache: {
+                    cacheLocation: 'sessionStorage',
+                    storeAuthStateInCookie: false
+                }
+            });
+
+            if (typeof this.msalInstance.initialize === 'function') {
+                await this.msalInstance.initialize();
+            }
+
+            const redirectResult = await this.msalInstance.handleRedirectPromise();
+            if (redirectResult && redirectResult.account) {
+                this.msalInstance.setActiveAccount(redirectResult.account);
+                sessionStorage.setItem(this.activeAccountKey, redirectResult.account.username || redirectResult.account.homeAccountId || '');
+            } else {
+                const cachedAccount = this.msalInstance.getActiveAccount() || this.msalInstance.getAllAccounts()[0] || null;
+                if (cachedAccount) {
+                    this.msalInstance.setActiveAccount(cachedAccount);
+                    sessionStorage.setItem(this.activeAccountKey, cachedAccount.username || cachedAccount.homeAccountId || '');
+                }
+            }
+        } catch (error) {
+            console.error('[MSAUTH] Falha na inicializacao:', error);
+            this.config = { enabled: false };
+        } finally {
+            this.initialized = true;
+        }
+    },
+
+    isEnabled() {
+        return !!(this.config && this.config.enabled && this.config.clientId && this.config.tenantId);
+    },
+
+    getRedirectRequest() {
+        return {
+            scopes: Array.isArray(this.config?.loginScopes) ? this.config.loginScopes : ['openid', 'profile', 'offline_access', 'User.Read'],
+            prompt: this.config?.forceAccountSelection === false ? undefined : 'select_account'
+        };
+    },
+
+    async ensurePowerBIAccount(page) {
+        await this.init();
+
+        if (!this.isEnabled()) {
+            return true;
+        }
+
+        const pageId = String(page.id);
+        const pendingPageId = sessionStorage.getItem(this.pendingPageKey);
+        const skipPrompt = sessionStorage.getItem(this.skipPromptKey) === '1';
+
+        if (skipPrompt && pendingPageId === pageId) {
+            sessionStorage.removeItem(this.skipPromptKey);
+            sessionStorage.removeItem(this.pendingPageKey);
+            return true;
+        }
+
+        sessionStorage.setItem(this.pendingPageKey, pageId);
+        sessionStorage.setItem(this.skipPromptKey, '1');
+
+        try {
+            await this.msalInstance.loginRedirect(this.getRedirectRequest());
+        } catch (error) {
+            console.error('[MSAUTH] Falha ao iniciar loginRedirect:', error);
+            sessionStorage.removeItem(this.skipPromptKey);
+            sessionStorage.removeItem(this.pendingPageKey);
+            alert('Nao foi possivel iniciar o login Microsoft para abrir o painel.');
+        }
+
+        return false;
+    },
+
+    async finishStartup() {
+        await this.init();
+
+        if (!this.isEnabled()) {
+            return;
+        }
+
+        const pendingPageId = sessionStorage.getItem(this.pendingPageKey);
+        const skipPrompt = sessionStorage.getItem(this.skipPromptKey) === '1';
+        if (!pendingPageId || !skipPrompt) {
+            return;
+        }
+
+        const pageId = Number(pendingPageId);
+        if (!Number.isFinite(pageId)) {
+            sessionStorage.removeItem(this.pendingPageKey);
+            sessionStorage.removeItem(this.skipPromptKey);
+            return;
+        }
+
+        if (window.PortalPages && typeof window.PortalPages.loadPage === 'function') {
+            await window.PortalPages.loadPage(pageId);
+        }
+    }
+};

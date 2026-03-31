@@ -19,6 +19,9 @@ const HOST = process.env.IISNODE_VERSION ? undefined : (process.env.HOST || '0.0
 
 const DIRECT_LINE_SECRET = process.env.DIRECT_LINE_SECRET;
 const DIRECT_LINE_ENDPOINT = process.env.DIRECT_LINE_ENDPOINT || 'https://directline.botframework.com/v3/directline';
+const MICROSOFT_AUTH_CLIENT_ID = process.env.MICROSOFT_AUTH_CLIENT_ID || 'b97df545-f361-4a9b-913f-f6a4b957486c';
+const MICROSOFT_AUTH_TENANT_ID = process.env.MICROSOFT_AUTH_TENANT_ID || '1ebad822-ee55-4814-9f70-6defb1fb0694';
+const MICROSOFT_AUTH_ENABLED = String(process.env.MICROSOFT_AUTH_ENABLED || 'true').toLowerCase() !== 'false';
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 const fetchFn = (typeof fetch !== 'undefined')
     ? fetch
@@ -61,6 +64,17 @@ app.get(['/chatbot', '/chatbot/'], (req, res) => {
     } catch (e) {
         res.status(404).send('Chatbot não encontrado');
     }
+});
+
+app.get('/api/microsoft-auth/config', (req, res) => {
+    res.json({
+        enabled: MICROSOFT_AUTH_ENABLED && !!MICROSOFT_AUTH_CLIENT_ID && !!MICROSOFT_AUTH_TENANT_ID,
+        clientId: MICROSOFT_AUTH_CLIENT_ID,
+        tenantId: MICROSOFT_AUTH_TENANT_ID,
+        authority: `https://login.microsoftonline.com/${MICROSOFT_AUTH_TENANT_ID}`,
+        loginScopes: ['openid', 'profile', 'offline_access', 'User.Read'],
+        forceAccountSelection: true
+    });
 });
 
 // ========================================
