@@ -2,7 +2,12 @@ window.PortalAuth = {
     syncAuthUI() {
         const adminButton = document.getElementById('adminButton');
         if (adminButton) {
-            adminButton.textContent = 'Configurações';
+            const adminButtonLabel = adminButton.querySelector('.btn-admin-label');
+            if (adminButtonLabel) {
+                adminButtonLabel.textContent = 'Configurações';
+            }
+            adminButton.title = 'Configurações';
+            adminButton.setAttribute('aria-label', 'Configurações');
         }
 
         const adminChangePasswordButton = document.getElementById('adminChangePasswordButton');

@@ -210,11 +210,15 @@ body {
 
 /* Botão de fechar da sidebar - usa pseudo-elemento */
 .sidebar .close-btn::before {
-    content: '×';
+    content: '‹';
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
 }
 
 .sidebar.collapsed .close-btn::before {
     content: '›';
+    line-height: 1;
 }
 
 /* Botão de fechar do admin panel - não usa pseudo-elemento pois já tem × no HTML */
@@ -372,6 +376,12 @@ body {
 
 [data-theme="dark"] .header {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.app-hydrating .sidebar-title,
+.app-hydrating .page-title,
+.app-hydrating .page-subtitle {
+    visibility: hidden;
 }
 
 .page-title {
@@ -617,6 +627,21 @@ body {
     position: relative;
 }
 
+.btn-admin-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.btn-admin-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .btn-admin::after {
     content: '';
     position: absolute;
@@ -649,7 +674,16 @@ body {
 
 .sidebar.collapsed .btn-admin {
     padding: 12px 8px;
-    font-size: 12px;
+    min-height: 44px;
+    justify-content: center;
+}
+
+.sidebar.collapsed .btn-admin-label {
+    display: none;
+}
+
+.sidebar.collapsed .btn-admin-icon {
+    font-size: 18px;
 }
 
 /* Overlay */
@@ -1128,13 +1162,17 @@ body {
 
 /* Corrigido: removido o ::before duplicado no estado collapsed */
 .close-btn::before {
-    content: '×';
+    content: '‹';
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
 }
 
 .sidebar.collapsed .close-btn::before {
     content: '›';
     font-size: 28px;
-    font-weight: bold;
+    font-weight: 700;
+    line-height: 1;
 }
 
 .sidebar.collapsed .menu-item {

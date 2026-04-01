@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="assets/css/portal.css">
 </head>
-<body>
+<body class="app-hydrating">
     <div class="container">
         <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
@@ -19,7 +19,10 @@
             </div>
             <div id="menuContainer"></div>
             <div class="sidebar-footer">
-                <button class="btn btn-admin" id="adminButton" onclick="toggleAdmin()">Configurações</button>
+                <button class="btn btn-admin" id="adminButton" onclick="toggleAdmin()" title="Configurações" aria-label="Configurações">
+                    <span class="btn-admin-icon" aria-hidden="true"><i class="fa-solid fa-gear"></i></span>
+                    <span class="btn-admin-label">Configurações</span>
+                </button>
             </div>
         </div>
 

@@ -85,6 +85,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         console.log('Portal ready!');
     } catch (error) {
         console.error('Failed to initialize portal:', error);
+    } finally {
+        document.body.classList.remove('app-hydrating');
     }
 });
 
