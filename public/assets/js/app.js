@@ -14,6 +14,16 @@ window.PortalApp = {
     editingMenuId: null
 };
 
+// Versão da aplicação — usada para cache-busting dos imports dinâmicos.
+// Lê da meta tag injetada pelo server.js; cai num timestamp se a meta não existir.
+const APP_VERSION = (() => {
+    const meta = document.querySelector('meta[name="app-version"]');
+    const v = meta && meta.getAttribute('content');
+    if (v && v !== '__APP_VERSION__') return v;
+    return String(Date.now());
+})();
+window.PortalApp.version = APP_VERSION;
+
 // Carregar módulos em sequência
 async function loadModules() {
     const modules = [
@@ -22,17 +32,17 @@ async function loadModules() {
         'config',   // Terceiro - configurações
         'microsoft-auth',
         'menu',     // Quarto - menu
-        'pages',    // Quinto - páginas  
+        'pages',    // Quinto - páginas
         'auth',     // Sexto - autenticação
         'ui',       // Sétimo - interface
         'admin',    // Oitavo - administração
         'search',   // Nono - busca
         'icons'     // Último - ícones
     ];
-    
+
     for (const module of modules) {
         try {
-            await import(`./modules/${module}.js`);
+            await import(`./modules/${module}.js?v=${APP_VERSION}`);
             console.log(`Module ${module} loaded`);
         } catch (error) {
             console.error(`Failed to load module ${module}:`, error);

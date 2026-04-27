@@ -56,9 +56,60 @@ window.PortalUI = {
         if (sidebarCloseBtn && sidebar) {
             sidebarCloseBtn.addEventListener('click', (e) => {
                 sidebar.classList.toggle('collapsed');
-                sidebarCloseBtn.title = sidebar.classList.contains('collapsed') 
+                sidebarCloseBtn.title = sidebar.classList.contains('collapsed')
                     ? 'Expandir menu' : 'Retrair menu';
+                if (!sidebar.classList.contains('collapsed')) {
+                    this.hideCollapsedTooltip();
+                }
             });
+        }
+        this.setupCollapsedTooltip(sidebar);
+    },
+
+    setupCollapsedTooltip(sidebar) {
+        if (!sidebar) return;
+
+        const tooltip = document.createElement('div');
+        tooltip.className = 'collapsed-tooltip';
+        tooltip.setAttribute('role', 'tooltip');
+        document.body.appendChild(tooltip);
+        this._collapsedTooltipEl = tooltip;
+
+        const showFor = (target) => {
+            if (!sidebar.classList.contains('collapsed')) return;
+            const label = target.getAttribute('aria-label')
+                || (target.querySelector('span:not(.menu-icon)')?.textContent ?? '').trim();
+            if (!label) return;
+            tooltip.textContent = label;
+            const rect = target.getBoundingClientRect();
+            tooltip.style.left = (rect.right + 10) + 'px';
+            tooltip.style.top = (rect.top + rect.height / 2) + 'px';
+            tooltip.classList.add('visible');
+        };
+
+        const hide = () => this.hideCollapsedTooltip();
+
+        sidebar.addEventListener('mouseover', (e) => {
+            const item = e.target.closest('.menu-item');
+            if (!item || !sidebar.contains(item)) return;
+            showFor(item);
+        });
+
+        sidebar.addEventListener('mouseout', (e) => {
+            const item = e.target.closest('.menu-item');
+            if (!item) return;
+            const related = e.relatedTarget;
+            if (related && item.contains(related)) return;
+            hide();
+        });
+
+        window.addEventListener('scroll', hide, true);
+        window.addEventListener('resize', hide);
+    },
+
+    hideCollapsedTooltip() {
+        if (this._collapsedTooltipEl) {
+            this._collapsedTooltipEl.classList.remove('visible');
         }
     },
 

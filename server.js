@@ -33,6 +33,39 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use('/vendor/msal-browser', express.static(path.join(__dirname, 'node_modules', '@azure', 'msal-browser', 'lib')));
 
+// Versão da aplicação — usada para cache-busting de assets estáticos.
+// Lida do package.json + mtime do app.js para invalidar em hot-reload de dev.
+const APP_VERSION = (() => {
+    try {
+        const pkg = require('./package.json');
+        return String(pkg.version || '0.0.0');
+    } catch (e) {
+        return '0.0.0';
+    }
+})();
+
+app.get('/api/version', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ version: APP_VERSION });
+});
+
+// Serve o index.html sempre fresh, injetando a versão para cache-busting dos assets.
+const indexHtmlPath = path.join(__dirname, 'public', 'index.html');
+app.get(['/', '/index.html'], (req, res) => {
+    fs.readFile(indexHtmlPath, 'utf8', (err, html) => {
+        if (err) {
+            console.error('Erro ao ler index.html:', err);
+            return res.status(500).send('Erro ao carregar a página');
+        }
+        const out = html.split('__APP_VERSION__').join(APP_VERSION);
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.send(out);
+    });
+});
+
 // Evita cache do Tutorial Builder (iframe costuma cachear agressivamente)
 // Mantém a URL e comportamento; apenas força o browser a buscar a versão atual.
 app.get(['/tutorial-builder.html', '/tutorial-builder'], (req, res) => {

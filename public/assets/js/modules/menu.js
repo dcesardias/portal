@@ -35,9 +35,10 @@ window.PortalMenu = {
         const homeBtn = document.createElement('button');
         homeBtn.className = 'menu-item';
         homeBtn.setAttribute('data-item-id', 'home');
-        
+
         const homeMenuIcon = window.PortalConfig ? window.PortalConfig.homeMenuIcon : '🏠';
         const homeMenuName = window.PortalConfig ? window.PortalConfig.homeMenuName : 'Home';
+        homeBtn.setAttribute('aria-label', homeMenuName);
         
         if (window.PortalIcons) {
             homeBtn.innerHTML = window.PortalIcons.renderIconHTML(homeMenuIcon);
@@ -74,11 +75,12 @@ window.PortalMenu = {
             const button = document.createElement('button');
             button.className = 'menu-item has-submenu';
             button.setAttribute('data-item-id', item.id);
-            
+            button.setAttribute('aria-label', item.name);
+
             if (level > 0) {
                 button.style.paddingLeft = (20 + level * 15) + 'px';
             }
-            
+
             const iconHtml = this.renderIconHTML(item.icon);
             button.innerHTML = iconHtml;
             const nameSpan = document.createElement('span');
@@ -115,11 +117,12 @@ window.PortalMenu = {
             const button = document.createElement('button');
             button.className = 'menu-item has-submenu';
             button.setAttribute('data-item-id', item.id);
-            
+            button.setAttribute('aria-label', item.name);
+
             if (level > 0) {
                 button.style.paddingLeft = (20 + level * 15) + 'px';
             }
-            
+
             const iconHtml = this.renderIconHTML(item.icon);
             button.innerHTML = iconHtml;
             const nameSpan = document.createElement('span');
@@ -149,8 +152,9 @@ window.PortalMenu = {
             button.className = `menu-item ${item.active ? 'active' : ''}`;
             button.style.paddingLeft = (20 + level * 15) + 'px';
             button.setAttribute('data-item-id', item.id);
+            button.setAttribute('aria-label', item.name);
             if (item.pageId) button.setAttribute('data-page-id', item.pageId);
-            
+
             const iconHtml = this.renderIconHTML(item.icon);
             button.innerHTML = iconHtml;
             const nameSpan = document.createElement('span');

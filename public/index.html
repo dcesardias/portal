@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Portal Power BI</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-    <link rel="stylesheet" href="assets/css/portal.css">
+    <link rel="stylesheet" href="assets/css/portal.css?v=__APP_VERSION__">
+    <link rel="stylesheet" href="assets/css/portal-redesign.css?v=__APP_VERSION__">
+    <meta name="app-version" content="__APP_VERSION__">
 </head>
 <body class="app-hydrating">
     <div class="container">
@@ -501,10 +503,10 @@
     </div>
 
     <script defer src="/vendor/msal-browser/msal-browser.min.js"></script>
-    <script defer src="assets/js/app.js"></script>
-    <script defer src="assets/js/modules/admin.js"></script>
-    <script defer src="assets/js/modules/tutorial.js"></script>
-    <script defer src="assets/js/chatbot.js"></script>
+    <script defer src="assets/js/app.js?v=__APP_VERSION__"></script>
+    <script defer src="assets/js/modules/admin.js?v=__APP_VERSION__"></script>
+    <script defer src="assets/js/modules/tutorial.js?v=__APP_VERSION__"></script>
+    <script defer src="assets/js/chatbot.js?v=__APP_VERSION__"></script>
     
     <script>
         window.addEventListener('load', () => {
