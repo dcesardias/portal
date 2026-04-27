@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(grep -oP '.{0,200}V1Spotlight.{0,200}' \"c:/inetpub/wwwroot/portal/Tutorial Portal AACD.html\")"
     ]
   }
 }

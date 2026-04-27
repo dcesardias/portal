@@ -49,6 +49,10 @@ app.get(['/tutorial-builder.html', '/tutorial-builder'], (req, res) => {
     }
 });
 
+app.get('/tutorial', (req, res) => {
+    res.sendFile(path.join(__dirname, 'Tutorial Portal AACD.html'));
+});
+
 app.use(express.static('public'));
 
 const uploadsDir = path.join(__dirname, 'uploads');

@@ -86,11 +86,12 @@ window.PortalMenu = {
             button.appendChild(nameSpan);
             
             button.onclick = () => {
+                const wasExpanded = button.classList.contains('expanded');
                 button.classList.toggle('expanded');
                 const submenu = button.nextElementSibling;
                 if (submenu) submenu.classList.toggle('show');
 
-                if (window.PortalPages) {
+                if (!wasExpanded && window.PortalPages) {
                     window.PortalPages.loadGroupHome(item.id, button);
                 }
             };

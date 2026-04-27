@@ -164,170 +164,801 @@ window.PortalAdmin = {
     loadPagesList() {
         const container = document.getElementById('pagesList');
         if (!container) return;
-        
-        container.innerHTML = '';
-        
-        const sortedPages = [...window.PortalApp.pagesData].sort((a, b) => {
-            const aOrder = a.order ?? 0;
-            const bOrder = b.order ?? 0;
-            if (aOrder === bOrder) {
-                return a.id - b.id;
-            }
-            return aOrder - bOrder;
+
+        // Criar barra de busca uma vez
+        if (!document.getElementById('pagesSearchBar')) {
+            const bar = document.createElement('div');
+            bar.id = 'pagesSearchBar';
+            bar.className = 'pages-search-bar';
+            bar.innerHTML = `
+                <i class="fa fa-search search-icon" aria-hidden="true"></i>
+                <input type="text" id="pagesSearchInput" placeholder="Filtrar por título ou subtítulo..." autocomplete="off">
+                <span id="pagesSearchCount" class="pages-search-count"></span>
+            `;
+            container.parentNode.insertBefore(bar, container);
+            document.getElementById('pagesSearchInput').addEventListener('input', () => this._renderPagesList());
+        }
+
+        this._pagesListSorted = [...window.PortalApp.pagesData].sort((a, b) => {
+            const ao = a.order ?? 0, bo = b.order ?? 0;
+            return ao !== bo ? ao - bo : a.id - b.id;
         });
-        
-        sortedPages.forEach((page, index) => {
+        this._renderPagesList();
+    },
+
+    _renderPagesList() {
+        const container = document.getElementById('pagesList');
+        if (!container) return;
+
+        const filter = (document.getElementById('pagesSearchInput')?.value || '').toLowerCase().trim();
+        const sorted = this._pagesListSorted || [];
+        const pages = filter
+            ? sorted.filter(p =>
+                (p.title || '').toLowerCase().includes(filter) ||
+                (p.subtitle || '').toLowerCase().includes(filter))
+            : sorted;
+
+        const countEl = document.getElementById('pagesSearchCount');
+        if (countEl) countEl.textContent = filter ? `${pages.length} de ${sorted.length}` : `${sorted.length} página(s)`;
+
+        container.innerHTML = '';
+
+        if (pages.length === 0) {
+            container.innerHTML = '<div style="text-align:center;color:#999;padding:24px;">Nenhuma página encontrada.</div>';
+            return;
+        }
+
+        pages.forEach((page, index) => {
             const item = document.createElement('div');
             item.className = 'menu-list-item';
-            const titleDiv = document.createElement('div');
-            const titleStrong = document.createElement('strong');
-            titleStrong.textContent = page.title || 'Sem título';
-            titleDiv.appendChild(titleStrong);
-            
-            if (page.showInHome !== false) {
-                const badge = document.createElement('span');
-                badge.style.cssText = 'margin-left: 8px; padding: 2px 6px; background: #0066cc; color: white; border-radius: 10px; font-size: 10px;';
-                badge.textContent = 'HOME';
-                titleDiv.appendChild(badge);
-            }
-            
-            if (page.icon) {
-                const iconBadge = document.createElement('span');
-                iconBadge.style.cssText = 'margin-left: 8px; padding: 2px 6px; background: #2196F3; color: white; border-radius: 10px; font-size: 10px;';
-                iconBadge.textContent = '🎨';
-                iconBadge.title = 'Tem ícone personalizado';
-                titleDiv.appendChild(iconBadge);
-            }
 
-            if (page.redirectPowerBIUrl && page.redirectEmails) {
-                const redirectBadge = document.createElement('span');
-                redirectBadge.style.cssText = 'margin-left: 8px; padding: 2px 6px; background: #7c3aed; color: white; border-radius: 10px; font-size: 10px;';
-                redirectBadge.textContent = 'REDIRECT';
-                redirectBadge.title = 'Tem redirecionamento opcional por e-mail Microsoft';
-                titleDiv.appendChild(redirectBadge);
-            }
-            
-            titleDiv.appendChild(document.createElement('br'));
-            const subtitleSmall = document.createElement('small');
-            subtitleSmall.style.color = 'var(--text-secondary)';
-            subtitleSmall.textContent = (page.subtitle || 'Sem subtítulo') + ` - Ordem: ${page.order ?? 0}`;
-            titleDiv.appendChild(subtitleSmall);
-            
+            const infoDiv = document.createElement('div');
+            infoDiv.style.cssText = 'flex:1;min-width:0;';
+
+            let badges = '';
+            if (page.showInHome !== false) badges += '<span class="page-list-badge badge-blue">HOME</span>';
+            if (page.icon) badges += '<span class="page-list-badge badge-blue" title="Tem ícone personalizado">🎨</span>';
+            if (page.redirectPowerBIUrl && page.redirectEmails) badges += '<span class="page-list-badge badge-purple">REDIRECT</span>';
+            const menuLinks = this._countMenuLinksToPage(page.id);
+            if (menuLinks > 0) badges += `<span class="page-list-badge badge-green" title="${menuLinks} item(ns) do menu apontam para esta página">${menuLinks}× menu</span>`;
+
+            infoDiv.innerHTML = `
+                <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:3px;">
+                    <strong>${this._escHtml(page.title || 'Sem título')}</strong>
+                    ${badges}
+                </div>
+                <small style="color:var(--text-secondary);">${this._escHtml(page.subtitle || 'Sem subtítulo')}</small>
+            `;
+
             const actionsDiv = document.createElement('div');
             actionsDiv.className = 'menu-list-item-actions';
-            
+            actionsDiv.style.flexShrink = '0';
+
             const isFirst = index === 0;
-            const isLast = index === (sortedPages.length - 1);
-            
-            actionsDiv.innerHTML = `
-                <button class="btn-small btn-move" title="Mover para cima" onclick="movePageUp(${page.id})" ${isFirst ? 'disabled' : ''}>↑</button>
-                <button class="btn-small btn-move" title="Mover para baixo" onclick="movePageDown(${page.id})" ${isLast ? 'disabled' : ''}>↓</button>
-                <button class="btn-small btn-edit" onclick="editPage(${page.id})">Editar</button>
-                <button class="btn-small btn-delete" onclick="deletePage(${page.id})">Excluir</button>
-            `;
-            
-            // ADICIONA o botão de Tutorial Builder
+            const isLast = index === (pages.length - 1);
+
+            const upBtn = document.createElement('button');
+            upBtn.className = 'btn-small btn-move';
+            upBtn.title = 'Mover para cima';
+            upBtn.textContent = '↑';
+            upBtn.disabled = isFirst;
+            upBtn.dataset.pageMove = page.id;
+            upBtn.addEventListener('click', () => this.movePageUp(page.id));
+
+            const downBtn = document.createElement('button');
+            downBtn.className = 'btn-small btn-move';
+            downBtn.title = 'Mover para baixo';
+            downBtn.textContent = '↓';
+            downBtn.disabled = isLast;
+            downBtn.dataset.pageMove = page.id;
+            downBtn.addEventListener('click', () => this.movePageDown(page.id));
+
+            const editBtn = document.createElement('button');
+            editBtn.className = 'btn-small btn-edit';
+            editBtn.textContent = 'Editar';
+            editBtn.addEventListener('click', () => this.editPage(page.id));
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'btn-small btn-delete';
+            deleteBtn.textContent = 'Excluir';
+            deleteBtn.addEventListener('click', () => this.deletePage(page.id));
+
+            actionsDiv.appendChild(upBtn);
+            actionsDiv.appendChild(downBtn);
+            actionsDiv.appendChild(editBtn);
+            actionsDiv.appendChild(deleteBtn);
             this.addTutorialButtonToPage(page.id, actionsDiv);
-            
-            item.appendChild(titleDiv);
+
+            item.appendChild(infoDiv);
             item.appendChild(actionsDiv);
             container.appendChild(item);
         });
     },
 
+    _escHtml(str) {
+        const d = document.createElement('div');
+        d.textContent = String(str ?? '');
+        return d.innerHTML;
+    },
+
+    _countMenuLinksToPage(pageId) {
+        let n = 0;
+        const scan = (items) => {
+            for (const it of items) {
+                if (it.pageId === pageId) n++;
+                if (it.children && it.children.length) scan(it.children);
+            }
+        };
+        if (Array.isArray(window.PortalApp.menuData)) scan(window.PortalApp.menuData);
+        return n;
+    },
+
+    // ===================== MODAIS =====================
+
+    openPageModal(pageId) {
+        this._closeAdminModal();
+        const isEdit = !!pageId;
+        const page = isEdit ? window.PortalApp.pagesData.find(p => p.id === pageId) : null;
+        if (isEdit && !page) return alert('Página não encontrada');
+
+        window.PortalApp.editingPageId = pageId || null;
+
+        const overlay = document.createElement('div');
+        overlay.id = 'adminModalOverlay';
+        overlay.className = 'admin-modal-overlay';
+        overlay.addEventListener('click', (e) => { e.stopPropagation(); });
+
+        overlay.innerHTML = `
+        <div class="admin-modal">
+            <div class="admin-modal-header">
+                <h3>${isEdit ? 'Editar Página' : 'Nova Página'}</h3>
+                <button class="admin-modal-close" onclick="closeAdminModal()">&times;</button>
+            </div>
+            <div class="form-group">
+                <label>Título da Página</label>
+                <input type="text" id="pageNameInput" placeholder="Ex: Dashboard de Vendas">
+            </div>
+            <div class="form-group">
+                <label>Subtítulo</label>
+                <input type="text" id="pageSubtitleInput" placeholder="Ex: Análise detalhada de vendas">
+            </div>
+            <div class="form-group">
+                <label>Descrição</label>
+                <textarea id="pageDescInput" placeholder="Descrição detalhada da página..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>URL do Power BI Embed</label>
+                <input type="text" id="powerbiUrlInput" placeholder="https://app.powerbi.com/view?r=...">
+            </div>
+            <div class="form-group">
+                <label>URL de Redirecionamento (opcional)</label>
+                <input type="text" id="redirectPowerbiUrlInput" placeholder="https://app.powerbi.com/view?r=...">
+                <small class="admin-help">Se preenchida, será usada apenas para os e-mails abaixo.</small>
+            </div>
+            <div class="form-group">
+                <label>E-mails Microsoft para redirecionamento (opcional)</label>
+                <textarea id="redirectEmailsInput" placeholder="usuario1@aacd.org.br&#10;usuario2@aacd.org.br" rows="3"></textarea>
+                <small class="admin-help">Um e-mail por linha. Aceita vírgula ou ponto e vírgula.</small>
+            </div>
+            <div class="form-group">
+                <label class="admin-inline-row">
+                    <input type="checkbox" id="showInHomeCheckbox">
+                    <span>Mostrar na tela inicial (Acesso Rápido)</span>
+                </label>
+            </div>
+            <div class="form-group">
+                <label>Ícone do Card (opcional)</label>
+                <div class="admin-inline-row">
+                    <input type="text" id="pageIconInput" placeholder="Ex: 📊 ou escolha abaixo" class="admin-flex-1">
+                    <div id="pageIconPreview" class="icon-preview" title="Preview do ícone"></div>
+                </div>
+                <div id="pageIconDropdown" class="admin-dropdown">
+                    <div id="pageIconDropdownToggle" class="admin-dropdown-toggle">
+                        <span id="pageIconDropdownSelected" class="admin-inline-row"><span class="admin-muted">Selecione um ícone...</span></span>
+                        <span class="admin-dropdown-caret">›</span>
+                    </div>
+                    <div id="pageIconDropdownMenu" class="admin-dropdown-menu" style="display:none;"></div>
+                </div>
+            </div>
+            <div class="admin-modal-actions">
+                <button class="btn" onclick="closeAdminModal()">Cancelar</button>
+                <button class="btn btn-admin" id="savePageBtn" onclick="savePage()">${isEdit ? 'Atualizar Página' : 'Salvar Página'}</button>
+            </div>
+        </div>`;
+
+        // Inserir dentro do adminPanel para herdar estilos CSS dos dropdowns
+        const adminPanel = document.getElementById('adminPanel');
+        (adminPanel || document.body).appendChild(overlay);
+
+        // Preencher campos se editando
+        if (isEdit && page) {
+            document.getElementById('pageNameInput').value = page.title || '';
+            document.getElementById('pageSubtitleInput').value = page.subtitle || '';
+            document.getElementById('pageDescInput').value = page.description || '';
+            document.getElementById('powerbiUrlInput').value = page.powerbiUrl || '';
+            document.getElementById('redirectPowerbiUrlInput').value = page.redirectPowerBIUrl || '';
+            document.getElementById('redirectEmailsInput').value = page.redirectEmails || '';
+            document.getElementById('showInHomeCheckbox').checked = page.showInHome !== false;
+            document.getElementById('pageIconInput').value = (window.PortalIcons ? window.PortalIcons.svgToKey(page.icon) : page.icon) || '';
+        }
+
+        // Inicializar icon input handler e paletas
+        this._setupModalIconInputs('page');
+        document.getElementById('pageNameInput').focus();
+    },
+
+    openMenuItemModal(menuItemId) {
+        this._closeAdminModal();
+        const isEdit = !!menuItemId;
+        const item = isEdit ? this.findMenuItemById(window.PortalApp.menuData, menuItemId) : null;
+        if (isEdit && !item) return alert('Item não encontrado');
+
+        window.PortalApp.editingMenuId = menuItemId || null;
+
+        const overlay = document.createElement('div');
+        overlay.id = 'adminModalOverlay';
+        overlay.className = 'admin-modal-overlay';
+        overlay.addEventListener('click', (e) => { e.stopPropagation(); });
+
+        overlay.innerHTML = `
+        <div class="admin-modal">
+            <div class="admin-modal-header">
+                <h3>${isEdit ? 'Editar Item do Menu' : 'Novo Item do Menu'}</h3>
+                <button class="admin-modal-close" onclick="closeAdminModal()">&times;</button>
+            </div>
+            <div class="form-group">
+                <label>Nome do Item</label>
+                <input type="text" id="menuItemInput" placeholder="Ex: Financeiro">
+            </div>
+            <div class="form-group">
+                <label>Tipo</label>
+                <select id="menuTypeSelect">
+                    <option value="item">Item Simples</option>
+                    <option value="category">Categoria (com subitens)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Ícone (emoji ou classe)</label>
+                <div class="admin-inline-row">
+                    <input type="text" id="menuIconInput" placeholder="Ex: 📊 ou fas fa-chart" class="admin-flex-1">
+                    <div id="menuIconPreview" class="icon-preview" title="Preview do ícone"></div>
+                </div>
+                <div id="iconDropdown" class="admin-dropdown">
+                    <div id="iconDropdownToggle" class="admin-dropdown-toggle">
+                        <span id="iconDropdownSelected" class="admin-inline-row"><span class="admin-muted">Selecione um ícone...</span></span>
+                        <span class="admin-dropdown-caret">›</span>
+                    </div>
+                    <div id="iconDropdownMenu" class="admin-dropdown-menu" style="display:none;"></div>
+                </div>
+            </div>
+            <div class="form-group" id="parentSelectGroup" style="display:none;">
+                <label>Item Pai (Categoria)</label>
+                <select id="parentSelect">
+                    <option value="">Nenhum (Nível Principal)</option>
+                </select>
+                <small class="admin-help">Selecione uma categoria existente para criar subitens.</small>
+            </div>
+            <div class="form-group" id="pageSelectGroup">
+                <label>Página Associada</label>
+                <input type="hidden" id="pageSelect" value="">
+                <div class="page-search-select" id="pageSearchSelect">
+                    <input type="text" id="pageSearchInput" class="page-search-input" placeholder="Buscar página..." autocomplete="off">
+                    <div id="pageSearchResults" class="page-search-results"></div>
+                </div>
+                <small class="admin-help">Apenas itens simples podem ter páginas associadas.</small>
+            </div>
+            <div class="admin-modal-actions">
+                <button class="btn" onclick="closeAdminModal()">Cancelar</button>
+                <button class="btn btn-admin" id="saveMenuBtn" onclick="saveMenuItem()">${isEdit ? 'Atualizar Item' : 'Adicionar ao Menu'}</button>
+            </div>
+        </div>`;
+
+        // Inserir dentro do adminPanel para herdar estilos CSS dos dropdowns
+        const adminPanel = document.getElementById('adminPanel');
+        (adminPanel || document.body).appendChild(overlay);
+
+        // Preencher selects
+        this._populateModalParentSelect();
+        this.updatePageSelect();
+
+        // Configurar handler do tipo
+        const typeSelect = document.getElementById('menuTypeSelect');
+        typeSelect.addEventListener('change', function() {
+            const psg = document.getElementById('parentSelectGroup');
+            const pgsg = document.getElementById('pageSelectGroup');
+            if (this.value === 'category') {
+                if (psg) psg.style.display = 'block';
+                if (pgsg) { pgsg.style.display = 'none'; const ps = document.getElementById('pageSelect'); if (ps) ps.value = ''; }
+            } else {
+                if (psg) psg.style.display = 'block';
+                if (pgsg) pgsg.style.display = 'block';
+            }
+        });
+
+        // Preencher campos se editando
+        if (isEdit && item) {
+            document.getElementById('menuItemInput').value = item.name || '';
+            typeSelect.value = item.type || 'item';
+            typeSelect.dispatchEvent(new Event('change'));
+            const parentSel = document.getElementById('parentSelect');
+            if (parentSel) parentSel.value = item.parentId || '';
+            const pageSel = document.getElementById('pageSelect');
+            if (pageSel) pageSel.value = item.pageId || '';
+            // Atualizar campo de busca com o titulo da pagina selecionada
+            if (item.pageId) {
+                const linkedPage = (window.PortalApp.pagesData || []).find(p => p.id === item.pageId);
+                const searchInp = document.getElementById('pageSearchInput');
+                if (searchInp && linkedPage) searchInp.value = linkedPage.title || `Página ${linkedPage.id}`;
+            }
+            document.getElementById('menuIconInput').value = (window.PortalIcons ? window.PortalIcons.svgToKey(item.icon) : item.icon) || '';
+        } else {
+            typeSelect.dispatchEvent(new Event('change'));
+        }
+
+        // Inicializar icon input handler e paletas
+        this._setupModalIconInputs('menu');
+        document.getElementById('menuItemInput').focus();
+    },
+
+    _populateModalParentSelect() {
+        const parentSelect = document.getElementById('parentSelect');
+        if (!parentSelect) return;
+        parentSelect.innerHTML = '<option value="">Nenhum (Nível Principal)</option>';
+        if (Array.isArray(window.PortalApp.menuData)) {
+            this._populateParentSelect(parentSelect, window.PortalApp.menuData, 0);
+        }
+    },
+
+    _setupModalIconInputs(type) {
+        const isPage = type === 'page';
+        const inputId = isPage ? 'pageIconInput' : 'menuIconInput';
+        const input = document.getElementById(inputId);
+
+        // Handler de digitacao no campo de icone
+        if (input && window.PortalIcons) {
+            const updatePreview = isPage ? 'updatePageIconPreview' : 'updateIconPreview';
+            const setDropdown = isPage ? 'setPageDropdownValueForIcon' : 'setDropdownValueForIcon';
+            input.addEventListener('input', (e) => {
+                if (typeof window.PortalIcons[updatePreview] === 'function') window.PortalIcons[updatePreview](e.target.value);
+                if (typeof window.PortalIcons[setDropdown] === 'function') window.PortalIcons[setDropdown](e.target.value);
+            });
+            if (input.value) {
+                setTimeout(() => {
+                    window.PortalIcons[updatePreview](input.value);
+                    window.PortalIcons[setDropdown](input.value);
+                }, 120);
+            }
+        }
+
+        // Construir paletas apos a animacao do modal (200ms) terminar
+        if (window.PortalIcons && typeof window.PortalIcons.buildAllPalettes === 'function') {
+            setTimeout(() => window.PortalIcons.buildAllPalettes(), 300);
+        }
+    },
+
+    _closeAdminModal() {
+        const overlay = document.getElementById('adminModalOverlay');
+        if (overlay) overlay.remove();
+        window.PortalApp.editingPageId = null;
+        window.PortalApp.editingMenuId = null;
+    },
+
     loadMenuStructure() {
-        console.log('[Menu Structure] Loading menu structure...');
         const container = document.getElementById('menuStructure');
         if (!container) return;
-        
+
+        if (!this._collapsedCategories) {
+            this._collapsedCategories = new Set();
+            // Colapsar todas as categorias por padrao
+            const collectCategories = (items) => {
+                for (const it of items) {
+                    if (it.type === 'category' && it.children && it.children.length > 0) {
+                        this._collapsedCategories.add(it.id);
+                        collectCategories(it.children);
+                    }
+                }
+            };
+            if (Array.isArray(window.PortalApp.menuData)) collectCategories(window.PortalApp.menuData);
+        }
+
         container.innerHTML = '';
+
         const parentSelect = document.getElementById('parentSelect');
         if (parentSelect) parentSelect.innerHTML = '<option value="">Nenhum (Nível Principal)</option>';
 
-        const sortedMenu = [...window.PortalApp.menuData].sort((a, b) => {
-            const aOrder = a.order ?? 0;
-            const bOrder = b.order ?? 0;
-            if (aOrder === bOrder) {
-                return a.id - b.id;
-            }
-            return aOrder - bOrder;
+        const rootItems = [...window.PortalApp.menuData].sort((a, b) => {
+            const ao = a.order ?? 0, bo = b.order ?? 0;
+            return ao !== bo ? ao - bo : a.id - b.id;
         });
-        
-        const renderList = (items, level = 0) => {
-            const sortedItems = [...items].sort((a, b) => {
-                const aOrder = a.order ?? 0;
-                const bOrder = b.order ?? 0;
-                if (aOrder === bOrder) {
-                    return a.id - b.id;
-                }
-                return aOrder - bOrder;
-            });
-            
-            sortedItems.forEach((item, index) => {
-                const div = document.createElement('div');
-                div.className = 'menu-list-item';
-                div.style.paddingLeft = (level * 15) + 'px';
-                
-                const infoDiv = document.createElement('div');
-                const iconHtml = window.PortalIcons ? window.PortalIcons.renderIconHTML(item.icon) : `<span class="menu-icon">${item.icon || ''}</span>`;
-                infoDiv.innerHTML = iconHtml;
-                const nameStrong = document.createElement('strong');
-                nameStrong.textContent = ' ' + item.name;
-                infoDiv.appendChild(nameStrong);
-                const typeSmall = document.createElement('small');
-                typeSmall.style.color = '#666';
-                typeSmall.textContent = ` (${item.type === 'category' ? 'Categoria' : 'Item'})`;
-                if (level > 0) {
-                    typeSmall.textContent += ` - Nível ${level + 1}`;
-                }
-                typeSmall.textContent += ` - Ordem: ${item.order ?? 0}`;
-                infoDiv.appendChild(typeSmall);
-                
-                const actionsDiv = document.createElement('div');
-                actionsDiv.className = 'menu-list-item-actions';
-                
-                const isFirst = index === 0;
-                const isLast = index === (sortedItems.length - 1);
-                
-                actionsDiv.innerHTML = `
-                    <button class="btn-small btn-move" title="Mover para cima" onclick="moveMenuItemUp(${item.id})" ${isFirst ? 'disabled' : ''}>↑</button>
-                    <button class="btn-small btn-move" title="Mover para baixo" onclick="moveMenuItemDown(${item.id})" ${isLast ? 'disabled' : ''}>↓</button>
-                    <button class="btn-small btn-edit" onclick="editMenuItem(${item.id})">Editar</button>
-                    <button class="btn-small btn-delete" onclick="deleteMenuItem(${item.id})">Excluir</button>
-                `;
-                
-                div.appendChild(infoDiv);
-                div.appendChild(actionsDiv);
-                container.appendChild(div);
 
-                if (parentSelect && item.type === 'category') {
-                    const opt = document.createElement('option');
-                    opt.value = item.id;
-                    const indent = '  '.repeat(level);
-                    opt.textContent = `${indent}${item.name} (Nível ${level + 1})`;
-                    parentSelect.appendChild(opt);
-                }
+        this._renderMenuItems(container, rootItems, 0);
+        if (parentSelect) this._populateParentSelect(parentSelect, rootItems, 0);
+        this._initMenuDragDrop(container);
+    },
 
-                if (item.children && item.children.length) {
-                    renderList(item.children, level + 1);
+    _renderMenuItems(container, items, level) {
+        const sorted = [...items].sort((a, b) => {
+            const ao = a.order ?? 0, bo = b.order ?? 0;
+            return ao !== bo ? ao - bo : a.id - b.id;
+        });
+
+        sorted.forEach((item) => {
+            const isCategory = item.type === 'category';
+            const hasChildren = isCategory && Array.isArray(item.children) && item.children.length > 0;
+            const isCollapsed = hasChildren && this._collapsedCategories.has(item.id);
+
+            // Wrapper externo (movido no drag & drop)
+            const wrapper = document.createElement('div');
+            wrapper.className = 'menu-item-wrapper';
+            wrapper.dataset.id = String(item.id);
+            wrapper.dataset.parentId = String(item.parentId ?? '');
+            wrapper.dataset.type = item.type;
+            wrapper.draggable = true;
+
+            // Linha do item
+            const itemEl = document.createElement('div');
+            itemEl.className = 'menu-list-item';
+
+            // Handle de drag
+            const handle = document.createElement('span');
+            handle.className = 'menu-drag-handle';
+            handle.innerHTML = '<i class="fa-solid fa-grip-vertical"></i>';
+            handle.title = 'Arrastar para reordenar';
+
+            // Botao de colapso
+            const toggleBtn = document.createElement('button');
+            toggleBtn.className = 'menu-collapse-toggle';
+            if (hasChildren) {
+                toggleBtn.innerHTML = isCollapsed ? '&#9658;' : '&#9660;';
+                toggleBtn.title = isCollapsed ? 'Expandir' : 'Retrair';
+                toggleBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this._toggleMenuCategory(item.id, wrapper, toggleBtn);
+                });
+            } else {
+                toggleBtn.style.visibility = 'hidden';
+            }
+
+            // Info
+            const infoDiv = document.createElement('div');
+            infoDiv.style.cssText = 'flex:1;min-width:0;';
+            const iconHtml = window.PortalIcons ? window.PortalIcons.renderIconHTML(item.icon) : (item.icon ? `<span>${item.icon}</span>` : '');
+            const typeBadge = isCategory
+                ? '<span class="page-list-badge badge-teal">Categoria</span>'
+                : '<span class="page-list-badge badge-gray">Item</span>';
+            const childBadge = hasChildren
+                ? `<span class="page-list-badge badge-blue">${item.children.length} ${item.children.length === 1 ? 'subitem' : 'subitens'}</span>`
+                : '';
+            const levelBadge = level > 0 ? `<span style="font-size:11px;color:var(--text-secondary);">nível ${level + 1}</span>` : '';
+
+            infoDiv.innerHTML = `
+                <div style="display:flex;align-items:center;flex-wrap:wrap;gap:5px;">
+                    ${iconHtml}<strong>${this._escHtml(item.name)}</strong>${typeBadge}${childBadge}${levelBadge}
+                </div>
+            `;
+
+            // Acoes
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'menu-list-item-actions';
+            actionsDiv.style.flexShrink = '0';
+
+            const editBtn = document.createElement('button');
+            editBtn.className = 'btn-small btn-edit';
+            editBtn.textContent = 'Editar';
+            editBtn.addEventListener('click', () => this.editMenuItem(item.id));
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'btn-small btn-delete';
+            deleteBtn.textContent = 'Excluir';
+            deleteBtn.addEventListener('click', () => this.deleteMenuItem(item.id));
+
+            actionsDiv.appendChild(editBtn);
+            actionsDiv.appendChild(deleteBtn);
+
+            // Impedir drag ao clicar em botoes
+            wrapper.addEventListener('mousedown', (e) => {
+                if (e.target.closest('button')) {
+                    wrapper.draggable = false;
+                    requestAnimationFrame(() => { wrapper.draggable = true; });
                 }
+            }, true);
+
+            itemEl.appendChild(handle);
+            itemEl.appendChild(toggleBtn);
+            itemEl.appendChild(infoDiv);
+            itemEl.appendChild(actionsDiv);
+            wrapper.appendChild(itemEl);
+
+            // Container de filhos
+            if (hasChildren) {
+                const childrenContainer = document.createElement('div');
+                childrenContainer.className = 'menu-children-container';
+                childrenContainer.dataset.parentId = String(item.id);
+                childrenContainer.style.paddingLeft = '20px';
+                if (isCollapsed) childrenContainer.style.display = 'none';
+                this._renderMenuItems(childrenContainer, item.children, level + 1);
+                wrapper.appendChild(childrenContainer);
+            }
+
+            container.appendChild(wrapper);
+        });
+    },
+
+    _populateParentSelect(parentSelect, items, level) {
+        const sorted = [...items].sort((a, b) => {
+            const ao = a.order ?? 0, bo = b.order ?? 0;
+            return ao !== bo ? ao - bo : a.id - b.id;
+        });
+        sorted.forEach(item => {
+            if (item.type === 'category') {
+                const opt = document.createElement('option');
+                opt.value = item.id;
+                opt.textContent = '\u00a0\u00a0'.repeat(level) + item.name + ` (Nível ${level + 1})`;
+                parentSelect.appendChild(opt);
+            }
+            if (item.children && item.children.length) {
+                this._populateParentSelect(parentSelect, item.children, level + 1);
+            }
+        });
+    },
+
+    _toggleMenuCategory(itemId, wrapper, toggleBtn) {
+        const childrenContainer = wrapper.querySelector(':scope > .menu-children-container');
+        if (!childrenContainer) return;
+        if (this._collapsedCategories.has(itemId)) {
+            this._collapsedCategories.delete(itemId);
+            childrenContainer.style.display = '';
+            toggleBtn.innerHTML = '&#9660;';
+            toggleBtn.title = 'Retrair';
+        } else {
+            this._collapsedCategories.add(itemId);
+            childrenContainer.style.display = 'none';
+            toggleBtn.innerHTML = '&#9658;';
+            toggleBtn.title = 'Expandir';
+        }
+    },
+
+    expandAllMenuCategories() {
+        if (!this._collapsedCategories) this._collapsedCategories = new Set();
+        this._collapsedCategories.clear();
+        const container = document.getElementById('menuStructure');
+        if (!container) return;
+        container.querySelectorAll('.menu-children-container').forEach(c => { c.style.display = ''; });
+        container.querySelectorAll('.menu-collapse-toggle').forEach(btn => {
+            if (btn.style.visibility !== 'hidden') {
+                btn.innerHTML = '&#9660;';
+                btn.title = 'Retrair';
+            }
+        });
+    },
+
+    collapseAllMenuCategories() {
+        if (!this._collapsedCategories) this._collapsedCategories = new Set();
+        const container = document.getElementById('menuStructure');
+        if (!container) return;
+        container.querySelectorAll('.menu-children-container').forEach(c => {
+            const parentId = c.dataset.parentId;
+            if (parentId) this._collapsedCategories.add(parseInt(parentId));
+            c.style.display = 'none';
+        });
+        container.querySelectorAll('.menu-collapse-toggle').forEach(btn => {
+            if (btn.style.visibility !== 'hidden') {
+                btn.innerHTML = '&#9658;';
+                btn.title = 'Expandir';
+            }
+        });
+    },
+
+    _initMenuDragDrop(rootContainer) {
+        let draggedWrapper = null;
+        let dropTarget = null;
+        let dropPos = null;
+        const self = this;
+
+        const clearDropHighlight = () => {
+            rootContainer.querySelectorAll('.drag-drop-before, .drag-drop-after').forEach(el => {
+                el.classList.remove('drag-drop-before', 'drag-drop-after');
             });
+            dropTarget = null;
+            dropPos = null;
         };
-        
-        renderList(sortedMenu);
-        console.log('[Menu Structure] Menu structure loaded');
+
+        rootContainer.addEventListener('dragstart', (e) => {
+            const wrapper = e.target.closest('.menu-item-wrapper');
+            if (!wrapper) return;
+            draggedWrapper = wrapper;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', wrapper.dataset.id);
+            requestAnimationFrame(() => {
+                wrapper.classList.add('dragging-active');
+            });
+        });
+
+        rootContainer.addEventListener('dragend', () => {
+            if (draggedWrapper) {
+                draggedWrapper.classList.remove('dragging-active');
+                draggedWrapper = null;
+            }
+            clearDropHighlight();
+        });
+
+        rootContainer.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            if (!draggedWrapper) return;
+
+            const target = e.target.closest('.menu-item-wrapper');
+            if (!target || target === draggedWrapper) { clearDropHighlight(); return; }
+            if (target.parentNode !== draggedWrapper.parentNode) { clearDropHighlight(); return; }
+            if (draggedWrapper.contains(target)) { clearDropHighlight(); return; }
+
+            const itemEl = target.querySelector(':scope > .menu-list-item');
+            const rect = (itemEl || target).getBoundingClientRect();
+            const midY = rect.top + rect.height / 2;
+            const pos = e.clientY < midY ? 'before' : 'after';
+
+            // So atualizar classe se mudou
+            if (target === dropTarget && pos === dropPos) {
+                e.dataTransfer.dropEffect = 'move';
+                return;
+            }
+
+            clearDropHighlight();
+            dropTarget = target;
+            dropPos = pos;
+            target.classList.add(pos === 'before' ? 'drag-drop-before' : 'drag-drop-after');
+            e.dataTransfer.dropEffect = 'move';
+        });
+
+        rootContainer.addEventListener('dragleave', (e) => {
+            if (!rootContainer.contains(e.relatedTarget)) clearDropHighlight();
+        });
+
+        rootContainer.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if (!draggedWrapper || !dropTarget || !dropPos) { clearDropHighlight(); return; }
+
+            const dropContainer = dropTarget.parentNode;
+            if (dropContainer !== draggedWrapper.parentNode) { clearDropHighlight(); return; }
+
+            if (dropPos === 'before') {
+                dropContainer.insertBefore(draggedWrapper, dropTarget);
+            } else {
+                dropContainer.insertBefore(draggedWrapper, dropTarget.nextSibling);
+            }
+            clearDropHighlight();
+
+            const siblings = Array.from(dropContainer.querySelectorAll(':scope > .menu-item-wrapper'));
+            const orderUpdates = siblings.map((el, i) => ({
+                id: parseInt(el.dataset.id),
+                newOrder: (i + 1) * 10
+            }));
+
+            draggedWrapper.classList.remove('dragging-active');
+            draggedWrapper = null;
+
+            self._applyMenuDragOrder(orderUpdates);
+        });
+    },
+
+    async _applyMenuDragOrder(orderUpdates) {
+        if (!window.PortalApp.authToken || !orderUpdates.length) return;
+
+        const container = document.getElementById('menuStructure');
+        if (container) container.style.pointerEvents = 'none';
+
+        try {
+            for (const upd of orderUpdates) {
+                const resp = await fetch(`${window.PortalApp.API_URL}/menu/${upd.id}/order`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${window.PortalApp.authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ order: upd.newOrder })
+                });
+                if (!resp.ok) {
+                    const txt = await resp.text().catch(() => '');
+                    throw new Error(`Falha ao atualizar item ${upd.id}${txt ? ': ' + txt : ''}`);
+                }
+            }
+            this._updateMenuDataOrders(orderUpdates);
+            if (window.PortalMenu) window.PortalMenu.renderMenu();
+        } catch (err) {
+            console.error('Erro ao salvar ordem do menu:', err);
+            alert(`Erro ao reordenar: ${err.message}`);
+            await window.PortalData.loadDataFromAPI();
+        } finally {
+            if (container) container.style.pointerEvents = '';
+        }
+    },
+
+    _updateMenuDataOrders(orderUpdates) {
+        const update = (items) => {
+            for (const it of items) {
+                const u = orderUpdates.find(x => x.id === it.id);
+                if (u) it.order = u.newOrder;
+                if (it.children && it.children.length) update(it.children);
+            }
+        };
+        if (Array.isArray(window.PortalApp.menuData)) update(window.PortalApp.menuData);
     },
 
     updatePageSelect() {
-        const sel = document.getElementById('pageSelect');
-        if (!sel) return;
-        sel.innerHTML = '<option value="">Selecione uma página</option>';
-        if (!Array.isArray(window.PortalApp.pagesData)) return;
-        window.PortalApp.pagesData.forEach(p => {
-            const opt = document.createElement('option');
-            opt.value = p.id;
-            opt.textContent = p.title || (`Página ${p.id}`);
-            sel.appendChild(opt);
+        const hidden = document.getElementById('pageSelect');
+        if (!hidden) return;
+
+        const searchInput = document.getElementById('pageSearchInput');
+        const resultsDiv = document.getElementById('pageSearchResults');
+        if (!searchInput || !resultsDiv) {
+            // Fallback: se nao existe o search, tentar como select antigo
+            if (hidden.tagName === 'SELECT') {
+                hidden.innerHTML = '<option value="">Selecione uma página</option>';
+                if (Array.isArray(window.PortalApp.pagesData)) {
+                    window.PortalApp.pagesData.forEach(p => {
+                        const opt = document.createElement('option');
+                        opt.value = p.id;
+                        opt.textContent = p.title || (`Página ${p.id}`);
+                        hidden.appendChild(opt);
+                    });
+                }
+            }
+            return;
+        }
+
+        const pages = Array.isArray(window.PortalApp.pagesData) ? window.PortalApp.pagesData : [];
+
+        // Se ja tem valor selecionado, mostrar o titulo
+        if (hidden.value) {
+            const current = pages.find(p => String(p.id) === String(hidden.value));
+            if (current) searchInput.value = current.title || `Página ${current.id}`;
+        }
+
+        const renderResults = (filter) => {
+            resultsDiv.innerHTML = '';
+            const term = (filter || '').toLowerCase().trim();
+            const filtered = term
+                ? pages.filter(p => (p.title || '').toLowerCase().includes(term))
+                : pages;
+
+            if (filtered.length === 0) {
+                resultsDiv.innerHTML = '<div class="page-search-item page-search-empty">Nenhuma página encontrada</div>';
+                resultsDiv.style.display = 'block';
+                return;
+            }
+
+            // Opcao de limpar
+            const clearItem = document.createElement('div');
+            clearItem.className = 'page-search-item page-search-clear';
+            clearItem.textContent = '— Nenhuma página —';
+            clearItem.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                hidden.value = '';
+                searchInput.value = '';
+                resultsDiv.style.display = 'none';
+            });
+            resultsDiv.appendChild(clearItem);
+
+            filtered.forEach(p => {
+                const item = document.createElement('div');
+                item.className = 'page-search-item';
+                if (String(p.id) === String(hidden.value)) item.classList.add('selected');
+                item.textContent = p.title || `Página ${p.id}`;
+                item.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    hidden.value = p.id;
+                    searchInput.value = p.title || `Página ${p.id}`;
+                    resultsDiv.style.display = 'none';
+                });
+                resultsDiv.appendChild(item);
+            });
+            resultsDiv.style.display = 'block';
+        };
+
+        searchInput.addEventListener('focus', () => renderResults(searchInput.value));
+        searchInput.addEventListener('input', () => renderResults(searchInput.value));
+        searchInput.addEventListener('blur', () => {
+            // Delay para permitir click no item antes de fechar
+            setTimeout(() => { resultsDiv.style.display = 'none'; }, 150);
         });
     },
 
@@ -560,78 +1191,11 @@ window.PortalAdmin = {
     },
 
     editPage(id) {
-        const page = window.PortalApp.pagesData.find(p => p.id === id);
-        if (!page) return alert('Página não encontrada para edição');
-        
-        window.PortalApp.editingPageId = id;
-        document.getElementById('pageNameInput').value = page.title || '';
-        document.getElementById('pageSubtitleInput').value = page.subtitle || '';
-        document.getElementById('pageDescInput').value = page.description || '';
-        document.getElementById('powerbiUrlInput').value = page.powerbiUrl || '';
-        document.getElementById('redirectPowerbiUrlInput').value = page.redirectPowerBIUrl || '';
-        document.getElementById('redirectEmailsInput').value = page.redirectEmails || '';
-        document.getElementById('showInHomeCheckbox').checked = page.showInHome !== false;
-        
-        const iconInput = document.getElementById('pageIconInput');
-        if (iconInput) {
-            iconInput.value = page.icon || '';
-            
-            // Atualizar preview e dropdown de ícones
-            if (window.PortalIcons) {
-                setTimeout(() => {
-                    if (typeof window.PortalIcons.updatePageIconPreview === 'function') {
-                        window.PortalIcons.updatePageIconPreview(page.icon);
-                    }
-                    if (typeof window.PortalIcons.setPageDropdownValueForIcon === 'function') {
-                        window.PortalIcons.setPageDropdownValueForIcon(page.icon);
-                    }
-                }, 100);
-            }
-        }
-        
-        document.getElementById('savePageBtn').textContent = 'Atualizar Página';
-        document.getElementById('cancelPageEditBtn').style.display = 'inline-block';
+        this.openPageModal(id);
     },
 
     editMenuItem(id) {
-        const item = this.findMenuItemById(window.PortalApp.menuData, id);
-        if (!item) return alert('Item não encontrado para edição');
-        
-        window.PortalApp.editingMenuId = id;
-        document.getElementById('menuItemInput').value = item.name || '';
-        document.getElementById('menuTypeSelect').value = item.type || 'item';
-        
-        document.getElementById('menuTypeSelect').dispatchEvent(new Event('change'));
-        
-        const parentSelect = document.getElementById('parentSelect');
-        if (parentSelect) {
-            parentSelect.value = item.parentId || '';
-        }
-        
-        const pageSelect = document.getElementById('pageSelect');
-        if (pageSelect) {
-            pageSelect.value = item.pageId || '';
-        }
-        
-        const iconInput = document.getElementById('menuIconInput');
-        if (iconInput) {
-            iconInput.value = item.icon || '';
-            
-            // Atualizar preview e dropdown de ícones
-            if (window.PortalIcons) {
-                setTimeout(() => {
-                    if (typeof window.PortalIcons.updateIconPreview === 'function') {
-                        window.PortalIcons.updateIconPreview(item.icon);
-                    }
-                    if (typeof window.PortalIcons.setDropdownValueForIcon === 'function') {
-                        window.PortalIcons.setDropdownValueForIcon(item.icon);
-                    }
-                }, 100);
-            }
-        }
-        
-        document.getElementById('saveMenuBtn').textContent = 'Atualizar Item';
-        document.getElementById('cancelMenuEditBtn').style.display = 'inline-block';
+        this.openMenuItemModal(id);
     },
 
     async savePage() {
@@ -709,12 +1273,7 @@ window.PortalAdmin = {
                 return;
             }
 
-            this.clearPageForm();
-            window.PortalApp.editingPageId = null;
-            const saveBtn = document.getElementById('savePageBtn');
-            if (saveBtn) saveBtn.textContent = 'Salvar Página';
-            const cancelBtn = document.getElementById('cancelPageEditBtn');
-            if (cancelBtn) cancelBtn.style.display = 'none';
+            this._closeAdminModal();
 
             await window.PortalData.loadDataFromAPI();
 
@@ -772,14 +1331,7 @@ window.PortalAdmin = {
             });
             
             if (response.ok) {
-                document.getElementById('menuItemInput').value = '';
-                document.getElementById('menuIconInput').value = '';
-                if (window.PortalIcons) {
-                    window.PortalIcons.updateIconPreview('');
-                }
-                window.PortalApp.editingMenuId = null;
-                document.getElementById('saveMenuBtn').textContent = 'Adicionar ao Menu';
-                document.getElementById('cancelMenuEditBtn').style.display = 'none';
+                this._closeAdminModal();
                 await window.PortalData.loadDataFromAPI();
                 alert(method === 'PUT' ? 'Item atualizado com sucesso!' : 'Item adicionado ao menu!');
             } else {
@@ -869,64 +1421,15 @@ window.PortalAdmin = {
     },
 
     clearPageForm() {
-        document.getElementById('pageNameInput').value = '';
-        document.getElementById('pageSubtitleInput').value = '';
-        document.getElementById('pageDescInput').value = '';
-        document.getElementById('powerbiUrlInput').value = '';
-        document.getElementById('redirectPowerbiUrlInput').value = '';
-        document.getElementById('redirectEmailsInput').value = '';
-        document.getElementById('showInHomeCheckbox').checked = true;
-        const iconInput = document.getElementById('pageIconInput');
-        if (iconInput) {
-            iconInput.value = '';
-            if (window.PortalIcons) {
-                setTimeout(() => {
-                    if (typeof window.PortalIcons.updatePageIconPreview === 'function') {
-                        window.PortalIcons.updatePageIconPreview('');
-                    }
-                    if (typeof window.PortalIcons.setPageDropdownValueForIcon === 'function') {
-                        window.PortalIcons.setPageDropdownValueForIcon('');
-                    }
-                }, 50);
-            }
-        }
+        this._closeAdminModal();
     },
 
     cancelPageEdit() {
-        window.PortalApp.editingPageId = null;
-        this.clearPageForm();
-        document.getElementById('savePageBtn').textContent = 'Salvar Página';
-        document.getElementById('cancelPageEditBtn').style.display = 'none';
-        
-        // Reinicializar dropdowns de ícones após limpar
-        if (window.PortalIcons && typeof window.PortalIcons.buildAllPalettes === 'function') {
-            setTimeout(() => {
-                window.PortalIcons.buildAllPalettes();
-            }, 100);
-        }
+        this._closeAdminModal();
     },
 
     cancelMenuEdit() {
-        window.PortalApp.editingMenuId = null;
-        document.getElementById('menuItemInput').value = '';
-        document.getElementById('menuIconInput').value = '';
-        if (window.PortalIcons) {
-            if (typeof window.PortalIcons.updateIconPreview === 'function') {
-                window.PortalIcons.updateIconPreview('');
-            }
-            if (typeof window.PortalIcons.setDropdownValueForIcon === 'function') {
-                window.PortalIcons.setDropdownValueForIcon('');
-            }
-        }
-        document.getElementById('saveMenuBtn').textContent = 'Adicionar ao Menu';
-        document.getElementById('cancelMenuEditBtn').style.display = 'none';
-        
-        // Reinicializar dropdowns de ícones após limpar
-        if (window.PortalIcons && typeof window.PortalIcons.buildAllPalettes === 'function') {
-            setTimeout(() => {
-                window.PortalIcons.buildAllPalettes();
-            }, 100);
-        }
+        this._closeAdminModal();
     },
 
     async movePageUp(id) {
@@ -952,10 +1455,10 @@ window.PortalAdmin = {
         const plan = this.computePageReorderPlan(window.PortalApp.pagesData, id, direction);
         if (!plan) return;
 
-        const btns = document.querySelectorAll(`[onclick*="movePageUp(${id})"], [onclick*="movePageDown(${id})"]`);
-        btns.forEach(b => { 
-            b.disabled = true; 
-            b.textContent = '⏳'; 
+        const btns = document.querySelectorAll(`[data-page-move="${id}"]`);
+        btns.forEach(b => {
+            b.disabled = true;
+            b.textContent = '⏳';
         });
 
         try {
@@ -2763,10 +3266,15 @@ window.deletePage = (id) => window.PortalAdmin.deletePage(id);
 window.deleteMenuItem = (id) => window.PortalAdmin.deleteMenuItem(id);
 window.cancelPageEdit = () => window.PortalAdmin.cancelPageEdit();
 window.cancelMenuEdit = () => window.PortalAdmin.cancelMenuEdit();
+window.openPageModal = (id) => window.PortalAdmin.openPageModal(id);
+window.openMenuItemModal = (id) => window.PortalAdmin.openMenuItemModal(id);
+window.closeAdminModal = () => window.PortalAdmin._closeAdminModal();
 window.movePageUp = (id) => window.PortalAdmin.movePageUp(id);
 window.movePageDown = (id) => window.PortalAdmin.movePageDown(id);
 window.moveMenuItemUp = (id) => window.PortalAdmin.moveMenuItemUp(id);
 window.moveMenuItemDown = (id) => window.PortalAdmin.moveMenuItemDown(id);
+window.expandAllMenuCategories = () => window.PortalAdmin.expandAllMenuCategories();
+window.collapseAllMenuCategories = () => window.PortalAdmin.collapseAllMenuCategories();
 window.loadUsersList = () => window.PortalAdmin.loadUsersList();
 window.saveUser = () => window.PortalAdmin.saveUser();
 window.editUser = (id) => window.PortalAdmin.editUser(id);

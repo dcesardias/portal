@@ -64,6 +64,9 @@
                     <div class="info-card info-card--mb20">
                         <h3>Bem-vindo ao Portal</h3>
                         <p id="homeSubtitle">Navegue pelos painéis e dashboards disponíveis. Selecione um card abaixo ou use o menu lateral.</p>
+                        <a href="/tutorial" target="_blank" style="display:inline-flex;align-items:center;gap:6px;margin-top:10px;font-size:13px;color:#888;text-decoration:none;transition:color .2s" onmouseover="this.style.color='#0066cc'" onmouseout="this.style.color='#888'">
+                            <i class="fas fa-question-circle"></i> Tutorial do Portal
+                        </a>
                     </div>
 
                     <div class="cards-section">
@@ -189,134 +192,27 @@
             </div>
 
             <div class="tab-content active" id="pagesTab">
-                <h3>Gerenciar Páginas</h3>
-                <div class="form-group">
-                    <label>Título da Página</label>
-                    <input type="text" id="pageNameInput" placeholder="Ex: Dashboard de Vendas">
+                <div class="admin-tab-header">
+                    <h3>Gerenciar Páginas</h3>
+                    <button class="btn btn-admin btn-add-new" onclick="openPageModal()"><i class="fa-solid fa-plus"></i> Nova Página</button>
                 </div>
-                <div class="form-group">
-                    <label>Subtítulo</label>
-                    <input type="text" id="pageSubtitleInput" placeholder="Ex: Análise detalhada de vendas">
-                </div>
-                <div class="form-group">
-                    <label>Descrição</label>
-                    <textarea id="pageDescInput" placeholder="Descrição detalhada da página..."></textarea>
-                </div>
-                <div class="form-group">
-                    <label>URL do Power BI Embed</label>
-                    <input type="text" id="powerbiUrlInput" placeholder="https://app.powerbi.com/view?r=...">
-                </div>
-                <div class="form-group">
-                    <label>URL de Redirecionamento do Power BI (opcional)</label>
-                    <input type="text" id="redirectPowerbiUrlInput" placeholder="https://app.powerbi.com/view?r=...">
-                    <small class="admin-help">
-                        Se preenchida, esta URL será usada apenas para os e-mails Microsoft informados abaixo.
-                    </small>
-                </div>
-                <div class="form-group">
-                    <label>E-mails Microsoft que usarão o redirecionamento (opcional)</label>
-                    <textarea id="redirectEmailsInput" placeholder="usuario1@aacd.org.br&#10;usuario2@aacd.org.br" rows="4"></textarea>
-                    <small class="admin-help">
-                        Informe um e-mail por linha. Também aceita vírgula ou ponto e vírgula.
-                    </small>
-                </div>
-                <div class="form-group">
-                    <label class="admin-inline-row">
-                        <input type="checkbox" id="showInHomeCheckbox" checked>
-                        <span>Mostrar na tela inicial (Acesso Rápido)</span>
-                    </label>
-                    <small class="admin-help">
-                        Marque para exibir esta página nos cards de acesso rápido da tela inicial
-                    </small>
-                </div>
-                <div class="form-group">
-                    <label>Ícone do Card (opcional)</label>
-                    <div class="admin-inline-row">
-                        <input type="text" id="pageIconInput" placeholder="Ex: 📊 ou escolha abaixo" class="admin-flex-1">
-                        <div id="pageIconPreview" class="icon-preview" title="Preview do ícone"></div>
-                    </div>
-                    <div id="pageIconDropdown" class="admin-dropdown">
-                        <div id="pageIconDropdownToggle" class="admin-dropdown-toggle">
-                            <span id="pageIconDropdownSelected" class="admin-inline-row">
-                                <span class="admin-muted">Selecione um ícone...</span>
-                            </span>
-                            <span class="admin-dropdown-caret">›</span>
-                        </div>
-                        <div id="pageIconDropdownMenu" class="admin-dropdown-menu" style="display:none;">
-                        </div>
-                    </div>
-                    <small class="admin-help admin-help-spaced">
-                        Este ícone aparecerá no card de acesso rápido na tela inicial
-                    </small>
-                </div> 
-                <div class="admin-actions-row">
-                    <button class="btn btn-admin" id="savePageBtn" onclick="savePage()">Salvar Página</button>
-                    <button class="btn" id="cancelPageEditBtn" style="display:none;" onclick="cancelPageEdit()">Cancelar</button>
-                </div>
-                
-                <h4 class="admin-section-title">Páginas Existentes</h4>
                 <div class="admin-callout admin-callout--success">
-                    💡 <strong>Ordenação dos Cards:</strong> Use as setas ↑↓ para alterar a ordem dos cards na tela inicial. A ordenação afeta apenas páginas marcadas como "Mostrar na tela inicial".
+                    💡 <strong>Dica:</strong> Use o campo de busca para filtrar. O badge <strong>N× menu</strong> indica quantos itens do menu apontam para essa página.
                 </div>
                 <div class="menu-list" id="pagesList"></div>
             </div>
 
             <div class="tab-content" id="menuTab">
-                <h3>Gerenciar Menu</h3>
-                <div class="form-group">
-                    <label>Nome do Item</label>
-                    <input type="text" id="menuItemInput" placeholder="Ex: Financeiro">
+                <div class="admin-tab-header">
+                    <h3>Gerenciar Menu</h3>
+                    <button class="btn btn-admin btn-add-new" onclick="openMenuItemModal()"><i class="fa-solid fa-plus"></i> Novo Item</button>
                 </div>
-                <div class="form-group">
-                    <label>Tipo</label>
-                    <select id="menuTypeSelect">
-                        <option value="item">Item Simples</option>
-                        <option value="category">Categoria (com subitens)</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Ícone (emoji ou classe)</label>
-                    <div class="admin-inline-row">
-                        <input type="text" id="menuIconInput" placeholder="Ex: 📊 ou fas fa-chart" class="admin-flex-1">
-                        <div id="menuIconPreview" class="icon-preview" title="Preview do ícone"></div>
-                    </div>
-                    <div id="iconDropdown" class="admin-dropdown">
-                        <div id="iconDropdownToggle" class="admin-dropdown-toggle">
-                            <span id="iconDropdownSelected" class="admin-inline-row">
-                                <span class="admin-muted">Selecione um ícone...</span>
-                            </span>
-                            <span class="admin-dropdown-caret">›</span>
-                        </div>
-                        <div id="iconDropdownMenu" class="admin-dropdown-menu" style="display:none;">
-                        </div>
-                    </div>
-                </div>
-                <div class="form-group" id="parentSelectGroup" style="display: none;">
-                    <label>Item Pai (Categoria)</label>
-                    <select id="parentSelect">
-                        <option value="">Nenhum (Nível Principal)</option>
-                    </select>
-                    <small class="admin-help">
-                        💡 Selecione uma categoria existente para criar subitens. Você pode criar múltiplos níveis de hierarquia (nível 2, 3, etc.)
-                    </small>
-                </div>
-                <div class="form-group" id="pageSelectGroup">
-                    <label>Página Associada</label>
-                    <select id="pageSelect">
-                        <option value="">Selecione uma página (apenas para itens simples)</option>
-                    </select>
-                    <small class="admin-help">
-                        💡 Apenas itens simples podem ter páginas associadas. Categorias servem apenas para organizar outros itens.
-                    </small>
-                </div>
-                <div class="admin-actions-row">
-                    <button class="btn btn-admin" id="saveMenuBtn" onclick="saveMenuItem()">Adicionar ao Menu</button>
-                    <button class="btn" id="cancelMenuEditBtn" style="display:none;" onclick="cancelMenuEdit()">Cancelar</button>
-                </div>
-                
-                <h4 class="admin-section-title">Estrutura do Menu</h4>
                 <div class="admin-callout admin-callout--info">
-                    💡 <strong>Hierarquia Multinível:</strong> Você pode criar subitens dentro de subitens sem limite de profundidade. Categorias podem conter outras categorias e itens.
+                    💡 <strong>Hierarquia Multinível:</strong> Arraste pelo ícone <strong>⠿</strong> para reordenar. Use ▼/► para expandir/retrair categorias.
+                </div>
+                <div class="menu-expand-collapse-bar" id="menuExpandCollapseBar">
+                    <button class="btn-small btn-expand-all" onclick="expandAllMenuCategories()" title="Expandir todas as categorias"><i class="fa-solid fa-angles-down"></i> Expandir Tudo</button>
+                    <button class="btn-small btn-collapse-all" onclick="collapseAllMenuCategories()" title="Retrair todas as categorias"><i class="fa-solid fa-angles-up"></i> Retrair Tudo</button>
                 </div>
                 <div class="menu-list" id="menuStructure"></div>
             </div>

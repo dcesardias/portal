@@ -13,22 +13,66 @@ window.PortalIcons = {
 
     ICON_MAP: {},
 
+    // Nomes amigaveis para os icones SVG do palette
+    SVG_NAMES: [
+        'Cifrão', 'Gráfico Barras', 'Gráfico Pizza', 'Calendário',
+        'Engrenagem', 'Casa', 'Usuário', 'Busca'
+    ],
+
+    _initIconMap() {
+        this.ICON_PALETTE.forEach((ic, idx) => {
+            if (typeof ic === 'string' && ic.trim().startsWith('<svg')) {
+                this.ICON_MAP[`svg-${idx}`] = ic;
+            }
+        });
+    },
+
+    svgToKey(iconValue) {
+        if (!iconValue || typeof iconValue !== 'string') return iconValue;
+        if (iconValue.startsWith('svg-') && this.ICON_MAP[iconValue]) return iconValue;
+        if (!iconValue.trim().startsWith('<svg')) return iconValue;
+        for (const [key, val] of Object.entries(this.ICON_MAP)) {
+            if (val === iconValue) return key;
+        }
+        const idx = this.ICON_PALETTE.indexOf(iconValue);
+        if (idx >= 0) {
+            const key = `svg-${idx}`;
+            this.ICON_MAP[key] = iconValue;
+            return key;
+        }
+        return iconValue;
+    },
+
+    svgKeyLabel(key) {
+        if (typeof key === 'string' && key.startsWith('svg-')) {
+            const idx = parseInt(key.split('-')[1]);
+            return this.SVG_NAMES[idx] || `Ícone SVG ${idx + 1}`;
+        }
+        return key;
+    },
+
     renderIconHTML(icon) {
         if (!icon) {
             return '<span class="menu-icon"></span>';
         }
-        
-        if (window.PortalUtils && window.PortalUtils.isSvgString(icon)) {
-            return `<span class="menu-icon">${icon}</span>`;
+
+        // Resolver chave svg-N
+        let resolved = icon;
+        if (typeof icon === 'string' && icon.startsWith('svg-') && this.ICON_MAP[icon]) {
+            resolved = this.ICON_MAP[icon];
         }
-        
-        if (window.PortalUtils && window.PortalUtils.isIconClass(icon)) {
-            return `<span class="menu-icon"><i class="${window.PortalUtils.escapeHtml(icon)}"></i></span>`;
+
+        if (window.PortalUtils && window.PortalUtils.isSvgString(resolved)) {
+            return `<span class="menu-icon">${resolved}</span>`;
         }
-        
+
+        if (window.PortalUtils && window.PortalUtils.isIconClass(resolved)) {
+            return `<span class="menu-icon"><i class="${window.PortalUtils.escapeHtml(resolved)}"></i></span>`;
+        }
+
         const span = document.createElement('span');
         span.className = 'menu-icon';
-        span.textContent = String(icon);
+        span.textContent = String(resolved);
         return span.outerHTML;
     },
 
@@ -122,28 +166,31 @@ window.PortalIcons = {
         preview.appendChild(span);
     },
 
+    _resolveDropdownDisplay(icon) {
+        // Converter SVG bruto para chave se possivel
+        let key = this.svgToKey(icon);
+        let resolved = icon;
+        let label = icon;
+
+        if (typeof key === 'string' && key.startsWith('svg-') && this.ICON_MAP[key]) {
+            resolved = this.ICON_MAP[key];
+            label = this.svgKeyLabel(key);
+        } else if (window.PortalUtils && window.PortalUtils.isSvgString(icon)) {
+            // SVG nao encontrado no palette - dar nome generico
+            resolved = icon;
+            label = 'Ícone SVG';
+        }
+        return { resolved, label };
+    },
+
     setDropdownValueForIcon(icon) {
         const selected = document.getElementById('iconDropdownSelected');
         if (!selected) return;
-        
-        if (!icon) {
-            selected.innerHTML = '<span style="color:#999;">Selecione um ícone...</span>';
-            return;
-        }
-        
+        if (!icon) { selected.innerHTML = '<span style="color:#999;">Selecione um ícone...</span>'; return; }
         selected.innerHTML = '';
-        
+        const { resolved, label } = this._resolveDropdownDisplay(icon);
         const iconPreview = document.createElement('span');
         iconPreview.style.cssText = 'width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;';
-        
-        let resolved = icon;
-        let label = icon;
-        
-        if (typeof icon === 'string' && icon.startsWith('svg-') && this.ICON_MAP[icon]) {
-            resolved = this.ICON_MAP[icon];
-            label = `Ícone SVG ${icon.split('-')[1]}`;
-        }
-        
         if (window.PortalUtils && window.PortalUtils.isSvgString(resolved)) {
             iconPreview.innerHTML = resolved;
         } else if (window.PortalUtils && window.PortalUtils.isIconClass(resolved)) {
@@ -151,10 +198,8 @@ window.PortalIcons = {
         } else {
             iconPreview.innerHTML = `<span style="font-size:18px;">${window.PortalUtils ? window.PortalUtils.escapeHtml(resolved) : resolved}</span>`;
         }
-        
         const labelSpan = document.createElement('span');
         labelSpan.textContent = label;
-        
         selected.appendChild(iconPreview);
         selected.appendChild(labelSpan);
     },
@@ -162,25 +207,11 @@ window.PortalIcons = {
     setPageDropdownValueForIcon(icon) {
         const selected = document.getElementById('pageIconDropdownSelected');
         if (!selected) return;
-        
-        if (!icon) {
-            selected.innerHTML = '<span style="color:#999;">Selecione um ícone...</span>';
-            return;
-        }
-        
+        if (!icon) { selected.innerHTML = '<span style="color:#999;">Selecione um ícone...</span>'; return; }
         selected.innerHTML = '';
-        
+        const { resolved, label } = this._resolveDropdownDisplay(icon);
         const iconPreview = document.createElement('span');
         iconPreview.style.cssText = 'width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;';
-        
-        let resolved = icon;
-        let label = icon;
-        
-        if (typeof icon === 'string' && icon.startsWith('svg-') && this.ICON_MAP[icon]) {
-            resolved = this.ICON_MAP[icon];
-            label = `Ícone SVG ${icon.split('-')[1]}`;
-        }
-        
         if (window.PortalUtils && window.PortalUtils.isSvgString(resolved)) {
             iconPreview.innerHTML = resolved;
         } else if (window.PortalUtils && window.PortalUtils.isIconClass(resolved)) {
@@ -188,10 +219,8 @@ window.PortalIcons = {
         } else {
             iconPreview.innerHTML = `<span style="font-size:18px;">${window.PortalUtils ? window.PortalUtils.escapeHtml(resolved) : resolved}</span>`;
         }
-        
         const labelSpan = document.createElement('span');
         labelSpan.textContent = label;
-        
         selected.appendChild(iconPreview);
         selected.appendChild(labelSpan);
     },
@@ -199,22 +228,11 @@ window.PortalIcons = {
     setHomeDropdownValueForIcon(icon) {
         const selected = document.getElementById('homeIconDropdownSelected');
         if (!selected) return;
-        
-        if (!icon) {
-            selected.innerHTML = '<span style="color:#999;">Selecione um ícone para Home...</span>';
-            return;
-        }
+        if (!icon) { selected.innerHTML = '<span style="color:#999;">Selecione um ícone para Home...</span>'; return; }
         selected.innerHTML = '';
-        
+        const { resolved, label } = this._resolveDropdownDisplay(icon);
         const iconPreview = document.createElement('span');
         iconPreview.style.cssText = 'width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;';
-        
-        let resolved = icon;
-        let label = icon;
-        if (typeof icon === 'string' && icon.startsWith('svg-') && this.ICON_MAP[icon]) {
-            resolved = this.ICON_MAP[icon];
-            label = `Ícone SVG ${icon.split('-')[1]}`;
-        }
         if (window.PortalUtils && window.PortalUtils.isSvgString(resolved)) {
             iconPreview.innerHTML = resolved;
         } else if (window.PortalUtils && window.PortalUtils.isIconClass(resolved)) {
@@ -302,13 +320,14 @@ window.PortalIcons = {
                     html = `<span style="font-size:18px;">${escapeHtml(ic)}</span>`;
                     label = ic;
                 }
+                const valueToStore = (window.PortalUtils && window.PortalUtils.isSvgString(ic)) ? `svg-${idx}` : ic;
                 const { item, iconPreview } = createItemNode(html, label, ic);
                 item.addEventListener('click', (e) => {
                     e.stopPropagation();
                     const input = document.getElementById('menuIconInput');
                     if (input) {
-                        input.value = ic;
-                        this.updateIconPreview(ic);
+                        input.value = valueToStore;
+                        this.updateIconPreview(valueToStore);
                         input.dispatchEvent(new Event('input'));
                     }
                     selected.innerHTML = '';
@@ -324,11 +343,11 @@ window.PortalIcons = {
             // Remover listeners antigos clonando o elemento
             const newToggle = toggle.cloneNode(true);
             toggle.parentNode.replaceChild(newToggle, toggle);
-            
+
             newToggle.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                
+
                 console.log('[Icons] Toggle menuIcon clicado');
                 
                 const isOpen = menu.style.display === 'block';
@@ -432,13 +451,14 @@ window.PortalIcons = {
                     html = `<span style="font-size:18px;">${escapeHtml(ic)}</span>`;
                     label = ic;
                 }
+                const pageValueToStore = (window.PortalUtils && window.PortalUtils.isSvgString(ic)) ? `svg-${idx}` : ic;
                 const { item, iconPreview } = createItemNode(html, label, ic);
                 item.addEventListener('click', (e) => {
                     e.stopPropagation();
                     const input = document.getElementById('pageIconInput');
                     if (input) {
-                        input.value = ic;
-                        this.updatePageIconPreview(ic);
+                        input.value = pageValueToStore;
+                        this.updatePageIconPreview(pageValueToStore);
                         input.dispatchEvent(new Event('input'));
                     }
                     selected.innerHTML = '';
@@ -562,13 +582,14 @@ window.PortalIcons = {
                     html = `<span style="font-size:18px;">${escapeHtml(ic)}</span>`;
                     label = ic;
                 }
+                const homeValueToStore = (window.PortalUtils && window.PortalUtils.isSvgString(ic)) ? `svg-${idx}` : ic;
                 const { item, iconPreview } = createItemNode(html, label, ic);
                 item.addEventListener('click', (e) => {
                     e.stopPropagation();
                     const input = document.getElementById('homeIconInput');
                     if (input) {
-                        input.value = ic;
-                        this.updateHomeIconPreview(ic);
+                        input.value = homeValueToStore;
+                        this.updateHomeIconPreview(homeValueToStore);
                         input.dispatchEvent(new Event('input'));
                     }
                     selected.innerHTML = '';
@@ -619,6 +640,9 @@ window.PortalIcons = {
         });
     }
 };
+
+// Inicializar mapa de icones SVG imediatamente
+window.PortalIcons._initIconMap();
 
 // Expor funções globais para compatibilidade
 window.updateIconPreview = (icon) => window.PortalIcons.updateIconPreview(icon);
