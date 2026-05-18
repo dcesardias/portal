@@ -8,7 +8,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { ensureMapDbTables, mountMapDb } = require('./mapdbIntegration');
-const { createUserManagementRouter } = require('./userManagement');
+const { createUserManagementRouter, loadAppsByUserId } = require('./userManagement');
 
 try { require('dotenv').config(); } catch (e) { console.warn('dotenv não encontrado (opcional)'); }
 
@@ -22,6 +22,7 @@ const DIRECT_LINE_ENDPOINT = process.env.DIRECT_LINE_ENDPOINT || 'https://direct
 const MICROSOFT_AUTH_CLIENT_ID = process.env.MICROSOFT_AUTH_CLIENT_ID || 'b97df545-f361-4a9b-913f-f6a4b957486c';
 const MICROSOFT_AUTH_TENANT_ID = process.env.MICROSOFT_AUTH_TENANT_ID || '1ebad822-ee55-4814-9f70-6defb1fb0694';
 const MICROSOFT_AUTH_ENABLED = String(process.env.MICROSOFT_AUTH_ENABLED || 'true').toLowerCase() !== 'false';
+const MICROSOFT_AUTH_FORCE_SELECT = String(process.env.MICROSOFT_AUTH_FORCE_SELECT || 'false').toLowerCase() === 'true';
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 const fetchFn = (typeof fetch !== 'undefined')
     ? fetch
@@ -34,19 +35,76 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use('/vendor/msal-browser', express.static(path.join(__dirname, 'node_modules', '@azure', 'msal-browser', 'lib')));
 
 // Versão da aplicação — usada para cache-busting de assets estáticos.
-// Lida do package.json + mtime do app.js para invalidar em hot-reload de dev.
-const APP_VERSION = (() => {
+// Combina pkg.version com o mtime mais recente de QUALQUER asset do front
+// (varredura recursiva de public/assets, public/excel e dos HTMLs servidos
+// pelo Node). Assim qualquer edit em CSS/JS/HTML invalida o cache de todos
+// os assets, sem precisar bumpar pkg.version nem manter uma allowlist.
+//
+// Calculo lazy com TTL: recalcula no maximo 1x a cada APP_VERSION_TTL_MS.
+// Sem isso, o valor era congelado no startup e qualquer deploy exigia
+// reciclar o iisnode (touch web.config / iisreset) para invalidar cache.
+const APP_VERSION_TTL_MS = 15000;
+const TRACKED_EXT = new Set(['.js', '.css', '.html', '.htm', '.mjs']);
+const WATCHED_ROOTS = [
+    path.join(__dirname, 'public', 'assets'),
+    path.join(__dirname, 'public', 'excel'),
+];
+const WATCHED_FILES = [
+    path.join(__dirname, 'public', 'index.html'),
+    path.join(__dirname, 'public', 'admin.html'),
+    path.join(__dirname, 'public', 'fatura.html'),
+];
+
+let cachedAppVersion = null;
+let cachedAppVersionAt = 0;
+
+function computeAppVersion() {
     try {
         const pkg = require('./package.json');
-        return String(pkg.version || '0.0.0');
+        const baseVersion = String(pkg.version || '0.0.0');
+
+        let mtimeMs = 0;
+        const visit = (p) => {
+            let stat;
+            try { stat = fs.statSync(p); } catch (e) { return; }
+            if (stat.isDirectory()) {
+                let entries;
+                try { entries = fs.readdirSync(p); } catch (e) { return; }
+                for (const name of entries) {
+                    if (name === 'node_modules' || name.startsWith('.')) continue;
+                    visit(path.join(p, name));
+                }
+            } else if (stat.isFile()) {
+                const ext = path.extname(p).toLowerCase();
+                if (!TRACKED_EXT.has(ext)) return;
+                if (stat.mtimeMs > mtimeMs) mtimeMs = stat.mtimeMs;
+            }
+        };
+        for (const root of WATCHED_ROOTS) visit(root);
+        for (const file of WATCHED_FILES) visit(file);
+
+        if (mtimeMs > 0) {
+            return `${baseVersion}-${Math.floor(mtimeMs)}`;
+        }
+        return baseVersion;
     } catch (e) {
         return '0.0.0';
     }
-})();
+}
+
+function getAppVersion() {
+    const now = Date.now();
+    if (cachedAppVersion && (now - cachedAppVersionAt) < APP_VERSION_TTL_MS) {
+        return cachedAppVersion;
+    }
+    cachedAppVersion = computeAppVersion();
+    cachedAppVersionAt = now;
+    return cachedAppVersion;
+}
 
 app.get('/api/version', (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
-    res.json({ version: APP_VERSION });
+    res.json({ version: getAppVersion() });
 });
 
 // Serve o index.html sempre fresh, injetando a versão para cache-busting dos assets.
@@ -57,7 +115,7 @@ app.get(['/', '/index.html'], (req, res) => {
             console.error('Erro ao ler index.html:', err);
             return res.status(500).send('Erro ao carregar a página');
         }
-        const out = html.split('__APP_VERSION__').join(APP_VERSION);
+        const out = html.split('__APP_VERSION__').join(getAppVersion());
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
@@ -75,7 +133,10 @@ app.get(['/tutorial-builder.html', '/tutorial-builder'], (req, res) => {
         res.setHeader('Expires', '0');
         res.setHeader('Surrogate-Control', 'no-store');
 
-        res.sendFile(path.join(__dirname, 'public', 'tutorial-builder.html'));
+        const filePath = path.join(__dirname, 'public', 'tutorial-builder.html');
+        const html = fs.readFileSync(filePath, 'utf8');
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.send(html.split('__APP_VERSION__').join(getAppVersion()));
     } catch (e) {
         console.error('Erro ao servir tutorial-builder.html:', e);
         res.status(404).send('Tutorial Builder não encontrado');
@@ -85,6 +146,70 @@ app.get(['/tutorial-builder.html', '/tutorial-builder'], (req, res) => {
 app.get('/tutorial', (req, res) => {
     res.sendFile(path.join(__dirname, 'Tutorial Portal AACD.html'));
 });
+
+app.get('/tutorial', (req, res) => {
+    res.sendFile(path.join(__dirname, 'Tutorial Portal AACD.html'));
+});
+
+// Página administrativa dedicada — substitui o drawer lateral.
+// Autenticação é validada client-side via /api/verify-token; o HTML em si
+// é público (qualquer um pode baixar), mas só renderiza conteúdo se o token
+// retornar isAdmin: true. Mesmo padrão usado em /excel/admin.html.
+app.get(['/admin', '/admin.html'], (req, res) => {
+    const adminHtmlPath = path.join(__dirname, 'public', 'admin.html');
+    fs.readFile(adminHtmlPath, 'utf8', (err, html) => {
+        if (err) {
+            console.error('Erro ao ler admin.html:', err);
+            return res.status(500).send('Erro ao carregar a página admin');
+        }
+        const out = html.split('__APP_VERSION__').join(getAppVersion());
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.send(out);
+    });
+});
+
+// Tela /excel (admin Sistema de Carga) e' baixa frequencia e evolui muito,
+// entao desativa cache do browser para evitar que ajustes em app.js /
+// jobsManager.js / index.html fiquem presos no cache local. Aplica antes do
+// static handler para que os headers vigorem mesmo no asset servido pelo
+// proprio express.static.
+app.use((req, res, next) => {
+    if (req.path && req.path.startsWith('/excel/')) {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+    }
+    next();
+});
+
+// HTMLs do Sistema de Carga: servidos pelo Node injetando __APP_VERSION__,
+// para que <link>/<script> com ?v=__APP_VERSION__ sejam invalidados sempre
+// que qualquer asset do front for alterado.
+const serveHtmlWithVersion = (relPath) => (req, res) => {
+    const filePath = path.join(__dirname, 'public', relPath);
+    fs.readFile(filePath, 'utf8', (err, html) => {
+        if (err) {
+            console.error(`Erro ao ler ${relPath}:`, err);
+            return res.status(500).send('Erro ao carregar a página');
+        }
+        const out = html.split('__APP_VERSION__').join(getAppVersion());
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.send(out);
+    });
+};
+app.get(['/excel', '/excel/', '/excel/index.html'], serveHtmlWithVersion(path.join('excel', 'index.html')));
+app.get(['/excel/admin', '/excel/admin.html'], serveHtmlWithVersion(path.join('excel', 'admin.html')));
+// /fatura — pagina standalone com login + upload de PDF + historico.
+// Nao adicionamos /fatura.html aqui porque o IIS rewrite (regra StaticContent)
+// servir-lo-ia direto sem passar pelo Node, e __APP_VERSION__ nao seria
+// substituido. Acessar via /fatura.
+app.get(['/fatura', '/fatura/'], serveHtmlWithVersion('fatura.html'));
 
 app.use(express.static('public'));
 
@@ -98,7 +223,13 @@ app.use('/uploads', express.static('uploads'));
 // Rota direta para o Chatbot (URL dedicada)
 app.get(['/chatbot', '/chatbot/'], (req, res) => {
     try {
-        res.sendFile(path.join(__dirname, 'public', 'chatbot.html'));
+        const filePath = path.join(__dirname, 'public', 'chatbot.html');
+        const html = fs.readFileSync(filePath, 'utf8');
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.send(html.split('__APP_VERSION__').join(getAppVersion()));
     } catch (e) {
         res.status(404).send('Chatbot não encontrado');
     }
@@ -111,7 +242,7 @@ app.get('/api/microsoft-auth/config', (req, res) => {
         tenantId: MICROSOFT_AUTH_TENANT_ID,
         authority: `https://login.microsoftonline.com/${MICROSOFT_AUTH_TENANT_ID}`,
         loginScopes: ['openid', 'profile', 'offline_access', 'User.Read'],
-        forceAccountSelection: true
+        forceAccountSelection: MICROSOFT_AUTH_FORCE_SELECT
     });
 });
 
@@ -147,6 +278,58 @@ async function tableDefinitionsHasAllowFullLoad() {
         WHERE TABLE_NAME = 'TableDefinitions' AND COLUMN_NAME = 'AllowFullLoad'
     `);
     return check.recordset.length > 0;
+}
+
+async function ensureUploadJobsTable() {
+    if (!pool || !pool.connected) return;
+    try {
+        const check = await pool.request().query(`
+            SELECT 1 FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[UploadJobs]') AND type = 'U'
+        `);
+        if (check.recordset.length === 0) {
+            console.log('[DB] Criando tabela UploadJobs');
+            await pool.request().batch(`
+                CREATE TABLE [dbo].[UploadJobs] (
+                    [JobId]         VARCHAR(64)   NOT NULL PRIMARY KEY,
+                    [TableName]     VARCHAR(200)  NOT NULL,
+                    [JobType]       VARCHAR(20)   NOT NULL,
+                    [LoadType]      VARCHAR(20)   NULL,
+                    [Status]        VARCHAR(20)   NOT NULL,
+                    [Stage]         VARCHAR(40)   NULL,
+                    [Message]       NVARCHAR(500) NULL,
+                    [Progress]      INT           NOT NULL DEFAULT 0,
+                    [TotalRows]     INT           NULL,
+                    [InsertedRows]  INT           NULL,
+                    [FileName]      NVARCHAR(255) NULL,
+                    [FileSize]      BIGINT        NULL,
+                    [UserId]        INT           NULL,
+                    [UserName]      NVARCHAR(200) NULL,
+                    [ErrorMessage] NVARCHAR(MAX) NULL,
+                    [StartedAt]     DATETIME      NOT NULL DEFAULT GETDATE(),
+                    [FinishedAt]    DATETIME      NULL,
+                    [UpdatedAt]     DATETIME      NOT NULL DEFAULT GETDATE()
+                );
+            `);
+            await pool.request().batch(`
+                CREATE INDEX IX_UploadJobs_TableName_Status ON [dbo].[UploadJobs]([TableName], [Status]);
+                CREATE INDEX IX_UploadJobs_Status_StartedAt ON [dbo].[UploadJobs]([Status], [StartedAt] DESC);
+                CREATE INDEX IX_UploadJobs_TableName_FinishedAt ON [dbo].[UploadJobs]([TableName], [FinishedAt] DESC) WHERE [Status] = 'success';
+            `);
+            console.log('[DB] Tabela UploadJobs criada');
+        }
+
+        // Em caso de restart do iisnode: jobs que ficaram 'running' nao sao mais retomaveis
+        await pool.request().query(`
+            UPDATE [dbo].[UploadJobs]
+               SET Status = 'error',
+                   ErrorMessage = ISNULL(ErrorMessage, N'Servidor reiniciou durante a execucao'),
+                   FinishedAt = GETDATE(),
+                   UpdatedAt = GETDATE()
+             WHERE Status IN ('queued', 'running')
+        `);
+    } catch (e) {
+        console.warn('[DB] Falha ao garantir UploadJobs:', e.message || e);
+    }
 }
 
 // Mapeamento de tabelas disponíveis para carga
@@ -254,7 +437,13 @@ app.get('/api/excel/tabelas/:tabela/info', async (req, res) => {
         // Contar registros na tabela
         const countResult = await poolFonte.request()
             .query(`SELECT COUNT(*) as total FROM dbo.[${tabela}]`);
-        
+
+        // Data da ultima carga bem-sucedida (vinda de UploadJobs)
+        let lastLoad = null;
+        try {
+            lastLoad = await jobStore.lastSuccessByTable(tabela);
+        } catch (_) {}
+
         res.json({
             tabela: tabela,
             info: {
@@ -262,7 +451,10 @@ app.get('/api/excel/tabelas/:tabela/info', async (req, res) => {
                 descricao: tableDef.Description,
                 icon: tableDef.Icon
             },
-            total_registros: countResult.recordset[0].total
+            total_registros: countResult.recordset[0].total,
+            last_load_at: lastLoad ? lastLoad.FinishedAt : null,
+            last_load_rows: lastLoad ? lastLoad.InsertedRows : null,
+            last_load_type: lastLoad ? lastLoad.LoadType : null
         });
     } catch (err) {
         console.error('Erro ao obter info da tabela:', err);
@@ -1363,19 +1555,21 @@ async function readExcelWithRawAndText(filePath) {
     return { data, allExcelColumns, excelColumns };
 }
 
+// Async-safe: nao usa res (jobStore + sendProgress comunicam o resultado).
+// O parametro res e mantido na assinatura por compatibilidade mas e ignorado.
 async function handleOrcamentoFluxoCaixaUpload(req, res, tabela, tipoCarga, sessionId) {
     const anoBaseRaw = req.body.ano_base;
     const anoBase = parseInt(anoBaseRaw, 10);
     if (!anoBaseRaw || !Number.isFinite(anoBase) || anoBase < 1900 || anoBase > 2100) {
-        return res.status(400).json({ error: 'Ano base inválido. Informe um ano válido (ex.: 2025).' });
+        throw new Error('Ano base inválido. Informe um ano válido (ex.: 2025).');
     }
 
     if (!req.file) {
-        return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+        throw new Error('Nenhum arquivo enviado');
     }
 
     if (!poolFonte || !poolFonte.connected) {
-        return res.status(503).json({ error: 'Banco Fonte não conectado' });
+        throw new Error('Banco Fonte não conectado');
     }
 
     sendProgress(sessionId, { stage: 'reading', message: 'Lendo arquivo Excel...', progress: 5 });
@@ -1384,8 +1578,7 @@ async function handleOrcamentoFluxoCaixaUpload(req, res, tabela, tipoCarga, sess
 
     if (data.length === 0) {
         fs.unlinkSync(req.file.path);
-        sendProgress(sessionId, { stage: 'error', message: 'Arquivo vazio', progress: 0 });
-        return res.status(400).json({ error: 'Arquivo Excel vazio' });
+        throw new Error('Arquivo Excel vazio');
     }
 
     sendProgress(sessionId, { stage: 'read', message: `${data.length} linhas encontradas`, progress: 10 });
@@ -1595,9 +1788,10 @@ async function handleOrcamentoFluxoCaixaUpload(req, res, tabela, tipoCarga, sess
         }
     }
 
-    fs.unlinkSync(req.file.path);
+    if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
 
     sendProgress(sessionId, { stage: 'completed', message: 'Upload concluído com sucesso!', progress: 100, total_inserido: totalInserted });
+    await jobStore.finish(sessionId, { insertedRows: totalInserted, totalRows: data.length, message: `${tipoCarga === 'completa' ? 'Carga completa' : 'Carga incremental'} concluída` });
 
     setTimeout(() => {
         const client = progressClients.get(sessionId);
@@ -1606,22 +1800,16 @@ async function handleOrcamentoFluxoCaixaUpload(req, res, tabela, tipoCarga, sess
             progressClients.delete(sessionId);
         }
     }, 1000);
-
-    return res.json({
-        success: true,
-        message: `${tipoCarga === 'completa' ? 'Carga completa' : 'Carga incremental'} concluída`,
-        total_inserido: totalInserted,
-        tabela: tabela,
-        sessionId
-    });
 }
 
-// Upload e processamento de arquivo Excel para tabela predefinida
-app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, res) => {
+// Upload e processamento de arquivo Excel para tabela predefinida.
+// Comportamento async: cria um job, responde 202+jobId imediatamente e roda
+// o processamento em background. O cliente acompanha via SSE em
+// /api/excel/upload/progress/:jobId. O sessionId no payload SSE = jobId.
+app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), optionalAuthenticate, async (req, res) => {
     const { tabela } = req.params;
     const tipoCarga = req.body.tipo_carga || 'completa';
-    const sessionId = req.body.sessionId || Date.now().toString();
-    
+
     // Verificar se tabela existe no banco de dados
     let tableExists = false;
     try {
@@ -1632,9 +1820,9 @@ app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, re
     } catch (err) {
         console.warn('Erro ao verificar tabela no banco:', err);
     }
-    
-    // Fallback para tabelas hardcoded
+
     if (!tableExists && !TABELAS_DISPONIVEIS[tabela]) {
+        if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
         return res.status(404).json({ error: 'Tabela não encontrada' });
     }
 
@@ -1648,6 +1836,7 @@ app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, re
             if (allowResult.recordset.length > 0) {
                 const allowFullLoad = allowResult.recordset[0].AllowFullLoad;
                 if (allowFullLoad === 0 && tipoCarga === 'completa') {
+                    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
                     return res.status(400).json({ error: 'Carga completa desabilitada para esta tabela. Utilize carga incremental.' });
                 }
             }
@@ -1656,28 +1845,92 @@ app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, re
         console.warn('Erro ao validar AllowFullLoad:', err.message);
     }
 
-    // Carga específica: Orçamento Fluxo de Caixa Ajustado
-    if (tabela === ORCAMENTO_FLUXO_CAIXA_TABLE) {
-        try {
-            return await handleOrcamentoFluxoCaixaUpload(req, res, tabela, tipoCarga, sessionId);
-        } catch (err) {
-            console.error('Erro no upload orçamento:', err);
-            if (req.file && fs.existsSync(req.file.path)) {
-                fs.unlinkSync(req.file.path);
-            }
-            return res.status(500).json({ error: err.message });
-        }
-    }
-    
     if (!req.file) {
         return res.status(400).json({ error: 'Nenhum arquivo enviado' });
     }
-    
+    if (!poolFonte || !poolFonte.connected) {
+        if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+        return res.status(503).json({ error: 'Banco Fonte não conectado' });
+    }
+
+    // Bloqueio: nao permite duas cargas simultaneas para a mesma tabela
     try {
-        if (!poolFonte || !poolFonte.connected) {
-            return res.status(503).json({ error: 'Banco Fonte não conectado' });
+        const running = await jobStore.hasRunningForTable(tabela);
+        if (running) {
+            if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+            return res.status(409).json({
+                error: `Ja existe uma carga em andamento para a tabela ${tabela}. Aguarde concluir.`,
+                runningJobId: running.JobId
+            });
         }
-        
+    } catch (err) {
+        console.warn('Falha ao verificar jobs em andamento:', err.message);
+    }
+
+    // Cria o job e responde imediatamente
+    const userId = req.user && req.user.id ? req.user.id : null;
+    const userName = req.user && req.user.username ? req.user.username : null;
+    let jobId;
+    try {
+        jobId = await jobStore.create({
+            tableName: tabela,
+            jobType: 'standard',
+            loadType: tipoCarga,
+            fileName: req.file.originalname,
+            fileSize: req.file.size,
+            userId,
+            userName
+        });
+    } catch (err) {
+        console.error('Erro ao criar job:', err);
+        if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+        return res.status(500).json({ error: 'Falha ao criar job de upload' });
+    }
+
+    res.status(202).json({
+        success: true,
+        jobId,
+        sessionId: jobId,
+        tabela,
+        tipoCarga,
+        message: 'Upload iniciado em background'
+    });
+
+    const filePath = req.file.path;
+    const fileSnapshot = { path: req.file.path, originalname: req.file.originalname, size: req.file.size };
+    const reqBodySnapshot = { ...req.body };
+
+    // Carga especifica: Orcamento Fluxo de Caixa Ajustado
+    if (tabela === ORCAMENTO_FLUXO_CAIXA_TABLE) {
+        setImmediate(async () => {
+            try {
+                const fakeReq = { params: { tabela }, body: reqBodySnapshot, file: fileSnapshot };
+                await handleOrcamentoFluxoCaixaUpload(fakeReq, null, tabela, tipoCarga, jobId);
+            } catch (err) {
+                console.error('Erro no upload orcamento (async):', err);
+                await jobStore.fail(jobId, err.message);
+                if (fs.existsSync(filePath)) { try { fs.unlinkSync(filePath); } catch (_) {} }
+            }
+        });
+        return;
+    }
+
+    setImmediate(() => runStandardUploadJob({ jobId, tabela, tipoCarga, file: fileSnapshot })
+        .catch(async (err) => {
+            console.error('Erro no upload (async):', err);
+            await jobStore.fail(jobId, err.message);
+            if (fs.existsSync(filePath)) { try { fs.unlinkSync(filePath); } catch (_) {} }
+        })
+    );
+});
+
+// Funcao de processamento em background. Recebe o jobId; nao usa res.
+// O conteudo abaixo era o corpo original do handler, agora com sessionId = jobId.
+async function runStandardUploadJob({ jobId, tabela, tipoCarga, file }) {
+    const sessionId = jobId;
+    // Shim de req para reaproveitar o codigo original que usava req.file.path.
+    const req = { file };
+    try {
         sendProgress(sessionId, { stage: 'reading', message: 'Lendo arquivo Excel...', progress: 5 });
         
         // Detectar se o arquivo é TSV disfarçado de XLS
@@ -1746,10 +1999,9 @@ app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, re
         
         if (data.length === 0) {
             fs.unlinkSync(req.file.path);
-            sendProgress(sessionId, { stage: 'error', message: 'Arquivo vazio', progress: 0 });
-            return res.status(400).json({ error: 'Arquivo Excel vazio' });
+            throw new Error('Arquivo Excel vazio');
         }
-        
+
         sendProgress(sessionId, { stage: 'read', message: `${data.length} linhas encontradas`, progress: 10 });
         
         // Obter colunas do Excel na ordem em que aparecem, filtrando vazias
@@ -1814,9 +2066,7 @@ app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, re
         // Validar se o número de colunas do Excel corresponde ao da tabela
         if (excelColumns.length > columns.length) {
             fs.unlinkSync(req.file.path);
-            return res.status(400).json({ 
-                error: `Arquivo Excel tem ${excelColumns.length} colunas, mas a tabela espera ${columns.length} colunas` 
-            });
+            throw new Error(`Arquivo Excel tem ${excelColumns.length} colunas, mas a tabela espera ${columns.length} colunas`);
         }
         
         // Limpar tabela se for carga completa
@@ -2018,10 +2268,11 @@ app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, re
         }
         
         // Remove arquivo temporário
-        fs.unlinkSync(req.file.path);
-        
+        if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+
         sendProgress(sessionId, { stage: 'completed', message: 'Upload concluído com sucesso!', progress: 100, total_inserido: totalInserted });
-        
+        await jobStore.finish(sessionId, { insertedRows: totalInserted, totalRows: data.length, message: `${tipoCarga === 'completa' ? 'Carga completa' : 'Carga incremental'} concluída` });
+
         // Fechar conexão SSE
         setTimeout(() => {
             const client = progressClients.get(sessionId);
@@ -2030,43 +2281,95 @@ app.post('/api/excel/upload/:tabela', uploadExcel.single('file'), async (req, re
                 progressClients.delete(sessionId);
             }
         }, 1000);
-        
-        res.json({
-            success: true,
-            message: `${tipoCarga === 'completa' ? 'Carga completa' : 'Carga incremental'} concluída`,
-            total_inserido: totalInserted,
-            tabela: tabela,
-            sessionId
-        });
-        
     } catch (err) {
         console.error('Erro no upload:', err);
         if (req.file && fs.existsSync(req.file.path)) {
-            fs.unlinkSync(req.file.path);
+            try { fs.unlinkSync(req.file.path); } catch (_) {}
         }
-        res.status(500).json({ error: err.message });
+        sendProgress(sessionId, { stage: 'error', message: err.message || 'Erro durante a carga', progress: 0 });
+        await jobStore.fail(sessionId, err.message);
+        setTimeout(() => {
+            const client = progressClients.get(sessionId);
+            if (client) {
+                client.end();
+                progressClients.delete(sessionId);
+            }
+        }, 1000);
     }
-});
+}
 
-// Upload para tabela temporária customizada
-app.post('/api/excel/upload-temp', uploadExcel.single('file'), async (req, res) => {
+// Upload para tabela temporária customizada (async + jobStore).
+app.post('/api/excel/upload-temp', uploadExcel.single('file'), optionalAuthenticate, async (req, res) => {
     const tableName = req.body.table_name;
-    
+
     if (!tableName || !/^[a-zA-Z0-9_]+$/.test(tableName)) {
+        if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
         return res.status(400).json({ error: 'Nome de tabela inválido' });
     }
-    
+
     const fullTableName = tableName.startsWith('TEMP_') ? tableName : `TEMP_${tableName}`;
-    
+
     if (!req.file) {
         return res.status(400).json({ error: 'Nenhum arquivo enviado' });
     }
-    
+    if (!poolFonte || !poolFonte.connected) {
+        if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+        return res.status(503).json({ error: 'Banco Fonte não conectado' });
+    }
+
+    // Bloqueio: nao permite duas cargas simultaneas para a mesma tabela TEMP
     try {
-        if (!poolFonte || !poolFonte.connected) {
-            return res.status(503).json({ error: 'Banco Fonte não conectado' });
+        const running = await jobStore.hasRunningForTable(fullTableName);
+        if (running) {
+            if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+            return res.status(409).json({
+                error: `Ja existe uma carga em andamento para ${fullTableName}.`,
+                runningJobId: running.JobId
+            });
         }
-        
+    } catch (_) {}
+
+    let jobId;
+    try {
+        jobId = await jobStore.create({
+            tableName: fullTableName,
+            jobType: 'temp',
+            loadType: null,
+            fileName: req.file.originalname,
+            fileSize: req.file.size,
+            userId: req.user && req.user.id ? req.user.id : null,
+            userName: req.user && req.user.username ? req.user.username : null
+        });
+    } catch (err) {
+        console.error('Erro ao criar job:', err);
+        if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+        return res.status(500).json({ error: 'Falha ao criar job de upload' });
+    }
+
+    res.status(202).json({
+        success: true,
+        jobId,
+        sessionId: jobId,
+        table_name: fullTableName,
+        message: 'Upload temporario iniciado em background'
+    });
+
+    const fileSnapshot = { path: req.file.path, originalname: req.file.originalname, size: req.file.size };
+    setImmediate(() => runTempUploadJob({ jobId, fullTableName, file: fileSnapshot })
+        .catch(async (err) => {
+            console.error('Erro no upload-temp (async):', err);
+            await jobStore.fail(jobId, err.message);
+            if (fs.existsSync(fileSnapshot.path)) { try { fs.unlinkSync(fileSnapshot.path); } catch (_) {} }
+        })
+    );
+});
+
+async function runTempUploadJob({ jobId, fullTableName, file }) {
+    const sessionId = jobId;
+    const req = { file };
+    try {
+        sendProgress(sessionId, { stage: 'reading', message: 'Lendo arquivo Excel...', progress: 5 });
+
         // Detectar se o arquivo é TSV disfarçado de XLS
         const fileContent = fs.readFileSync(req.file.path, 'utf8');
         const isTabDelimited = fileContent.includes('\t') && !fileContent.startsWith('PK');
@@ -2122,12 +2425,16 @@ app.post('/api/excel/upload-temp', uploadExcel.single('file'), async (req, res) 
         
         if (data.length === 0) {
             fs.unlinkSync(req.file.path);
-            return res.status(400).json({ error: 'Arquivo Excel vazio' });
+            throw new Error('Arquivo Excel vazio');
         }
-        
+
+        sendProgress(sessionId, { stage: 'read', message: `${data.length} linhas encontradas`, progress: 10 });
+
         // Analisar colunas do Excel
         const excelColumns = Object.keys(data[0]);
-        
+
+        sendProgress(sessionId, { stage: 'creating', message: 'Criando tabela...', progress: 15 });
+
         // Dropar tabela se existir
         await poolFonte.request().query(`
             IF OBJECT_ID('dbo.${fullTableName}', 'U') IS NOT NULL
@@ -2150,15 +2457,16 @@ app.post('/api/excel/upload-temp', uploadExcel.single('file'), async (req, res) 
         
         // Inserir dados
         let totalInserted = 0;
+        sendProgress(sessionId, { stage: 'inserting', message: `Iniciando inserção de ${data.length} linhas...`, progress: 25, total: data.length });
         const transaction = new sql.Transaction(poolFonte);
         await transaction.begin();
-        
+
         try {
             for (const row of data) {
                 const request = new sql.Request(transaction);
                 const params = [];
                 const values = [];
-                
+
                 excelColumns.forEach((col, idx) => {
                     const cleanName = col.replace(/[^a-zA-Z0-9_]/g, '_');
                     const paramName = `param${idx}`;
@@ -2166,33 +2474,125 @@ app.post('/api/excel/upload-temp', uploadExcel.single('file'), async (req, res) 
                     params.push(`@${paramName}`);
                     values.push(cleanName);
                 });
-                
+
                 const insertQuery = `INSERT INTO dbo.${fullTableName} (${values.map(v => `[${v}]`).join(',')}) VALUES (${params.join(',')})`;
                 await request.query(insertQuery);
                 totalInserted++;
+
+                if (totalInserted % 100 === 0 || totalInserted === data.length) {
+                    const pct = 25 + Math.floor((totalInserted / data.length) * 70);
+                    sendProgress(sessionId, {
+                        stage: 'inserting',
+                        message: `Inserindo dados: ${totalInserted}/${data.length} linhas`,
+                        progress: pct,
+                        current: totalInserted,
+                        total: data.length
+                    });
+                }
             }
-            
+
             await transaction.commit();
         } catch (err) {
             await transaction.rollback();
             throw err;
         }
-        
-        // Remove arquivo temporário
-        fs.unlinkSync(req.file.path);
-        
-        res.json({
-            success: true,
-            message: `Tabela ${fullTableName} criada com sucesso`,
-            table_name: fullTableName,
-            rows_inserted: totalInserted
-        });
-        
+
+        if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+
+        sendProgress(sessionId, { stage: 'completed', message: `Tabela ${fullTableName} criada com sucesso!`, progress: 100, total_inserido: totalInserted });
+        await jobStore.finish(sessionId, { insertedRows: totalInserted, totalRows: data.length, message: `Tabela ${fullTableName} criada com sucesso` });
+
+        setTimeout(() => {
+            const client = progressClients.get(sessionId);
+            if (client) {
+                client.end();
+                progressClients.delete(sessionId);
+            }
+        }, 1000);
     } catch (err) {
         console.error('Erro no upload temp:', err);
         if (req.file && fs.existsSync(req.file.path)) {
-            fs.unlinkSync(req.file.path);
+            try { fs.unlinkSync(req.file.path); } catch (_) {}
         }
+        sendProgress(sessionId, { stage: 'error', message: err.message || 'Erro durante a carga', progress: 0 });
+        await jobStore.fail(sessionId, err.message);
+        setTimeout(() => {
+            const client = progressClients.get(sessionId);
+            if (client) {
+                client.end();
+                progressClients.delete(sessionId);
+            }
+        }, 1000);
+    }
+}
+
+// ========================================
+// JOBS DE UPLOAD: estado e listagem
+// ========================================
+
+// Lista jobs de upload. Filtros opcionais: ?status=running,queued|success|error  ?tableName=X  ?limit=N
+app.get('/api/excel/jobs', optionalAuthenticate, async (req, res) => {
+    try {
+        const status = req.query.status
+            ? String(req.query.status).split(',').map(s => s.trim()).filter(Boolean)
+            : null;
+        const tableName = req.query.tableName ? String(req.query.tableName) : null;
+        const limit = req.query.limit ? Math.min(parseInt(req.query.limit, 10) || 50, 200) : 50;
+
+        const rows = await jobStore.list({ status, tableName, limit });
+        res.json(rows.map(j => ({
+            jobId: j.JobId,
+            tableName: j.TableName,
+            jobType: j.JobType,
+            loadType: j.LoadType,
+            status: j.Status,
+            stage: j.Stage,
+            message: j.Message,
+            progress: j.Progress,
+            totalRows: j.TotalRows,
+            insertedRows: j.InsertedRows,
+            fileName: j.FileName,
+            fileSize: j.FileSize,
+            userId: j.UserId,
+            userName: j.UserName,
+            errorMessage: j.ErrorMessage,
+            startedAt: j.StartedAt,
+            finishedAt: j.FinishedAt,
+            updatedAt: j.UpdatedAt
+        })));
+    } catch (err) {
+        console.error('[API] Erro ao listar jobs:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Estado atual de um job
+app.get('/api/excel/jobs/:jobId', optionalAuthenticate, async (req, res) => {
+    try {
+        const j = await jobStore.get(req.params.jobId);
+        if (!j) return res.status(404).json({ error: 'Job nao encontrado' });
+        res.json({
+            jobId: j.JobId,
+            tableName: j.TableName,
+            jobType: j.JobType,
+            loadType: j.LoadType,
+            status: j.Status,
+            stage: j.Stage,
+            message: j.Message,
+            progress: j.Progress,
+            totalRows: j.TotalRows,
+            insertedRows: j.InsertedRows,
+            fileName: j.FileName,
+            fileSize: j.FileSize,
+            userId: j.UserId,
+            userName: j.UserName,
+            errorMessage: j.ErrorMessage,
+            startedAt: j.StartedAt,
+            finishedAt: j.FinishedAt,
+            updatedAt: j.UpdatedAt
+        });
+    } catch (err) {
+        console.error('[API] Erro ao buscar job:', err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -2328,27 +2728,171 @@ app.get('/api/excel/table-definitions', async (req, res) => {
 // Armazenar clientes SSE para progresso
 const progressClients = new Map();
 
+// ========================================
+// Job Store: persiste status/progresso de uploads em UploadJobs.
+// Permite reconectar SSE com estado atual, listar jobs em andamento,
+// bloquear cargas concorrentes na mesma tabela e exibir lastLoadAt.
+// ========================================
+const { randomUUID } = require('crypto');
+
+const jobStore = {
+    async create({ tableName, jobType, loadType, fileName, fileSize, userId, userName, totalRows = null }) {
+        const jobId = randomUUID();
+        await pool.request()
+            .input('jobId', sql.VarChar(64), jobId)
+            .input('tableName', sql.VarChar(200), tableName)
+            .input('jobType', sql.VarChar(20), jobType)
+            .input('loadType', sql.VarChar(20), loadType || null)
+            .input('fileName', sql.NVarChar(255), fileName || null)
+            .input('fileSize', sql.BigInt, fileSize || null)
+            .input('userId', sql.Int, userId || null)
+            .input('userName', sql.NVarChar(200), userName || null)
+            .input('totalRows', sql.Int, totalRows)
+            .query(`
+                INSERT INTO UploadJobs (JobId, TableName, JobType, LoadType, Status, Stage, Message, Progress, TotalRows, FileName, FileSize, UserId, UserName)
+                VALUES (@jobId, @tableName, @jobType, @loadType, 'queued', 'queued', N'Job criado', 0, @totalRows, @fileName, @fileSize, @userId, @userName)
+            `);
+        return jobId;
+    },
+
+    async update(jobId, fields) {
+        if (!jobId) return;
+        const sets = ['UpdatedAt = GETDATE()'];
+        const req = pool.request().input('jobId', sql.VarChar(64), jobId);
+        if (fields.status !== undefined)        { sets.push('Status = @status');               req.input('status', sql.VarChar(20), fields.status); }
+        if (fields.stage !== undefined)         { sets.push('Stage = @stage');                 req.input('stage', sql.VarChar(40), fields.stage); }
+        if (fields.message !== undefined)       { sets.push('Message = @message');             req.input('message', sql.NVarChar(500), fields.message); }
+        if (fields.progress !== undefined)      { sets.push('Progress = @progress');           req.input('progress', sql.Int, fields.progress); }
+        if (fields.totalRows !== undefined)     { sets.push('TotalRows = @totalRows');         req.input('totalRows', sql.Int, fields.totalRows); }
+        if (fields.insertedRows !== undefined)  { sets.push('InsertedRows = @insertedRows');   req.input('insertedRows', sql.Int, fields.insertedRows); }
+        if (fields.errorMessage !== undefined)  { sets.push('ErrorMessage = @errorMessage');   req.input('errorMessage', sql.NVarChar(sql.MAX), fields.errorMessage); }
+        if (fields.finishedAt === true)         { sets.push('FinishedAt = GETDATE()'); }
+        try {
+            await req.query(`UPDATE UploadJobs SET ${sets.join(', ')} WHERE JobId = @jobId`);
+        } catch (err) {
+            console.warn('[jobStore.update] Falha ao atualizar job', jobId, err.message);
+        }
+    },
+
+    async finish(jobId, { insertedRows, totalRows, message } = {}) {
+        await this.update(jobId, {
+            status: 'success',
+            stage: 'completed',
+            progress: 100,
+            message: message || 'Upload concluído com sucesso!',
+            insertedRows: insertedRows ?? null,
+            totalRows: totalRows ?? null,
+            finishedAt: true
+        });
+    },
+
+    async fail(jobId, errorMessage) {
+        await this.update(jobId, {
+            status: 'error',
+            stage: 'error',
+            message: 'Erro durante a carga',
+            errorMessage: String(errorMessage || 'Erro desconhecido').slice(0, 4000),
+            finishedAt: true
+        });
+    },
+
+    async get(jobId) {
+        const r = await pool.request()
+            .input('jobId', sql.VarChar(64), jobId)
+            .query('SELECT * FROM UploadJobs WHERE JobId = @jobId');
+        return r.recordset[0] || null;
+    },
+
+    async list({ status = null, tableName = null, userId = null, limit = 50 } = {}) {
+        const req = pool.request();
+        const where = [];
+        if (status) {
+            const list = Array.isArray(status) ? status : [status];
+            where.push(`Status IN (${list.map((_, i) => `@status${i}`).join(',')})`);
+            list.forEach((s, i) => req.input(`status${i}`, sql.VarChar(20), s));
+        }
+        if (tableName) { where.push('TableName = @tableName'); req.input('tableName', sql.VarChar(200), tableName); }
+        if (userId)    { where.push('UserId = @userId'); req.input('userId', sql.Int, userId); }
+        const sqlText = `
+            SELECT TOP (${parseInt(limit, 10) || 50}) *
+            FROM UploadJobs
+            ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+            ORDER BY StartedAt DESC
+        `;
+        const r = await req.query(sqlText);
+        return r.recordset;
+    },
+
+    async hasRunningForTable(tableName) {
+        const r = await pool.request()
+            .input('tableName', sql.VarChar(200), tableName)
+            .query(`SELECT TOP 1 JobId FROM UploadJobs WHERE TableName = @tableName AND Status IN ('queued','running')`);
+        return r.recordset[0] || null;
+    },
+
+    async lastSuccessByTable(tableName) {
+        const r = await pool.request()
+            .input('tableName', sql.VarChar(200), tableName)
+            .query(`
+                SELECT TOP 1 FinishedAt, InsertedRows, LoadType
+                  FROM UploadJobs
+                 WHERE TableName = @tableName AND Status = 'success' AND FinishedAt IS NOT NULL
+                 ORDER BY FinishedAt DESC
+            `);
+        return r.recordset[0] || null;
+    }
+};
+
 // Rota SSE para progresso de upload
-app.get('/api/excel/upload/progress/:sessionId', (req, res) => {
+// O parametro sessionId e' o jobId (UUID) retornado por POST /upload.
+// Ao reconectar, busca o estado atual do job em UploadJobs e reenvia,
+// permitindo que o usuario saia da tela e volte sem perder progresso.
+app.get('/api/excel/upload/progress/:sessionId', async (req, res) => {
     const { sessionId } = req.params;
-    
+
     console.log(`[SSE UPLOAD] Cliente conectado com sessionId: ${sessionId}`);
-    
-    // Headers necessários para SSE funcionar no IIS
+
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no'); // Desabilita buffering no nginx/proxy
-    
-    // Para IIS/iisnode: enviar espaços para forçar flush
+    res.setHeader('X-Accel-Buffering', 'no');
+
     res.write(':' + ' '.repeat(2048) + '\n\n');
     res.flushHeaders();
-    
+
     progressClients.set(sessionId, res);
     console.log(`[SSE UPLOAD] Total de clientes conectados: ${progressClients.size}`);
-    
+
     res.write(`data: ${JSON.stringify({ stage: 'connected', message: 'Conectado ao servidor', progress: 0 })}\n\n`);
-    
+
+    // Reenvia o ultimo estado conhecido do job (caso o cliente esteja reconectando)
+    try {
+        const job = await jobStore.get(sessionId);
+        if (job) {
+            const snapshot = {
+                stage: job.Stage || job.Status,
+                status: job.Status,
+                message: job.Message || '',
+                progress: job.Progress || 0,
+                total: job.TotalRows || undefined,
+                total_inserido: job.InsertedRows || undefined,
+                error: job.ErrorMessage || undefined,
+                jobId: job.JobId
+            };
+            res.write(`data: ${JSON.stringify(snapshot)}\n\n`);
+
+            // Se o job ja terminou, fecha SSE em seguida
+            if (job.Status === 'success' || job.Status === 'error' || job.Status === 'cancelled') {
+                setTimeout(() => {
+                    progressClients.delete(sessionId);
+                    try { res.end(); } catch (_) {}
+                }, 200);
+            }
+        }
+    } catch (err) {
+        console.warn('[SSE UPLOAD] Falha ao recuperar snapshot do job:', err.message);
+    }
+
     req.on('close', () => {
         console.log(`[SSE UPLOAD] Cliente desconectado: ${sessionId}`);
         progressClients.delete(sessionId);
@@ -2383,19 +2927,48 @@ app.get('/api/excel/table-definitions/progress/:sessionId', (req, res) => {
     });
 });
 
-// Função para enviar progresso
+// Funcao para enviar progresso.
+// Alem de empurrar via SSE para o cliente conectado (se houver), persiste o
+// estado em UploadJobs para que o cliente possa sair da tela e voltar.
+// O parametro sessionId tambem e' o jobId. Aceita campos extras
+// (current/total/total_inserido) e reflete em colunas do job.
 function sendProgress(sessionId, data) {
     const client = progressClients.get(sessionId);
-    console.log(`[SSE] Tentando enviar para sessionId ${sessionId}. Cliente encontrado:`, !!client);
     if (client) {
         try {
             client.write(`data: ${JSON.stringify(data)}\n\n`);
-            console.log(`[SSE] Enviado: ${data.message} (${data.progress}%)`);
         } catch (err) {
             console.error(`[SSE] Erro ao enviar:`, err.message);
         }
-    } else {
-        console.log(`[SSE] Clientes ativos:`, Array.from(progressClients.keys()));
+    }
+
+    // Persistencia incremental no job store. Falha silenciosa para nao
+    // afetar o fluxo de upload (o SSE ja foi feito).
+    if (!sessionId || typeof sessionId !== 'string') return;
+    const fields = {};
+    if (data.stage !== undefined)    fields.stage = String(data.stage).slice(0, 40);
+    if (data.message !== undefined)  fields.message = String(data.message).slice(0, 500);
+    if (typeof data.progress === 'number') fields.progress = Math.max(0, Math.min(100, Math.round(data.progress)));
+    if (typeof data.total === 'number')          fields.totalRows = data.total;
+    if (typeof data.current === 'number')        fields.insertedRows = data.current;
+    if (typeof data.total_inserido === 'number') fields.insertedRows = data.total_inserido;
+
+    // Mapeia stage -> status quando aplicavel
+    if (data.stage === 'completed') {
+        fields.status = 'success';
+        fields.finishedAt = true;
+    } else if (data.stage === 'error') {
+        fields.status = 'error';
+        fields.finishedAt = true;
+        if (data.message) fields.errorMessage = String(data.message).slice(0, 4000);
+    } else if (Object.keys(fields).length > 0 && fields.status === undefined) {
+        // Qualquer progresso intermediario marca como running
+        fields.status = 'running';
+    }
+
+    if (Object.keys(fields).length > 0) {
+        // Fire-and-forget para nao bloquear o loop de insert
+        jobStore.update(sessionId, fields).catch(() => {});
     }
 }
 
@@ -3057,6 +3630,309 @@ async function ensurePagesRedirectColumns() {
     }
 }
 
+// Tabela de permissoes granulares por aplicacao satelite (ex.: /fatura).
+// Usuarios com IsAdmin=1 acessam tudo sem precisar de entry; demais
+// precisam de (UserId, AppKey) registrado.
+async function ensureUserAppPermissionsTable() {
+    if (!pool || !pool.connected) return;
+    try {
+        const check = await pool.request().query(`
+            SELECT 1 FROM sys.objects
+            WHERE object_id = OBJECT_ID(N'[dbo].[UserAppPermissions]') AND type = 'U'
+        `);
+        if (check.recordset.length === 0) {
+            console.log('[DB] Criando tabela UserAppPermissions');
+            await pool.request().batch(`
+                CREATE TABLE dbo.UserAppPermissions (
+                    Id        INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                    UserId    INT          NOT NULL,
+                    AppKey    NVARCHAR(60) NOT NULL,
+                    GrantedAt DATETIME2    NOT NULL CONSTRAINT DF_UserAppPermissions_GrantedAt DEFAULT (SYSDATETIME()),
+                    CONSTRAINT UQ_UserAppPermissions_User_App UNIQUE (UserId, AppKey),
+                    CONSTRAINT FK_UserAppPermissions_Users FOREIGN KEY (UserId)
+                        REFERENCES dbo.Users(Id) ON DELETE CASCADE
+                );
+                CREATE INDEX IX_UserAppPermissions_AppKey ON dbo.UserAppPermissions(AppKey);
+            `);
+            console.log('[DB] Tabela UserAppPermissions criada');
+        }
+    } catch (e) {
+        console.warn('[DB] Falha ao garantir UserAppPermissions:', e.message || e);
+    }
+}
+
+// Helper interno: adiciona uma coluna a uma tabela do banco Fonte se ela
+// nao existir ainda. ddl deve ser apenas o trecho "TIPO NULL" (sem nome).
+async function addFonteColumnIfMissing(table, name, ddl) {
+    const r = await poolFonte.request().query(`
+        SELECT 1 FROM sys.columns
+        WHERE object_id = OBJECT_ID(N'[dbo].[${table}]') AND name = N'${name}'
+    `);
+    if (r.recordset.length === 0) {
+        console.log(`[DB] ALTER ${table} ADD ${name}`);
+        await poolFonte.request().batch(`ALTER TABLE dbo.${table} ADD ${name} ${ddl};`);
+    }
+}
+
+// Tabela mae de faturas (banco Fonte). Schema rico cobrindo fatura
+// de cartao de credito empresarial Itau: cabecalho, boleto, resumo,
+// limites, encargos cobrados, encargos do proximo periodo e totalizadores.
+// uploaded_by referencia logicamente PowerBIPortal.dbo.Users.Id.
+// Itens (lancamentos) ficam em OCR_FATURA_ITAU_ITENS.
+async function ensureOcrFaturaItauTable() {
+    if (!poolFonte || !poolFonte.connected) return;
+    try {
+        const check = await poolFonte.request().query(`
+            SELECT 1 FROM sys.objects
+            WHERE object_id = OBJECT_ID(N'[dbo].[OCR_FATURA_ITAU]') AND type = 'U'
+        `);
+        if (check.recordset.length === 0) {
+            console.log('[DB] Criando tabela OCR_FATURA_ITAU em Fonte');
+            await poolFonte.request().batch(`
+                CREATE TABLE dbo.OCR_FATURA_ITAU (
+                    Id              INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                    numero_fatura   NVARCHAR(100)  NULL,
+                    data_emissao    DATE           NULL,
+                    data_vencimento DATE           NULL,
+                    fornecedor_nome NVARCHAR(300)  NULL,
+                    fornecedor_cnpj NVARCHAR(20)   NULL,
+                    valor_total     DECIMAL(18,2)  NULL,
+                    descricao       NVARCHAR(MAX)  NULL,
+                    pdf_filename    NVARCHAR(300)  NULL,
+                    pdf_size_bytes  INT            NULL,
+                    model_used      NVARCHAR(60)   NULL,
+                    raw_response    NVARCHAR(MAX)  NULL,
+                    uploaded_by     INT            NULL,
+                    uploaded_at     DATETIME2      NOT NULL CONSTRAINT DF_OCR_FATURA_ITAU_uploaded_at DEFAULT (SYSDATETIME())
+                );
+                CREATE INDEX IX_OCR_FATURA_ITAU_uploaded_at ON dbo.OCR_FATURA_ITAU(uploaded_at DESC);
+                CREATE INDEX IX_OCR_FATURA_ITAU_uploaded_by ON dbo.OCR_FATURA_ITAU(uploaded_by);
+            `);
+            console.log('[DB] Tabela OCR_FATURA_ITAU criada');
+        } else {
+            // Migracao: versao antiga tinha coluna 'itens' (JSON). Drop se existir.
+            const colCheck = await poolFonte.request().query(`
+                SELECT 1 FROM sys.columns
+                WHERE object_id = OBJECT_ID(N'[dbo].[OCR_FATURA_ITAU]')
+                  AND name = N'itens'
+            `);
+            if (colCheck.recordset.length > 0) {
+                console.log('[DB] Removendo coluna obsoleta OCR_FATURA_ITAU.itens');
+                await poolFonte.request().batch(`ALTER TABLE dbo.OCR_FATURA_ITAU DROP COLUMN itens;`);
+            }
+        }
+
+        // Colunas adicionadas para cobrir fatura empresarial Itau completa.
+        // Idempotente — adiciona so o que falta.
+        const cols = [
+            // Cabecalho/identificacao
+            ['tipo_documento',         'NVARCHAR(60) NULL'],
+            ['empresa',                'NVARCHAR(300) NULL'],
+            ['numero_conta',           'NVARCHAR(40) NULL'],
+            ['linha_digitavel',        'NVARCHAR(80) NULL'],
+            ['nosso_numero',           'NVARCHAR(40) NULL'],
+            ['agencia_beneficiario',   'NVARCHAR(40) NULL'],
+            ['carteira',               'NVARCHAR(20) NULL'],
+            ['data_postagem',          'DATE NULL'],
+            ['data_proximo_fechamento','DATE NULL'],
+            ['moeda',                  'NVARCHAR(5) NULL'],
+            // Pagador (a empresa que paga)
+            ['pagador_nome',           'NVARCHAR(300) NULL'],
+            ['pagador_cnpj',           'NVARCHAR(20) NULL'],
+            ['pagador_endereco',       'NVARCHAR(500) NULL'],
+            // Resumo da fatura
+            ['total_fatura_anterior',  'DECIMAL(18,2) NULL'],
+            ['pagamentos_efetuados',   'DECIMAL(18,2) NULL'],
+            ['saldo_atraso',           'DECIMAL(18,2) NULL'],
+            ['lancamentos_atuais',     'DECIMAL(18,2) NULL'],
+            // Limites
+            ['limite_total_credito',   'DECIMAL(18,2) NULL'],
+            ['limite_disponivel',      'DECIMAL(18,2) NULL'],
+            ['limite_total_utilizado', 'DECIMAL(18,2) NULL'],
+            // Encargos cobrados nesta fatura
+            ['juros_atraso_percent',           'DECIMAL(9,4) NULL'],
+            ['juros_atraso_valor',             'DECIMAL(18,2) NULL'],
+            ['juros_mora_percent_mensal',      'DECIMAL(9,4) NULL'],
+            ['juros_mora_valor',               'DECIMAL(18,2) NULL'],
+            ['multa_atraso_percent',           'DECIMAL(9,4) NULL'],
+            ['multa_atraso_valor',             'DECIMAL(18,2) NULL'],
+            ['iof_financiamento_descricao',    'NVARCHAR(200) NULL'],
+            ['iof_financiamento_valor',        'DECIMAL(18,2) NULL'],
+            // Encargos do proximo periodo
+            ['juros_max_proximo_mensal_percent', 'DECIMAL(9,4) NULL'],
+            ['juros_max_proximo_anual_percent',  'DECIMAL(9,4) NULL'],
+            ['juros_pgto_contas_mensal_percent', 'DECIMAL(9,4) NULL'],
+            // Totalizadores
+            ['total_pagamentos',                       'DECIMAL(18,2) NULL'],
+            ['total_lancamentos_atuais',               'DECIMAL(18,2) NULL'],
+            ['total_transacoes_internacionais_brl',    'DECIMAL(18,2) NULL'],
+            ['repasse_iof_brl',                        'DECIMAL(18,2) NULL'],
+            ['total_lancamentos_internacionais_brl',   'DECIMAL(18,2) NULL']
+        ];
+        for (const [name, ddl] of cols) {
+            await addFonteColumnIfMissing('OCR_FATURA_ITAU', name, ddl);
+        }
+    } catch (e) {
+        console.warn('[DB] Falha ao garantir OCR_FATURA_ITAU:', e.message || e);
+    }
+}
+
+// Tabelas mestras de fornecedor/categoria normalizados (banco Fonte).
+// Permitem marcar flags de classificacao (ex.: despesa_ti) que valem para
+// qualquer fatura passada/futura — basta JOIN por fornecedor_id/categoria_id
+// na tabela de itens.
+async function ensureOcrFornecedoresTable() {
+    if (!poolFonte || !poolFonte.connected) return;
+    try {
+        const check = await poolFonte.request().query(`
+            SELECT 1 FROM sys.objects
+            WHERE object_id = OBJECT_ID(N'[dbo].[OCR_FORNECEDORES]') AND type = 'U'
+        `);
+        if (check.recordset.length === 0) {
+            console.log('[DB] Criando tabela OCR_FORNECEDORES em Fonte');
+            await poolFonte.request().batch(`
+                CREATE TABLE dbo.OCR_FORNECEDORES (
+                    Id                   INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                    nome                 NVARCHAR(200) NOT NULL,
+                    despesa_ti           BIT           NOT NULL CONSTRAINT DF_OCR_FORNECEDORES_TI DEFAULT(0),
+                    observacao           NVARCHAR(500) NULL,
+                    first_seen_fatura_id INT           NULL,
+                    created_at           DATETIME2     NOT NULL CONSTRAINT DF_OCR_FORNECEDORES_created DEFAULT(SYSDATETIME()),
+                    updated_at           DATETIME2     NOT NULL CONSTRAINT DF_OCR_FORNECEDORES_updated DEFAULT(SYSDATETIME()),
+                    CONSTRAINT UQ_OCR_FORNECEDORES_nome UNIQUE (nome)
+                );
+            `);
+            console.log('[DB] Tabela OCR_FORNECEDORES criada');
+        }
+    } catch (e) {
+        console.warn('[DB] Falha ao garantir OCR_FORNECEDORES:', e.message || e);
+    }
+}
+
+async function ensureOcrCategoriasTable() {
+    if (!poolFonte || !poolFonte.connected) return;
+    try {
+        const check = await poolFonte.request().query(`
+            SELECT 1 FROM sys.objects
+            WHERE object_id = OBJECT_ID(N'[dbo].[OCR_CATEGORIAS]') AND type = 'U'
+        `);
+        if (check.recordset.length === 0) {
+            console.log('[DB] Criando tabela OCR_CATEGORIAS em Fonte');
+            await poolFonte.request().batch(`
+                CREATE TABLE dbo.OCR_CATEGORIAS (
+                    Id                   INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                    nome                 NVARCHAR(100) NOT NULL,
+                    despesa_ti           BIT           NOT NULL CONSTRAINT DF_OCR_CATEGORIAS_TI DEFAULT(0),
+                    observacao           NVARCHAR(500) NULL,
+                    first_seen_fatura_id INT           NULL,
+                    created_at           DATETIME2     NOT NULL CONSTRAINT DF_OCR_CATEGORIAS_created DEFAULT(SYSDATETIME()),
+                    updated_at           DATETIME2     NOT NULL CONSTRAINT DF_OCR_CATEGORIAS_updated DEFAULT(SYSDATETIME()),
+                    CONSTRAINT UQ_OCR_CATEGORIAS_nome UNIQUE (nome)
+                );
+            `);
+            console.log('[DB] Tabela OCR_CATEGORIAS criada');
+        }
+    } catch (e) {
+        console.warn('[DB] Falha ao garantir OCR_CATEGORIAS:', e.message || e);
+    }
+}
+
+// Adiciona fornecedor_id / categoria_id em OCR_FATURA_ITAU_ITENS e cria
+// as FKs apontando pras tabelas mestras. Chamada APOS as duas mestras
+// existirem (depende de ensureOcrFornecedoresTable / ensureOcrCategoriasTable).
+async function ensureItensFkColumns() {
+    if (!poolFonte || !poolFonte.connected) return;
+    try {
+        await addFonteColumnIfMissing('OCR_FATURA_ITAU_ITENS', 'fornecedor_id', 'INT NULL');
+        await addFonteColumnIfMissing('OCR_FATURA_ITAU_ITENS', 'categoria_id',  'INT NULL');
+
+        const fkFornecedor = await poolFonte.request().query(`
+            SELECT 1 FROM sys.foreign_keys
+            WHERE name = N'FK_OCR_FATURA_ITAU_ITENS_Fornecedor'
+        `);
+        if (fkFornecedor.recordset.length === 0) {
+            console.log('[DB] Criando FK FK_OCR_FATURA_ITAU_ITENS_Fornecedor');
+            await poolFonte.request().batch(`
+                ALTER TABLE dbo.OCR_FATURA_ITAU_ITENS
+                ADD CONSTRAINT FK_OCR_FATURA_ITAU_ITENS_Fornecedor
+                    FOREIGN KEY (fornecedor_id) REFERENCES dbo.OCR_FORNECEDORES(Id);
+            `);
+        }
+
+        const fkCategoria = await poolFonte.request().query(`
+            SELECT 1 FROM sys.foreign_keys
+            WHERE name = N'FK_OCR_FATURA_ITAU_ITENS_Categoria'
+        `);
+        if (fkCategoria.recordset.length === 0) {
+            console.log('[DB] Criando FK FK_OCR_FATURA_ITAU_ITENS_Categoria');
+            await poolFonte.request().batch(`
+                ALTER TABLE dbo.OCR_FATURA_ITAU_ITENS
+                ADD CONSTRAINT FK_OCR_FATURA_ITAU_ITENS_Categoria
+                    FOREIGN KEY (categoria_id) REFERENCES dbo.OCR_CATEGORIAS(Id);
+            `);
+        }
+    } catch (e) {
+        console.warn('[DB] Falha ao garantir FKs em OCR_FATURA_ITAU_ITENS:', e.message || e);
+    }
+}
+
+// Tabela filha: lancamentos linha-a-linha (compras nacionais, internacionais,
+// saques, pagamentos, encargos individuais, ajustes). Inclui dados do
+// portador/cartao, centro de custo e moeda original.
+async function ensureOcrFaturaItauItensTable() {
+    if (!poolFonte || !poolFonte.connected) return;
+    try {
+        const check = await poolFonte.request().query(`
+            SELECT 1 FROM sys.objects
+            WHERE object_id = OBJECT_ID(N'[dbo].[OCR_FATURA_ITAU_ITENS]') AND type = 'U'
+        `);
+        if (check.recordset.length === 0) {
+            console.log('[DB] Criando tabela OCR_FATURA_ITAU_ITENS em Fonte');
+            await poolFonte.request().batch(`
+                CREATE TABLE dbo.OCR_FATURA_ITAU_ITENS (
+                    Id             INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                    fatura_id      INT            NOT NULL,
+                    ordem          INT            NOT NULL,
+                    descricao      NVARCHAR(1000) NULL,
+                    quantidade     DECIMAL(18,4)  NULL,
+                    valor_unitario DECIMAL(18,4)  NULL,
+                    valor_total    DECIMAL(18,2)  NULL,
+                    CONSTRAINT FK_OCR_FATURA_ITAU_ITENS_Fatura FOREIGN KEY (fatura_id)
+                        REFERENCES dbo.OCR_FATURA_ITAU(Id) ON DELETE CASCADE
+                );
+                CREATE INDEX IX_OCR_FATURA_ITAU_ITENS_fatura
+                    ON dbo.OCR_FATURA_ITAU_ITENS(fatura_id, ordem);
+            `);
+            console.log('[DB] Tabela OCR_FATURA_ITAU_ITENS criada');
+        }
+
+        // Colunas adicionadas para cobrir lancamentos de fatura Itau empresarial.
+        const cols = [
+            ['tipo',                  'NVARCHAR(40) NULL'],   // compra_nacional | compra_internacional | saque | pagamento | encargo | ajuste | outro
+            ['data',                  'DATE NULL'],
+            ['estabelecimento',       'NVARCHAR(300) NULL'],
+            ['cidade',                'NVARCHAR(150) NULL'],
+            ['categoria',             'NVARCHAR(100) NULL'],  // categoria conforme aparece no PDF (ex: "DIVERSOS")
+            ['portador_nome',         'NVARCHAR(200) NULL'],
+            ['portador_cartao_final', 'NVARCHAR(10) NULL'],
+            ['centro_custo',          'NVARCHAR(50) NULL'],
+            ['moeda_original',        'NVARCHAR(5) NULL'],    // BRL/USD/EUR/...
+            ['valor_original',        'DECIMAL(18,4) NULL'],
+            ['taxa_cambio',           'DECIMAL(18,6) NULL'],
+            ['valor_brl',             'DECIMAL(18,2) NULL'],
+            // Normalizacao via IA (para agrupar/relatorios sem depender do texto bruto)
+            ['fornecedor_normalizado', 'NVARCHAR(200) NULL'],  // ex.: "Microsoft", "GOL Linhas Aereas", "Zoom"
+            ['categoria_normalizada',  'NVARCHAR(100) NULL'],  // ex.: "Software/SaaS", "Viagem - Aereo"
+            ['produto_servico',        'NVARCHAR(200) NULL']   // ex.: "Microsoft 365", "Microsoft Azure", "Zoom Meetings"
+        ];
+        for (const [name, ddl] of cols) {
+            await addFonteColumnIfMissing('OCR_FATURA_ITAU_ITENS', name, ddl);
+        }
+    } catch (e) {
+        console.warn('[DB] Falha ao garantir OCR_FATURA_ITAU_ITENS:', e.message || e);
+    }
+}
+
 function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -3070,6 +3946,38 @@ function authenticateToken(req, res, next) {
         req.user = user;
         next();
     });
+}
+
+// Verifica se o usuario tem permissao para acessar uma "app satelite".
+// Admin (IsAdmin=1) sempre tem acesso. Caso contrario consulta UserAppPermissions.
+async function userHasAppPermission(userId, appKey) {
+    if (!pool || !pool.connected) return false;
+    try {
+        const result = await pool.request()
+            .input('userId', sql.Int, userId)
+            .input('appKey', sql.NVarChar(60), appKey)
+            .query(`
+                SELECT TOP 1 1 AS ok
+                FROM dbo.UserAppPermissions
+                WHERE UserId = @userId AND AppKey = @appKey
+            `);
+        return result.recordset.length > 0;
+    } catch (e) {
+        console.warn('[AUTH] userHasAppPermission falhou:', e.message || e);
+        return false;
+    }
+}
+
+// Middleware: exige token valido E (IsAdmin OR permissao explicita pra appKey).
+function requireAppPermission(appKey) {
+    return (req, res, next) => {
+        authenticateToken(req, res, async () => {
+            if (req.user && req.user.isAdmin) return next();
+            const allowed = await userHasAppPermission(req.user && req.user.id, appKey);
+            if (!allowed) return res.status(403).json({ error: 'Acesso negado a esta aplicacao' });
+            return next();
+        });
+    };
 }
 
 function optionalAuthenticate(req, res, next) {
@@ -3151,8 +4059,14 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-app.get('/api/verify-token', authenticateToken, (req, res) => {
-    res.json({ user: req.user });
+app.get('/api/verify-token', authenticateToken, async (req, res) => {
+    let apps = [];
+    try {
+        apps = await loadAppsByUserId(pool, sql, req.user && req.user.id);
+    } catch (e) {
+        console.warn('[verify-token] loadAppsByUserId falhou:', e && e.message);
+    }
+    res.json({ user: { ...req.user, apps } });
 });
 
 // ROTAS DE PÁGINAS
@@ -5719,11 +6633,748 @@ app.delete('/api/tutorials/:id', authenticateToken, async (req, res) => {
     }
 });
 
+// ============================================================================
+// /fatura — OCR de faturas em PDF via OpenAI Responses API
+// ============================================================================
+
+// Upload em memoria — o PDF nao precisa ser persistido em disco; so o JSON
+// extraido + resposta bruta vao para o banco.
+const uploadFaturaPdf = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+    fileFilter: (req, file, cb) => {
+        const ext = path.extname(file.originalname || '').toLowerCase();
+        const okMime = (file.mimetype || '').toLowerCase() === 'application/pdf';
+        if (ext === '.pdf' || okMime) return cb(null, true);
+        cb(new Error('Apenas PDF e aceito'));
+    }
+});
+
+// Cliente OpenAI lazy: nao instancia na inicializacao para que a falta de
+// OPENAI_API_KEY nao quebre o boot do portal inteiro.
+let _openaiClient = null;
+function getOpenAIClient() {
+    if (_openaiClient) return _openaiClient;
+    if (!process.env.OPENAI_API_KEY) {
+        const err = new Error('OPENAI_API_KEY nao configurada no .env');
+        err.statusCode = 500;
+        throw err;
+    }
+    const OpenAI = require('openai');
+    _openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    return _openaiClient;
+}
+
+const FATURA_PRIMARY_MODEL = process.env.OPENAI_MODEL_PRIMARY || 'gpt-5-mini';
+const FATURA_FALLBACK_MODEL = process.env.OPENAI_MODEL_FALLBACK || 'gpt-4.1-mini';
+
+// Schema JSON para Structured Outputs. Modo strict exige todos os campos em
+// "required" e additionalProperties:false em todos os niveis.
+// Cobre cabecalho/boleto + resumo + limites + encargos cobrados + encargos
+// proximo periodo + totalizadores + itens (lancamentos) com portador, cartao,
+// moeda original, cambio, centro de custo e categoria.
+const FATURA_JSON_SCHEMA = {
+    name: 'fatura_extraida',
+    strict: true,
+    schema: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+            // Identificacao
+            tipo_documento:          { type: ['string', 'null'], description: 'Ex.: fatura_cartao_credito_empresa, fatura_cartao_credito_pessoa, nota_fiscal, boleto, outro' },
+            numero_fatura:           { type: ['string', 'null'], description: 'Numero do documento / da fatura' },
+            numero_conta:            { type: ['string', 'null'], description: 'Numero do cartao/conta principal mascarado, se houver' },
+            empresa:                 { type: ['string', 'null'], description: 'Nome da empresa titular (cartao empresarial), se aplicavel' },
+            linha_digitavel:         { type: ['string', 'null'], description: 'Linha digitavel do boleto, se houver' },
+            nosso_numero:            { type: ['string', 'null'] },
+            agencia_beneficiario:    { type: ['string', 'null'], description: 'Ex.: 2525/04516-3' },
+            carteira:                { type: ['string', 'null'] },
+
+            // Datas
+            data_emissao:            { type: ['string', 'null'], description: 'YYYY-MM-DD' },
+            data_postagem:           { type: ['string', 'null'], description: 'YYYY-MM-DD' },
+            data_vencimento:         { type: ['string', 'null'], description: 'YYYY-MM-DD' },
+            data_proximo_fechamento: { type: ['string', 'null'], description: 'YYYY-MM-DD' },
+
+            // Partes
+            fornecedor_nome:         { type: ['string', 'null'], description: 'Beneficiario/emissor (banco no caso de fatura de cartao)' },
+            fornecedor_cnpj:         { type: ['string', 'null'], description: 'Apenas digitos, 14 caracteres' },
+            pagador_nome:            { type: ['string', 'null'] },
+            pagador_cnpj:            { type: ['string', 'null'], description: 'Apenas digitos' },
+            pagador_endereco:        { type: ['string', 'null'] },
+
+            // Totais e moeda
+            moeda:                   { type: ['string', 'null'], description: 'Codigo ISO, ex.: BRL' },
+            valor_total:             { type: ['number', 'null'], description: 'Valor total desta fatura' },
+            descricao:               { type: ['string', 'null'], description: 'Descricao livre / objeto da fatura' },
+
+            // Resumo da fatura
+            resumo: {
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                    total_fatura_anterior:  { type: ['number', 'null'] },
+                    pagamentos_efetuados:   { type: ['number', 'null'], description: 'Sempre positivo, mesmo que apareca com sinal negativo no PDF' },
+                    saldo_atraso:           { type: ['number', 'null'] },
+                    lancamentos_atuais:     { type: ['number', 'null'] }
+                },
+                required: ['total_fatura_anterior', 'pagamentos_efetuados', 'saldo_atraso', 'lancamentos_atuais']
+            },
+
+            // Limites
+            limites: {
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                    limite_total_credito:   { type: ['number', 'null'] },
+                    limite_disponivel:      { type: ['number', 'null'] },
+                    limite_total_utilizado: { type: ['number', 'null'] }
+                },
+                required: ['limite_total_credito', 'limite_disponivel', 'limite_total_utilizado']
+            },
+
+            // Encargos cobrados nesta fatura
+            encargos_cobrados: {
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                    juros_atraso_percent:        { type: ['number', 'null'] },
+                    juros_atraso_valor:          { type: ['number', 'null'] },
+                    juros_mora_percent_mensal:   { type: ['number', 'null'] },
+                    juros_mora_valor:            { type: ['number', 'null'] },
+                    multa_atraso_percent:        { type: ['number', 'null'] },
+                    multa_atraso_valor:          { type: ['number', 'null'] },
+                    iof_financiamento_descricao: { type: ['string', 'null'], description: 'Texto da taxa, ex.: "0,38 % + 0,00820 % a.d."' },
+                    iof_financiamento_valor:     { type: ['number', 'null'] }
+                },
+                required: ['juros_atraso_percent', 'juros_atraso_valor', 'juros_mora_percent_mensal', 'juros_mora_valor', 'multa_atraso_percent', 'multa_atraso_valor', 'iof_financiamento_descricao', 'iof_financiamento_valor']
+            },
+
+            // Encargos do proximo periodo
+            encargos_proximo_periodo: {
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                    juros_max_proximo_mensal_percent: { type: ['number', 'null'] },
+                    juros_max_proximo_anual_percent:  { type: ['number', 'null'] },
+                    juros_pgto_contas_mensal_percent: { type: ['number', 'null'] }
+                },
+                required: ['juros_max_proximo_mensal_percent', 'juros_max_proximo_anual_percent', 'juros_pgto_contas_mensal_percent']
+            },
+
+            // Totalizadores
+            totalizadores: {
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                    total_pagamentos:                     { type: ['number', 'null'] },
+                    total_lancamentos_atuais:             { type: ['number', 'null'] },
+                    total_transacoes_internacionais_brl:  { type: ['number', 'null'] },
+                    repasse_iof_brl:                      { type: ['number', 'null'] },
+                    total_lancamentos_internacionais_brl: { type: ['number', 'null'] }
+                },
+                required: ['total_pagamentos', 'total_lancamentos_atuais', 'total_transacoes_internacionais_brl', 'repasse_iof_brl', 'total_lancamentos_internacionais_brl']
+            },
+
+            // Lancamentos linha-a-linha
+            itens: {
+                type: 'array',
+                description: 'Cada lancamento individual da fatura (compras, saques, pagamentos, encargos individuais, ajustes). Nao inclua subtotais nem totais.',
+                items: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        tipo:                  { type: ['string', 'null'], description: 'compra_nacional | compra_internacional | saque | pagamento | encargo | ajuste | outro' },
+                        data:                  { type: ['string', 'null'], description: 'YYYY-MM-DD; se a fatura mostrar so DD/MM, complete o ano usando o ano de fechamento da fatura' },
+                        estabelecimento:       { type: ['string', 'null'], description: 'Texto do estabelecimento como aparece no PDF (NAO normalizar)' },
+                        cidade:                { type: ['string', 'null'] },
+                        categoria:             { type: ['string', 'null'], description: 'Categoria que vem no PDF abaixo do estabelecimento, ex.: "DIVERSOS"' },
+                        portador_nome:         { type: ['string', 'null'], description: 'Nome do portador do cartao (cartao adicional empresarial)' },
+                        portador_cartao_final: { type: ['string', 'null'], description: 'Ultimos 4 digitos do cartao do portador' },
+                        centro_custo:          { type: ['string', 'null'], description: 'Centro de custo / CCS quando o PDF informar' },
+                        moeda_original:        { type: ['string', 'null'], description: 'Codigo ISO, ex.: BRL, USD, EUR' },
+                        valor_original:        { type: ['number', 'null'], description: 'Valor na moeda original do lancamento' },
+                        taxa_cambio:           { type: ['number', 'null'], description: 'Taxa BRL por unidade da moeda original (ex.: 5.90 para USD)' },
+                        valor_brl:             { type: ['number', 'null'], description: 'Valor do lancamento convertido para BRL. Pagamentos como negativos.' },
+                        descricao:             { type: ['string', 'null'], description: 'Descricao livre adicional, se houver' },
+
+                        // Normalizacao para permitir agrupamento entre faturas (mesmo
+                        // fornecedor aparece com codigo diferente todo mes).
+                        fornecedor_normalizado: { type: ['string', 'null'], description: 'Nome canonico do fornecedor real por tras do estabelecimento (ex.: "Microsoft", "GOL Linhas Aereas", "Zoom"). Use o nome em portugues quando aplicavel. null se nao tiver certeza.' },
+                        categoria_normalizada:  { type: ['string', 'null'], description: 'Categoria tematica controlada (ver lista no prompt). null se incerto.' },
+                        produto_servico:        { type: ['string', 'null'], description: 'Produto/servico especifico quando identificavel (ex.: "Microsoft 365", "Microsoft Azure", "Zoom Meetings", "Voo GOL"). null se nao for possivel deduzir do texto.' }
+                    },
+                    required: ['tipo', 'data', 'estabelecimento', 'cidade', 'categoria', 'portador_nome', 'portador_cartao_final', 'centro_custo', 'moeda_original', 'valor_original', 'taxa_cambio', 'valor_brl', 'descricao', 'fornecedor_normalizado', 'categoria_normalizada', 'produto_servico']
+                }
+            }
+        },
+        required: [
+            'tipo_documento', 'numero_fatura', 'numero_conta', 'empresa',
+            'linha_digitavel', 'nosso_numero', 'agencia_beneficiario', 'carteira',
+            'data_emissao', 'data_postagem', 'data_vencimento', 'data_proximo_fechamento',
+            'fornecedor_nome', 'fornecedor_cnpj',
+            'pagador_nome', 'pagador_cnpj', 'pagador_endereco',
+            'moeda', 'valor_total', 'descricao',
+            'resumo', 'limites', 'encargos_cobrados', 'encargos_proximo_periodo',
+            'totalizadores', 'itens'
+        ]
+    }
+};
+
+const FATURA_PROMPT = [
+    'Voce recebe uma fatura em PDF, tipicamente uma fatura de cartao de credito EMPRESARIAL do Itau, mas pode tambem ser fatura de pessoa fisica, nota fiscal ou boleto.',
+    'Extraia TODOS os campos pedidos no schema. Se um campo nao existir no documento, retorne null.',
+    'Datas sempre no formato YYYY-MM-DD. Quando o PDF mostrar so DD/MM em lancamentos, deduza o ano a partir das datas de emissao/fechamento da fatura.',
+    'Valores monetarios em BRL como numero, sem "R$" e com ponto decimal (ex.: 39974.82). NAO interprete "1.640,62" como 1.64.',
+    'CNPJ apenas digitos (14 caracteres), sem mascara.',
+    'No bloco "encargos_cobrados", separe taxa percentual (campo *_percent) e o valor cobrado (campo *_valor). Em fatura sem atraso, valores sao 0.',
+    'Em "totalizadores": "repasse_iof_brl" e o repasse de IOF sobre transacoes internacionais; "total_transacoes_internacionais_brl" e a soma das compras estrangeiras convertidas para BRL antes do repasse.',
+    'Em "itens" liste APENAS lancamentos individuais (compras, saques, pagamentos, encargos individuais, ajustes), NUNCA subtotais nem totais.',
+    'Para cada item: tipo deve ser um de [compra_nacional, compra_internacional, saque, pagamento, encargo, ajuste, outro].',
+    'Para faturas Itau, o portador (nome do funcionario) e o final do cartao aparecem como cabecalho de cada bloco de lancamentos (ex.: "FERNANDA MAUES (final 6881)"). Aplique esses dados aos itens daquele bloco.',
+    'Quando houver linha "Centro de Custo: 0" ou similar acima de um bloco, atribua esse centro de custo aos lancamentos do bloco.',
+    'Lancamentos internacionais: preencha moeda_original, valor_original (na moeda original), taxa_cambio (BRL por unidade) e valor_brl (valor convertido).',
+    'Para pagamentos efetuados (creditos do cliente), use tipo="pagamento" e valor_brl negativo.',
+    'NORMALIZACAO: para cada lancamento, alem do "estabelecimento" bruto, preencha "fornecedor_normalizado", "categoria_normalizada" e (quando possivel) "produto_servico" — esses campos sao usados pra agregar lancamentos do mesmo fornecedor entre faturas. Se nao tiver certeza, prefira null a inventar.',
+    'fornecedor_normalizado = nome canonico da entidade comercial real, em portugues. Exemplos:',
+    '"MSFT * E0300YFJ4I" / "PPRO *MICROSOFT" / "Microsoft-G134104090" -> "Microsoft";',
+    '"GOL LIN*WVELDR0134176" / "GOL LINHAS AEREAS" -> "GOL Linhas Aereas";',
+    '"ZOOM.COM 888-799-9666" / "ZOOM.US" -> "Zoom";',
+    '"UBER *TRIP" / "UBER *EATS" -> "Uber";',
+    '"AMZN MKTP" / "AMAZON.COM" -> "Amazon";',
+    '"AWS" / "AMAZON WEB SERVICES" -> "Amazon Web Services";',
+    '"GOOGLE *ADS" / "GOOGLE WORKSPACE" -> "Google";',
+    '"AZUL LINHAS AEREAS" -> "Azul Linhas Aereas"; "LATAM" -> "LATAM";',
+    'Lojas pequenas/locais sem marca conhecida: use o proprio nome limpo (sem codigos, ex.: "AF LOJAS DOIS 02/02" -> "AF Lojas Dois").',
+    'categoria_normalizada deve ser uma das (preferencialmente):',
+    '"Software/SaaS" (Microsoft, Google Workspace, Adobe, Zoom, Slack, Atlassian, Notion, etc.);',
+    '"Cloud/Infra" (AWS, Azure, GCP, Cloudflare, Digital Ocean);',
+    '"Viagem - Aereo" (companhias aereas, agencias, taxas de embarque);',
+    '"Viagem - Hospedagem" (hoteis, Airbnb, Booking);',
+    '"Viagem - Transporte" (Uber, 99, taxi, locadoras, pedagio, estacionamento);',
+    '"Alimentacao" (restaurantes, supermercados, iFood, Rappi);',
+    '"Comunicacao" (telefonia, internet, correios);',
+    '"Material/Escritorio" (papelarias, suprimentos);',
+    '"Marketing/Publicidade" (Google Ads, Meta Ads, agencias);',
+    '"Servicos Bancarios/Tarifas";',
+    '"Saude";',
+    '"Outros" (so quando realmente nao se encaixa). null = nao consegui categorizar.',
+    'produto_servico: granular, so quando o estabelecimento ou contexto deixa claro o produto especifico (ex.: "Microsoft Azure" para "MSFT * AZURE"; "Microsoft 365" para "MSFT * O365"; "Zoom Meetings" para "ZOOM.COM"). Caso contrario null.',
+    'Pagamentos efetuados pelo cliente NAO precisam de fornecedor_normalizado/categoria_normalizada (use null nos tres campos de normalizacao).',
+    'Nao invente dados; quando incerto, retorne null.'
+].join(' ');
+
+async function callOpenAIForFatura(model, pdfBuffer, originalName) {
+    const client = getOpenAIClient();
+    const dataUrl = `data:application/pdf;base64,${pdfBuffer.toString('base64')}`;
+    const response = await client.responses.create({
+        model,
+        input: [{
+            role: 'user',
+            content: [
+                { type: 'input_text', text: FATURA_PROMPT },
+                { type: 'input_file', filename: originalName || 'fatura.pdf', file_data: dataUrl }
+            ]
+        }],
+        text: { format: { type: 'json_schema', ...FATURA_JSON_SCHEMA } }
+    });
+
+    const text = response.output_text
+        || (response.output && response.output[0] && response.output[0].content
+            && response.output[0].content[0] && response.output[0].content[0].text)
+        || '';
+    if (!text) throw new Error('OpenAI retornou resposta vazia');
+    let parsed;
+    try { parsed = JSON.parse(text); }
+    catch (e) { throw new Error(`JSON invalido na resposta da IA: ${e.message}`); }
+    return { parsed, raw: text };
+}
+
+// Tenta extrair com modelo primario; em erro, faz fallback para o secundario
+// e devolve qual modelo realmente respondeu.
+async function extractFaturaFromPdf(pdfBuffer, originalName) {
+    let lastErr;
+    for (const model of [FATURA_PRIMARY_MODEL, FATURA_FALLBACK_MODEL]) {
+        try {
+            const { parsed, raw } = await callOpenAIForFatura(model, pdfBuffer, originalName);
+            return { model, parsed, raw };
+        } catch (e) {
+            console.warn(`[FATURA] Modelo ${model} falhou:`, e.message || e);
+            lastErr = e;
+        }
+    }
+    throw lastErr || new Error('Falha ao extrair fatura com todos os modelos disponiveis');
+}
+
+function toDateOrNull(value) {
+    if (!value || typeof value !== 'string') return null;
+    // espera YYYY-MM-DD; tolera DD/MM/YYYY
+    const isoMatch = /^\d{4}-\d{2}-\d{2}$/.exec(value);
+    if (isoMatch) return value;
+    const brMatch = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value);
+    if (brMatch) return `${brMatch[3]}-${brMatch[2]}-${brMatch[1]}`;
+    return null;
+}
+
+function toDecimalOrNull(value) {
+    if (value === null || value === undefined || value === '') return null;
+    if (typeof value === 'number' && isFinite(value)) return value;
+    if (typeof value === 'string') {
+        const cleaned = value.replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.');
+        const n = parseFloat(cleaned);
+        return isFinite(n) ? n : null;
+    }
+    return null;
+}
+
+function digitsOnly(value, max) {
+    if (!value || typeof value !== 'string') return null;
+    const d = value.replace(/\D/g, '');
+    if (!d) return null;
+    return max ? d.slice(0, max) : d;
+}
+
+// Upsert por nome em uma tabela mestre (OCR_FORNECEDORES / OCR_CATEGORIAS).
+// MERGE com HOLDLOCK pra evitar race entre INSERTs concorrentes.
+// Retorna {id, novo: bool}; "novo" = true se INSERT real (primeira vez).
+async function upsertNomeMaster(tx, table, nome, faturaId) {
+    if (!nome) return { id: null, novo: false };
+    const r = await new sql.Request(tx)
+        .input('nome',     sql.NVarChar(200), nome)
+        .input('faturaId', sql.Int,           faturaId)
+        .query(`
+            MERGE dbo.${table} WITH (HOLDLOCK) AS target
+            USING (SELECT @nome AS nome) AS src
+                ON target.nome = src.nome
+            WHEN NOT MATCHED THEN
+                INSERT (nome, first_seen_fatura_id) VALUES (@nome, @faturaId)
+            WHEN MATCHED THEN
+                UPDATE SET updated_at = SYSDATETIME()
+            OUTPUT INSERTED.Id AS Id, $action AS act;
+        `);
+    if (!r.recordset || r.recordset.length === 0) return { id: null, novo: false };
+    const row = r.recordset[0];
+    return { id: row.Id, novo: row.act === 'INSERT' };
+}
+
+function trimOrNull(value, max) {
+    if (value === null || value === undefined) return null;
+    const s = String(value).trim();
+    if (!s) return null;
+    return max && s.length > max ? s.slice(0, max) : s;
+}
+
+// POST /api/fatura/upload — recebe PDF, manda pra IA, grava em Fonte.
+// Fatura mae em OCR_FATURA_ITAU; lancamentos linha-a-linha em OCR_FATURA_ITAU_ITENS.
+// Tudo em transacao: se um insert falhar, nada e persistido.
+app.post('/api/fatura/upload', requireAppPermission('fatura'), uploadFaturaPdf.single('file'), async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'Arquivo PDF e obrigatorio (campo "file")' });
+        if (!poolFonte || !poolFonte.connected) {
+            return res.status(503).json({ error: 'Banco Fonte indisponivel' });
+        }
+
+        const { model, parsed, raw } = await extractFaturaFromPdf(req.file.buffer, req.file.originalname);
+        const itens   = Array.isArray(parsed.itens) ? parsed.itens : [];
+        const resumo  = parsed.resumo || {};
+        const limites = parsed.limites || {};
+        const enc     = parsed.encargos_cobrados || {};
+        const encProx = parsed.encargos_proximo_periodo || {};
+        const tot     = parsed.totalizadores || {};
+
+        const tx = new sql.Transaction(poolFonte);
+        await tx.begin();
+        let faturaId, uploadedAt;
+        try {
+            const insertFatura = await new sql.Request(tx)
+                // Identificacao
+                .input('tipo_documento',          sql.NVarChar(60),  trimOrNull(parsed.tipo_documento, 60))
+                .input('numero_fatura',           sql.NVarChar(100), trimOrNull(parsed.numero_fatura, 100))
+                .input('numero_conta',            sql.NVarChar(40),  trimOrNull(parsed.numero_conta, 40))
+                .input('empresa',                 sql.NVarChar(300), trimOrNull(parsed.empresa, 300))
+                .input('linha_digitavel',         sql.NVarChar(80),  trimOrNull(parsed.linha_digitavel, 80))
+                .input('nosso_numero',            sql.NVarChar(40),  trimOrNull(parsed.nosso_numero, 40))
+                .input('agencia_beneficiario',    sql.NVarChar(40),  trimOrNull(parsed.agencia_beneficiario, 40))
+                .input('carteira',                sql.NVarChar(20),  trimOrNull(parsed.carteira, 20))
+                // Datas
+                .input('data_emissao',            sql.Date, toDateOrNull(parsed.data_emissao))
+                .input('data_postagem',           sql.Date, toDateOrNull(parsed.data_postagem))
+                .input('data_vencimento',         sql.Date, toDateOrNull(parsed.data_vencimento))
+                .input('data_proximo_fechamento', sql.Date, toDateOrNull(parsed.data_proximo_fechamento))
+                // Partes
+                .input('fornecedor_nome',         sql.NVarChar(300), trimOrNull(parsed.fornecedor_nome, 300))
+                .input('fornecedor_cnpj',         sql.NVarChar(20),  digitsOnly(parsed.fornecedor_cnpj, 14))
+                .input('pagador_nome',            sql.NVarChar(300), trimOrNull(parsed.pagador_nome, 300))
+                .input('pagador_cnpj',            sql.NVarChar(20),  digitsOnly(parsed.pagador_cnpj, 14))
+                .input('pagador_endereco',        sql.NVarChar(500), trimOrNull(parsed.pagador_endereco, 500))
+                // Totais
+                .input('moeda',                   sql.NVarChar(5),   trimOrNull(parsed.moeda, 5))
+                .input('valor_total',             sql.Decimal(18,2), toDecimalOrNull(parsed.valor_total))
+                .input('descricao',               sql.NVarChar(sql.MAX), parsed.descricao || null)
+                // Resumo
+                .input('total_fatura_anterior',   sql.Decimal(18,2), toDecimalOrNull(resumo.total_fatura_anterior))
+                .input('pagamentos_efetuados',    sql.Decimal(18,2), toDecimalOrNull(resumo.pagamentos_efetuados))
+                .input('saldo_atraso',            sql.Decimal(18,2), toDecimalOrNull(resumo.saldo_atraso))
+                .input('lancamentos_atuais',      sql.Decimal(18,2), toDecimalOrNull(resumo.lancamentos_atuais))
+                // Limites
+                .input('limite_total_credito',    sql.Decimal(18,2), toDecimalOrNull(limites.limite_total_credito))
+                .input('limite_disponivel',       sql.Decimal(18,2), toDecimalOrNull(limites.limite_disponivel))
+                .input('limite_total_utilizado',  sql.Decimal(18,2), toDecimalOrNull(limites.limite_total_utilizado))
+                // Encargos cobrados
+                .input('juros_atraso_percent',           sql.Decimal(9,4),  toDecimalOrNull(enc.juros_atraso_percent))
+                .input('juros_atraso_valor',             sql.Decimal(18,2), toDecimalOrNull(enc.juros_atraso_valor))
+                .input('juros_mora_percent_mensal',      sql.Decimal(9,4),  toDecimalOrNull(enc.juros_mora_percent_mensal))
+                .input('juros_mora_valor',               sql.Decimal(18,2), toDecimalOrNull(enc.juros_mora_valor))
+                .input('multa_atraso_percent',           sql.Decimal(9,4),  toDecimalOrNull(enc.multa_atraso_percent))
+                .input('multa_atraso_valor',             sql.Decimal(18,2), toDecimalOrNull(enc.multa_atraso_valor))
+                .input('iof_financiamento_descricao',    sql.NVarChar(200), trimOrNull(enc.iof_financiamento_descricao, 200))
+                .input('iof_financiamento_valor',        sql.Decimal(18,2), toDecimalOrNull(enc.iof_financiamento_valor))
+                // Encargos proximo periodo
+                .input('juros_max_proximo_mensal_percent', sql.Decimal(9,4), toDecimalOrNull(encProx.juros_max_proximo_mensal_percent))
+                .input('juros_max_proximo_anual_percent',  sql.Decimal(9,4), toDecimalOrNull(encProx.juros_max_proximo_anual_percent))
+                .input('juros_pgto_contas_mensal_percent', sql.Decimal(9,4), toDecimalOrNull(encProx.juros_pgto_contas_mensal_percent))
+                // Totalizadores
+                .input('total_pagamentos',                     sql.Decimal(18,2), toDecimalOrNull(tot.total_pagamentos))
+                .input('total_lancamentos_atuais',             sql.Decimal(18,2), toDecimalOrNull(tot.total_lancamentos_atuais))
+                .input('total_transacoes_internacionais_brl',  sql.Decimal(18,2), toDecimalOrNull(tot.total_transacoes_internacionais_brl))
+                .input('repasse_iof_brl',                      sql.Decimal(18,2), toDecimalOrNull(tot.repasse_iof_brl))
+                .input('total_lancamentos_internacionais_brl', sql.Decimal(18,2), toDecimalOrNull(tot.total_lancamentos_internacionais_brl))
+                // Auditoria
+                .input('pdf_filename',    sql.NVarChar(300),     req.file.originalname || null)
+                .input('pdf_size_bytes',  sql.Int,               req.file.size || null)
+                .input('model_used',      sql.NVarChar(60),      model)
+                .input('raw_response',    sql.NVarChar(sql.MAX), raw)
+                .input('uploaded_by',     sql.Int,               req.user.id)
+                .query(`
+                    INSERT INTO dbo.OCR_FATURA_ITAU (
+                        tipo_documento, numero_fatura, numero_conta, empresa,
+                        linha_digitavel, nosso_numero, agencia_beneficiario, carteira,
+                        data_emissao, data_postagem, data_vencimento, data_proximo_fechamento,
+                        fornecedor_nome, fornecedor_cnpj,
+                        pagador_nome, pagador_cnpj, pagador_endereco,
+                        moeda, valor_total, descricao,
+                        total_fatura_anterior, pagamentos_efetuados, saldo_atraso, lancamentos_atuais,
+                        limite_total_credito, limite_disponivel, limite_total_utilizado,
+                        juros_atraso_percent, juros_atraso_valor,
+                        juros_mora_percent_mensal, juros_mora_valor,
+                        multa_atraso_percent, multa_atraso_valor,
+                        iof_financiamento_descricao, iof_financiamento_valor,
+                        juros_max_proximo_mensal_percent, juros_max_proximo_anual_percent, juros_pgto_contas_mensal_percent,
+                        total_pagamentos, total_lancamentos_atuais,
+                        total_transacoes_internacionais_brl, repasse_iof_brl, total_lancamentos_internacionais_brl,
+                        pdf_filename, pdf_size_bytes, model_used, raw_response, uploaded_by
+                    )
+                    OUTPUT INSERTED.Id, INSERTED.uploaded_at
+                    VALUES (
+                        @tipo_documento, @numero_fatura, @numero_conta, @empresa,
+                        @linha_digitavel, @nosso_numero, @agencia_beneficiario, @carteira,
+                        @data_emissao, @data_postagem, @data_vencimento, @data_proximo_fechamento,
+                        @fornecedor_nome, @fornecedor_cnpj,
+                        @pagador_nome, @pagador_cnpj, @pagador_endereco,
+                        @moeda, @valor_total, @descricao,
+                        @total_fatura_anterior, @pagamentos_efetuados, @saldo_atraso, @lancamentos_atuais,
+                        @limite_total_credito, @limite_disponivel, @limite_total_utilizado,
+                        @juros_atraso_percent, @juros_atraso_valor,
+                        @juros_mora_percent_mensal, @juros_mora_valor,
+                        @multa_atraso_percent, @multa_atraso_valor,
+                        @iof_financiamento_descricao, @iof_financiamento_valor,
+                        @juros_max_proximo_mensal_percent, @juros_max_proximo_anual_percent, @juros_pgto_contas_mensal_percent,
+                        @total_pagamentos, @total_lancamentos_atuais,
+                        @total_transacoes_internacionais_brl, @repasse_iof_brl, @total_lancamentos_internacionais_brl,
+                        @pdf_filename, @pdf_size_bytes, @model_used, @raw_response, @uploaded_by
+                    )
+                `);
+            faturaId   = insertFatura.recordset[0].Id;
+            uploadedAt = insertFatura.recordset[0].uploaded_at;
+
+            // Upsert em massa de fornecedores e categorias unicos da fatura.
+            // Evita N upserts redundantes quando o mesmo fornecedor aparece em
+            // varios lancamentos.
+            const fornecedoresSet = new Set();
+            const categoriasSet = new Set();
+            for (const it of itens) {
+                const f = trimOrNull(it && it.fornecedor_normalizado, 200);
+                const c = trimOrNull(it && it.categoria_normalizada, 100);
+                if (f) fornecedoresSet.add(f);
+                if (c) categoriasSet.add(c);
+            }
+
+            const fornecedorMap = new Map(); // nome -> id
+            const categoriaMap = new Map();
+            const novosFornecedores = []; // {id, nome}
+            const novasCategorias = [];
+
+            for (const nome of fornecedoresSet) {
+                const { id, novo } = await upsertNomeMaster(tx, 'OCR_FORNECEDORES', nome, faturaId);
+                if (id != null) {
+                    fornecedorMap.set(nome, id);
+                    if (novo) novosFornecedores.push({ id, nome });
+                }
+            }
+            for (const nome of categoriasSet) {
+                const { id, novo } = await upsertNomeMaster(tx, 'OCR_CATEGORIAS', nome, faturaId);
+                if (id != null) {
+                    categoriaMap.set(nome, id);
+                    if (novo) novasCategorias.push({ id, nome });
+                }
+            }
+
+            for (let i = 0; i < itens.length; i++) {
+                const it = itens[i] || {};
+                const fornecNome = trimOrNull(it.fornecedor_normalizado, 200);
+                const categNome  = trimOrNull(it.categoria_normalizada, 100);
+                const fornecedorId = fornecNome ? (fornecedorMap.get(fornecNome) || null) : null;
+                const categoriaId  = categNome  ? (categoriaMap.get(categNome)  || null) : null;
+
+                await new sql.Request(tx)
+                    .input('fatura_id',             sql.Int,            faturaId)
+                    .input('ordem',                 sql.Int,            i + 1)
+                    .input('tipo',                  sql.NVarChar(40),   trimOrNull(it.tipo, 40))
+                    .input('data',                  sql.Date,           toDateOrNull(it.data))
+                    .input('descricao',             sql.NVarChar(1000), trimOrNull(it.descricao, 1000))
+                    .input('estabelecimento',       sql.NVarChar(300),  trimOrNull(it.estabelecimento, 300))
+                    .input('cidade',                sql.NVarChar(150),  trimOrNull(it.cidade, 150))
+                    .input('categoria',             sql.NVarChar(100),  trimOrNull(it.categoria, 100))
+                    .input('portador_nome',         sql.NVarChar(200),  trimOrNull(it.portador_nome, 200))
+                    .input('portador_cartao_final', sql.NVarChar(10),   digitsOnly(it.portador_cartao_final, 10))
+                    .input('centro_custo',          sql.NVarChar(50),   trimOrNull(it.centro_custo, 50))
+                    .input('moeda_original',        sql.NVarChar(5),    trimOrNull(it.moeda_original, 5))
+                    .input('valor_original',        sql.Decimal(18,4),  toDecimalOrNull(it.valor_original))
+                    .input('taxa_cambio',           sql.Decimal(18,6),  toDecimalOrNull(it.taxa_cambio))
+                    .input('valor_brl',             sql.Decimal(18,2),  toDecimalOrNull(it.valor_brl))
+                    .input('valor_total',           sql.Decimal(18,2),  toDecimalOrNull(it.valor_brl)) // legacy/compat
+                    .input('fornecedor_normalizado', sql.NVarChar(200), fornecNome)
+                    .input('categoria_normalizada',  sql.NVarChar(100), categNome)
+                    .input('produto_servico',        sql.NVarChar(200), trimOrNull(it.produto_servico, 200))
+                    .input('fornecedor_id',          sql.Int,           fornecedorId)
+                    .input('categoria_id',           sql.Int,           categoriaId)
+                    .query(`
+                        INSERT INTO dbo.OCR_FATURA_ITAU_ITENS (
+                            fatura_id, ordem, tipo, data, descricao, estabelecimento, cidade, categoria,
+                            portador_nome, portador_cartao_final, centro_custo,
+                            moeda_original, valor_original, taxa_cambio, valor_brl, valor_total,
+                            fornecedor_normalizado, categoria_normalizada, produto_servico,
+                            fornecedor_id, categoria_id
+                        ) VALUES (
+                            @fatura_id, @ordem, @tipo, @data, @descricao, @estabelecimento, @cidade, @categoria,
+                            @portador_nome, @portador_cartao_final, @centro_custo,
+                            @moeda_original, @valor_original, @taxa_cambio, @valor_brl, @valor_total,
+                            @fornecedor_normalizado, @categoria_normalizada, @produto_servico,
+                            @fornecedor_id, @categoria_id
+                        )
+                    `);
+            }
+
+            await tx.commit();
+
+            // Resposta carrega tracking dos novos para o frontend destacar
+            res.locals.novosFornecedores = novosFornecedores;
+            res.locals.novasCategorias = novasCategorias;
+        } catch (txErr) {
+            try { await tx.rollback(); } catch (_) { /* swallow */ }
+            throw txErr;
+        }
+
+        return res.json({
+            id: faturaId,
+            uploaded_at: uploadedAt,
+            model_used: model,
+            novos_fornecedores: res.locals.novosFornecedores || [],
+            novas_categorias:   res.locals.novasCategorias   || [],
+            // O front nao precisa mais do "data" inteiro — agora detalhes
+            // sao carregados sob demanda via GET /api/fatura/:id.
+            resumo: {
+                total: parsed.valor_total || null,
+                vencimento: parsed.data_vencimento || null,
+                empresa: parsed.empresa || parsed.pagador_nome || null,
+                fornecedor: parsed.fornecedor_nome || null,
+                qtd_itens: itens.length
+            }
+        });
+    } catch (err) {
+        console.error('[FATURA] Falha no upload:', err);
+        const status = err.statusCode || 500;
+        return res.status(status).json({ error: err.message || 'Erro ao processar fatura' });
+    }
+});
+
+// ----- Fornecedores normalizados (tabela mestra) -----------------------------
+
+// GET /api/fatura/fornecedores — lista todos com contagem de uso.
+app.get('/api/fatura/fornecedores', requireAppPermission('fatura'), async (req, res) => {
+    try {
+        if (!poolFonte || !poolFonte.connected) return res.status(503).json({ error: 'Banco Fonte indisponivel' });
+        const result = await poolFonte.request().query(`
+            SELECT f.Id, f.nome, f.despesa_ti, f.observacao,
+                   f.first_seen_fatura_id, f.created_at, f.updated_at,
+                   (SELECT COUNT(*) FROM dbo.OCR_FATURA_ITAU_ITENS i WHERE i.fornecedor_id = f.Id) AS occurrences,
+                   (SELECT SUM(i.valor_brl) FROM dbo.OCR_FATURA_ITAU_ITENS i WHERE i.fornecedor_id = f.Id) AS total_brl
+            FROM dbo.OCR_FORNECEDORES f
+            ORDER BY f.nome
+        `);
+        return res.json(result.recordset);
+    } catch (err) {
+        console.error('[FATURA] Falha ao listar fornecedores:', err);
+        return res.status(500).json({ error: 'Erro ao listar fornecedores' });
+    }
+});
+
+// PATCH /api/fatura/fornecedores/:id — atualiza despesa_ti e/ou observacao.
+app.patch('/api/fatura/fornecedores/:id', requireAppPermission('fatura'), async (req, res) => {
+    try {
+        if (!poolFonte || !poolFonte.connected) return res.status(503).json({ error: 'Banco Fonte indisponivel' });
+        const id = parseInt(req.params.id, 10);
+        const reqBuilder = poolFonte.request().input('id', sql.Int, id);
+
+        const sets = [];
+        if (typeof req.body.despesa_ti === 'boolean') {
+            reqBuilder.input('despesa_ti', sql.Bit, req.body.despesa_ti);
+            sets.push('despesa_ti = @despesa_ti');
+        }
+        if (Object.prototype.hasOwnProperty.call(req.body, 'observacao')) {
+            reqBuilder.input('observacao', sql.NVarChar(500), trimOrNull(req.body.observacao, 500));
+            sets.push('observacao = @observacao');
+        }
+        if (sets.length === 0) return res.status(400).json({ error: 'Nenhum campo permitido foi fornecido' });
+        sets.push('updated_at = SYSDATETIME()');
+
+        const r = await reqBuilder.query(`
+            UPDATE dbo.OCR_FORNECEDORES SET ${sets.join(', ')}
+            OUTPUT INSERTED.Id, INSERTED.nome, INSERTED.despesa_ti, INSERTED.observacao, INSERTED.updated_at
+            WHERE Id = @id
+        `);
+        if (!r.recordset || r.recordset.length === 0) return res.status(404).json({ error: 'Fornecedor nao encontrado' });
+        return res.json(r.recordset[0]);
+    } catch (err) {
+        console.error('[FATURA] Falha ao atualizar fornecedor:', err);
+        return res.status(500).json({ error: 'Erro ao atualizar fornecedor' });
+    }
+});
+
+// ----- Categorias normalizadas (tabela mestra) -------------------------------
+
+app.get('/api/fatura/categorias', requireAppPermission('fatura'), async (req, res) => {
+    try {
+        if (!poolFonte || !poolFonte.connected) return res.status(503).json({ error: 'Banco Fonte indisponivel' });
+        const result = await poolFonte.request().query(`
+            SELECT c.Id, c.nome, c.despesa_ti, c.observacao,
+                   c.first_seen_fatura_id, c.created_at, c.updated_at,
+                   (SELECT COUNT(*) FROM dbo.OCR_FATURA_ITAU_ITENS i WHERE i.categoria_id = c.Id) AS occurrences,
+                   (SELECT SUM(i.valor_brl) FROM dbo.OCR_FATURA_ITAU_ITENS i WHERE i.categoria_id = c.Id) AS total_brl
+            FROM dbo.OCR_CATEGORIAS c
+            ORDER BY c.nome
+        `);
+        return res.json(result.recordset);
+    } catch (err) {
+        console.error('[FATURA] Falha ao listar categorias:', err);
+        return res.status(500).json({ error: 'Erro ao listar categorias' });
+    }
+});
+
+app.patch('/api/fatura/categorias/:id', requireAppPermission('fatura'), async (req, res) => {
+    try {
+        if (!poolFonte || !poolFonte.connected) return res.status(503).json({ error: 'Banco Fonte indisponivel' });
+        const id = parseInt(req.params.id, 10);
+        const reqBuilder = poolFonte.request().input('id', sql.Int, id);
+
+        const sets = [];
+        if (typeof req.body.despesa_ti === 'boolean') {
+            reqBuilder.input('despesa_ti', sql.Bit, req.body.despesa_ti);
+            sets.push('despesa_ti = @despesa_ti');
+        }
+        if (Object.prototype.hasOwnProperty.call(req.body, 'observacao')) {
+            reqBuilder.input('observacao', sql.NVarChar(500), trimOrNull(req.body.observacao, 500));
+            sets.push('observacao = @observacao');
+        }
+        if (sets.length === 0) return res.status(400).json({ error: 'Nenhum campo permitido foi fornecido' });
+        sets.push('updated_at = SYSDATETIME()');
+
+        const r = await reqBuilder.query(`
+            UPDATE dbo.OCR_CATEGORIAS SET ${sets.join(', ')}
+            OUTPUT INSERTED.Id, INSERTED.nome, INSERTED.despesa_ti, INSERTED.observacao, INSERTED.updated_at
+            WHERE Id = @id
+        `);
+        if (!r.recordset || r.recordset.length === 0) return res.status(404).json({ error: 'Categoria nao encontrada' });
+        return res.json(r.recordset[0]);
+    } catch (err) {
+        console.error('[FATURA] Falha ao atualizar categoria:', err);
+        return res.status(500).json({ error: 'Erro ao atualizar categoria' });
+    }
+});
+
+// GET /api/fatura/list — historico enxuto pra tabela do front. Sem itens
+// (carregue via GET /api/fatura/:id quando o usuario clicar em Detalhes).
+// IMPORTANTE: declarado ANTES de /api/fatura/:id porque Express 5 nao
+// suporta mais regex inline (:id(\d+)) e a rota :id capturaria "list".
+app.get('/api/fatura/list', requireAppPermission('fatura'), async (req, res) => {
+    try {
+        if (!poolFonte || !poolFonte.connected) {
+            return res.status(503).json({ error: 'Banco Fonte indisponivel' });
+        }
+        const limitRaw = parseInt(req.query.limit, 10);
+        const limit = Math.min(Math.max(Number.isFinite(limitRaw) ? limitRaw : 50, 1), 500);
+
+        const result = await poolFonte.request().query(`
+            SELECT TOP ${limit}
+                f.Id, f.numero_fatura, f.empresa, f.pagador_nome, f.fornecedor_nome,
+                f.data_emissao, f.data_vencimento, f.valor_total, f.repasse_iof_brl,
+                f.model_used, f.uploaded_by, f.uploaded_at,
+                (SELECT COUNT(*) FROM dbo.OCR_FATURA_ITAU_ITENS i WHERE i.fatura_id = f.Id) AS qtd_itens
+            FROM dbo.OCR_FATURA_ITAU f
+            ORDER BY f.uploaded_at DESC
+        `);
+        return res.json(result.recordset);
+    } catch (err) {
+        console.error('[FATURA] Falha no list:', err);
+        return res.status(500).json({ error: 'Erro ao listar faturas' });
+    }
+});
+
+// GET /api/fatura/:id — detalhes completos (mae + itens).
+// Validacao manual do id: Express 5 nao aceita mais regex inline na rota,
+// entao filtro o param aqui. Se nao for numerico, devolve 404 "Fatura nao
+// encontrada" — comportamento equivalente.
+app.get('/api/fatura/:id', requireAppPermission('fatura'), async (req, res) => {
+    if (!/^\d+$/.test(req.params.id)) return res.status(404).json({ error: 'Fatura nao encontrada' });
+    try {
+        if (!poolFonte || !poolFonte.connected) return res.status(503).json({ error: 'Banco Fonte indisponivel' });
+        const id = parseInt(req.params.id, 10);
+        const fr = await poolFonte.request()
+            .input('id', sql.Int, id)
+            .query('SELECT * FROM dbo.OCR_FATURA_ITAU WHERE Id = @id');
+        if (!fr.recordset.length) return res.status(404).json({ error: 'Fatura nao encontrada' });
+        const fatura = fr.recordset[0];
+        delete fatura.raw_response;
+
+        const ir = await poolFonte.request()
+            .input('id', sql.Int, id)
+            .query(`
+                SELECT i.*, fo.despesa_ti AS fornecedor_despesa_ti, ca.despesa_ti AS categoria_despesa_ti
+                FROM dbo.OCR_FATURA_ITAU_ITENS i
+                LEFT JOIN dbo.OCR_FORNECEDORES fo ON fo.Id = i.fornecedor_id
+                LEFT JOIN dbo.OCR_CATEGORIAS   ca ON ca.Id = i.categoria_id
+                WHERE i.fatura_id = @id
+                ORDER BY i.ordem
+            `);
+        return res.json({ ...fatura, itens: ir.recordset });
+    } catch (err) {
+        console.error('[FATURA] Falha ao detalhar fatura:', err);
+        return res.status(500).json({ error: 'Erro ao carregar fatura' });
+    }
+});
+
 // Inicializar servidor
 async function startServer() {
     await initDB();
     await ensurePagesOrderColumn();
     await ensurePagesRedirectColumns();
+    await ensureUploadJobsTable();
+    await ensureUserAppPermissionsTable();
+    await ensureOcrFaturaItauTable();
+    await ensureOcrFaturaItauItensTable();
+    await ensureOcrFornecedoresTable();
+    await ensureOcrCategoriasTable();
+    await ensureItensFkColumns();
     await ensureMapDbTables(pool);
     await mountMapDb({
         app,

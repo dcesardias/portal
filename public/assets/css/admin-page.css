@@ -1,0 +1,905 @@
+/* ============================================================
+   ADMIN PAGE — Layout dedicado para /admin
+   Substitui o drawer lateral por uma página em 2 colunas.
+   Reutiliza os IDs do antigo painel (pagesList, menuStructure,
+   usersList, dictionariesList, etc.) para que window.PortalAdmin
+   funcione sem alteração.
+   ============================================================ */
+
+/* ---------------------------------------------------------------
+   IMPORTANTE: o container raiz tem class="admin-app admin-panel".
+   "admin-panel" é DELIBERADO para herdar todos os ~100 estilos
+   já existentes (icon picker moderno, dropdowns, callouts, etc.).
+   Aqui anulamos o que era específico de "drawer fixo lateral".
+   --------------------------------------------------------------- */
+body.admin-page .admin-panel.admin-app {
+    position: static !important;
+    right: auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    background: var(--ap-bg) !important;
+    box-shadow: none !important;
+    z-index: auto !important;
+    transition: none !important;
+    transform: none !important;
+}
+/* O drawer original tinha o handle de redimensionar — não queremos aqui. */
+body.admin-page .admin-panel .resize-handle { display: none !important; }
+
+/* O portal.css define `body { height: 100vh; overflow: hidden }` para travar
+   a viewport do portal (que tem sidebar fixa + iframe). Em /admin a página é
+   um app de grade própria (.admin-app) que já gerencia altura/scroll, então
+   restauramos o body para layout normal. */
+body.admin-page {
+    height: auto !important;
+    overflow: visible !important;
+}
+
+
+/* ---------- Reset e tokens locais ---------- */
+.admin-app {
+    --aacd-accent: #c8102e;
+    --aacd-accent-dark: #a30d25;
+    --aacd-accent-soft: rgba(200, 16, 46, 0.08);
+    --aacd-accent-ring: rgba(200, 16, 46, 0.18);
+
+    --ap-bg: #f6f7f9;
+    --ap-surface: #ffffff;
+    --ap-border: #e5e7eb;
+    --ap-border-strong: #d1d5db;
+    --ap-text: #111827;
+    --ap-text-soft: #4b5563;
+    --ap-text-muted: #6b7280;
+
+    --ap-radius: 10px;
+    --ap-radius-lg: 14px;
+    --ap-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+    --ap-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+
+    background: var(--ap-bg);
+    color: var(--ap-text);
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+    min-height: 100vh;
+}
+
+/* ---------- Layout principal ---------- */
+.admin-app {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    grid-template-rows: 60px 1fr;
+    grid-template-areas:
+        "topbar topbar"
+        "sidenav main";
+    height: 100vh;
+    overflow: hidden;
+}
+
+.admin-topbar {
+    grid-area: topbar;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    background: linear-gradient(135deg, var(--aacd-accent) 0%, var(--aacd-accent-dark) 100%);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(200, 16, 46, 0.18);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+}
+
+.admin-topbar-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+}
+
+.admin-topbar-brand img {
+    height: 28px;
+    width: auto;
+    background: rgba(255, 255, 255, 0.12);
+    padding: 4px 8px;
+    border-radius: 6px;
+}
+
+.admin-topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.admin-topbar-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.15s ease;
+}
+.admin-topbar-btn:hover {
+    background: rgba(255, 255, 255, 0.22);
+    color: #fff;
+}
+.admin-topbar-btn:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+}
+
+/* ---------- Sidenav esquerda ---------- */
+.admin-sidenav {
+    grid-area: sidenav;
+    background: var(--ap-surface);
+    border-right: 1px solid var(--ap-border);
+    padding: 20px 12px;
+    overflow-y: auto;
+}
+
+.admin-sidenav-section-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--ap-text-muted);
+    padding: 8px 12px;
+    margin-top: 8px;
+}
+.admin-sidenav-section-title:first-child { margin-top: 0; }
+
+.admin-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.admin-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    color: var(--ap-text);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+    border: 1px solid transparent;
+}
+
+.admin-nav-item i {
+    width: 18px;
+    text-align: center;
+    color: var(--ap-text-muted);
+    font-size: 14px;
+    transition: color 0.15s ease;
+}
+
+.admin-nav-item:hover {
+    background: var(--aacd-accent-soft);
+    color: var(--aacd-accent-dark);
+}
+.admin-nav-item:hover i { color: var(--aacd-accent); }
+
+.admin-nav-item.is-active {
+    background: var(--aacd-accent);
+    color: #fff;
+    border-color: var(--aacd-accent-dark);
+    box-shadow: 0 2px 8px rgba(200, 16, 46, 0.22);
+}
+.admin-nav-item.is-active i { color: #fff; }
+
+.admin-nav-item:focus-visible {
+    outline: 2px solid var(--aacd-accent);
+    outline-offset: 2px;
+}
+
+.admin-nav-divider {
+    height: 1px;
+    background: var(--ap-border);
+    margin: 12px 8px;
+}
+
+/* ---------- Conteúdo principal ---------- */
+.admin-main {
+    grid-area: main;
+    padding: 28px 36px 40px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.admin-page-section {
+    display: none;
+    max-width: 1100px;
+    margin: 0 auto;
+    animation: adminPageFade 0.18s ease-out;
+}
+.admin-page-section.is-active {
+    display: block;
+}
+
+@keyframes adminPageFade {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- Cabeçalho de página ---------- */
+.admin-page-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 22px;
+    flex-wrap: wrap;
+}
+
+.admin-page-head h1 {
+    margin: 0 0 4px;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--ap-text);
+    letter-spacing: -0.2px;
+}
+
+.admin-page-head .admin-page-subtitle {
+    margin: 0;
+    font-size: 13px;
+    color: var(--ap-text-soft);
+    line-height: 1.5;
+}
+
+.admin-page-head-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* ---------- Cartões/painéis ---------- */
+.admin-card {
+    background: var(--ap-surface);
+    border: 1px solid var(--ap-border);
+    border-radius: var(--ap-radius-lg);
+    padding: 20px;
+    box-shadow: var(--ap-shadow-sm);
+}
+
+.admin-card + .admin-card {
+    margin-top: 16px;
+}
+
+.admin-card h3 {
+    margin: 0 0 12px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ap-text);
+}
+
+/* ---------- Botão primário da página ---------- */
+.admin-page .btn-admin,
+.admin-page-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 16px;
+    background: var(--aacd-accent);
+    color: #fff;
+    border: 1px solid var(--aacd-accent);
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    text-decoration: none;
+}
+.admin-page .btn-admin:hover,
+.admin-page-action:hover {
+    background: var(--aacd-accent-dark);
+    border-color: var(--aacd-accent-dark);
+    color: #fff;
+}
+.admin-page .btn-admin:focus-visible,
+.admin-page-action:focus-visible {
+    outline: 2px solid var(--aacd-accent);
+    outline-offset: 2px;
+}
+
+/* ---------- Search bar dentro da página ---------- */
+.admin-page .pages-search-bar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--ap-surface);
+    border: 1px solid var(--ap-border);
+    border-radius: var(--ap-radius);
+    padding: 10px 14px 10px 40px;
+    margin: 0 0 14px;
+    box-shadow: var(--ap-shadow-sm);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.admin-page .pages-search-bar:focus-within {
+    border-color: var(--aacd-accent);
+    box-shadow: 0 0 0 3px var(--aacd-accent-ring);
+}
+.admin-page .pages-search-bar .search-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--ap-text-muted);
+    font-size: 14px;
+}
+.admin-page .pages-search-bar input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font: inherit;
+    font-size: 14px;
+    color: var(--ap-text);
+}
+.admin-page .pages-search-bar input::placeholder { color: var(--ap-text-muted); }
+.admin-page .pages-search-count {
+    flex-shrink: 0;
+    font-size: 12px;
+    color: var(--ap-text-soft);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Listas (reaproveitando .menu-list-item do portal.css) ---------- */
+.admin-page .menu-list {
+    background: transparent;
+    padding: 0;
+    border-radius: var(--ap-radius);
+    border: none;
+}
+
+.admin-page .menu-list-item {
+    background: var(--ap-surface);
+    border: 1px solid var(--ap-border);
+    border-radius: var(--ap-radius);
+    padding: 14px 18px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 14px;
+    box-shadow: none;
+    transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+/* Quando o item está dentro de um wrapper de drag-and-drop, o espaçamento
+   é controlado pelo wrapper (8px). Anula o margin do item pra não somar. */
+.admin-page .menu-item-wrapper > .menu-list-item {
+    margin-bottom: 0;
+}
+.admin-page .menu-item-wrapper {
+    margin-bottom: 10px;
+}
+.admin-page .menu-item-wrapper:last-child {
+    margin-bottom: 0;
+}
+/* O handle padrão (portal.css) usa #ccc, fica fraco no fundo cinza claro
+   da admin-page. Reforça contraste e usa o accent vermelho no hover. */
+.admin-page .menu-drag-handle {
+    color: var(--ap-text-muted);
+}
+.admin-page .menu-drag-handle:hover {
+    color: var(--aacd-accent);
+}
+.admin-page .menu-item-wrapper.drag-drop-before > .menu-list-item {
+    box-shadow: 0 -3px 0 0 var(--aacd-accent);
+}
+.admin-page .menu-item-wrapper.drag-drop-after > .menu-list-item {
+    box-shadow: 0 3px 0 0 var(--aacd-accent);
+}
+.admin-page .menu-list-item:hover {
+    border-color: var(--aacd-accent);
+    transform: none;
+    box-shadow: 0 4px 14px rgba(200, 16, 46, 0.12);
+}
+
+/* ---------- Form-group dentro da admin-page ---------- */
+.admin-page .form-group {
+    margin-bottom: 14px;
+}
+.admin-page .form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ap-text);
+    margin-bottom: 6px;
+}
+.admin-page .form-group input[type="text"],
+.admin-page .form-group input[type="email"],
+.admin-page .form-group input[type="password"],
+.admin-page .form-group input[type="number"],
+.admin-page .form-group input[type="url"],
+.admin-page .form-group select,
+.admin-page .form-group textarea {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid var(--ap-border-strong);
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--ap-text);
+    background: #fff;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.admin-page .form-group input:focus,
+.admin-page .form-group select:focus,
+.admin-page .form-group textarea:focus {
+    outline: none;
+    border-color: var(--aacd-accent);
+    box-shadow: 0 0 0 3px var(--aacd-accent-ring);
+}
+.admin-page .form-group small,
+.admin-page .admin-help {
+    display: block;
+    font-size: 12px;
+    color: var(--ap-text-muted);
+    margin-top: 4px;
+    line-height: 1.5;
+}
+
+/* ---------- Fieldsets ---------- */
+.admin-page .admin-fieldset {
+    border: 1px solid var(--ap-border);
+    border-radius: var(--ap-radius);
+    padding: 16px 20px 4px;
+    margin: 0 0 18px;
+    background: var(--ap-surface);
+}
+.admin-page .admin-legend {
+    padding: 0 8px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--aacd-accent);
+}
+.admin-page .admin-fieldset-hint {
+    margin: -2px 0 14px;
+    font-size: 12px;
+    color: var(--ap-text-muted);
+    line-height: 1.45;
+}
+.admin-page .admin-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 16px;
+}
+.admin-page .admin-grid-2 .form-group { margin: 0; }
+@media (max-width: 720px) {
+    .admin-page .admin-grid-2 { grid-template-columns: 1fr; }
+}
+.admin-page .admin-fieldset-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin: 6px 0 22px;
+}
+
+/* ---------- Callouts ---------- */
+.admin-page .admin-callout {
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    background: var(--aacd-accent-soft);
+    border-left: 4px solid var(--aacd-accent);
+    font-size: 13px;
+    color: var(--ap-text);
+    line-height: 1.5;
+}
+.admin-page .admin-callout--success {
+    background: #e8f5e9;
+    border-left-color: #2e7d32;
+}
+.admin-page .admin-callout--warning {
+    background: #fff4e0;
+    border-left-color: #b26a00;
+}
+.admin-page .admin-callout--info {
+    background: var(--aacd-accent-soft);
+    border-left-color: var(--aacd-accent);
+}
+
+/* ---------- Empty state ---------- */
+.admin-page .admin-placeholder {
+    text-align: center;
+    padding: 28px 16px;
+    color: var(--ap-text-muted);
+    font-size: 14px;
+    background: var(--ap-surface);
+    border: 1px dashed var(--ap-border-strong);
+    border-radius: var(--ap-radius);
+}
+
+/* ---------- Acesso negado ---------- */
+.admin-access-denied {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    min-height: 60vh;
+    padding: 40px 20px;
+    color: var(--ap-text-soft);
+}
+.admin-access-denied h2 {
+    margin: 0 0 8px;
+    color: var(--ap-text);
+    font-size: 22px;
+}
+.admin-access-denied p { margin: 0 0 20px; max-width: 420px; }
+.admin-access-denied .admin-page-action { background: var(--aacd-accent); }
+
+/* ---------- Estado de carregamento ---------- */
+.admin-app-loading {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--ap-bg);
+    color: var(--ap-text-soft);
+    font-size: 14px;
+    z-index: 100;
+}
+.admin-app-loading::before {
+    content: '';
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--ap-border);
+    border-top-color: var(--aacd-accent);
+    border-radius: 50%;
+    margin-right: 12px;
+    animation: adminAppSpin 0.8s linear infinite;
+}
+@keyframes adminAppSpin { to { transform: rotate(360deg); } }
+.admin-app.is-ready .admin-app-loading { display: none; }
+
+/* ---------- Responsivo ---------- */
+@media (max-width: 900px) {
+    .admin-app {
+        grid-template-columns: 1fr;
+        grid-template-rows: 60px auto 1fr;
+        grid-template-areas:
+            "topbar"
+            "sidenav"
+            "main";
+    }
+    .admin-sidenav {
+        border-right: none;
+        border-bottom: 1px solid var(--ap-border);
+        padding: 12px;
+        display: flex;
+        gap: 6px;
+        overflow-x: auto;
+    }
+    .admin-sidenav-section-title { display: none; }
+    .admin-nav { flex-direction: row; flex-wrap: nowrap; }
+    .admin-nav-item { white-space: nowrap; flex-shrink: 0; }
+    .admin-nav-divider { display: none; }
+    .admin-main { padding: 18px 16px; }
+    .admin-topbar { padding: 0 12px; }
+}
+
+/* =================================================================
+   Páginas: separação em "Acesso rápido" + "Outras páginas"
+   ================================================================= */
+.pages-section + .pages-section {
+    margin-top: 28px;
+}
+.pages-section-head {
+    margin: 0 0 12px;
+}
+.pages-section-head h2 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 4px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ap-text);
+    letter-spacing: 0.1px;
+}
+.pages-section-head h2 i {
+    color: var(--aacd-accent);
+    font-size: 13px;
+}
+.pages-section-head .pages-section-count {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ap-text-muted);
+    background: var(--ap-surface);
+    border: 1px solid var(--ap-border);
+    border-radius: 999px;
+    padding: 1px 9px;
+    font-variant-numeric: tabular-nums;
+}
+.pages-section-head p {
+    margin: 0;
+    font-size: 12px;
+    color: var(--ap-text-soft);
+    line-height: 1.5;
+}
+
+/* =================================================================
+   Modal padronizado — extensões para o sistema admin-modal
+   ================================================================= */
+
+/* Body e estrutura interna do modal padrão. O CSS do .admin-modal já vem
+   do portal.css; aqui só adicionamos o que faltava (body separado, modo
+   "wide", botões de ação dentro do modal). */
+.admin-modal-body {
+    /* Permite scroll quando o conteúdo é grande (lista de tabelas/colunas). */
+    overflow-y: auto;
+    max-height: calc(85vh - 160px); /* descontando header + footer */
+}
+.admin-modal-overlay--wide .admin-modal {
+    max-width: 920px;
+    width: 96%;
+}
+.admin-modal-overlay--wide .admin-modal-body {
+    max-height: calc(85vh - 160px);
+}
+
+/* Modal de "Página" (form longo) — um pouco mais largo que o padrão. */
+.admin-modal--page {
+    max-width: 640px !important;
+}
+.admin-modal--page .admin-modal-body {
+    /* O modal foi montado com fieldsets. O reset pra .admin-modal removia
+       padding interno, agora reaplicamos um espaçamento mais arejado. */
+    padding: 0;
+}
+.admin-modal--page .admin-fieldset {
+    margin-bottom: 14px;
+}
+.admin-modal--page .admin-fieldset:last-of-type {
+    margin-bottom: 0;
+}
+.admin-legend-tag {
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--ap-text-muted);
+    margin-left: 4px;
+}
+
+/* Botões dentro do admin-modal-actions herdam .btn / .btn-admin do portal.css.
+   Aqui só garantimos um espaçamento mínimo decente. */
+.admin-modal-actions .btn,
+.admin-modal-actions .btn-admin {
+    min-width: 110px;
+}
+
+/* =================================================================
+   Estrutura do dicionário (modal wide)
+   ================================================================= */
+
+.dict-struct-summary {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 14px;
+    margin-bottom: 18px;
+    background: var(--aacd-accent-soft);
+    border-left: 3px solid var(--aacd-accent);
+    border-radius: 8px;
+    flex-wrap: wrap;
+}
+.dict-struct-meta strong {
+    display: block;
+    font-size: 15px;
+    color: var(--ap-text);
+    margin-bottom: 2px;
+}
+.dict-struct-meta p {
+    margin: 0 0 6px;
+    font-size: 13px;
+    color: var(--ap-text-soft);
+}
+.dict-struct-badges {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.dict-struct-section-title {
+    margin: 4px 0 12px;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--ap-text-muted);
+}
+.dict-tables-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.dict-table-card {
+    border: 1px solid var(--ap-border);
+    border-radius: 10px;
+    background: var(--ap-surface);
+    overflow: hidden;
+}
+.dict-table-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 14px;
+    background: #fafafa;
+    border-bottom: 1px solid var(--ap-border);
+}
+.dict-table-info { min-width: 0; flex: 1; }
+.dict-table-info h4 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ap-text);
+}
+.dict-table-info p {
+    margin: 2px 0 4px;
+    font-size: 12px;
+    color: var(--ap-text-soft);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 600px;
+}
+.dict-table-info small {
+    font-size: 11px;
+    color: var(--ap-text-muted);
+}
+.dict-table-actions {
+    flex-shrink: 0;
+    display: flex;
+    gap: 4px;
+}
+.dict-table-cols { padding: 8px 14px 14px; }
+.dict-empty-cols {
+    margin: 8px 0 0;
+    font-size: 12px;
+    font-style: italic;
+    color: var(--ap-text-muted);
+}
+
+.dict-cols-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+.dict-cols-table th,
+.dict-cols-table td {
+    border-bottom: 1px solid var(--ap-border);
+    padding: 6px 8px;
+    text-align: left;
+    vertical-align: middle;
+}
+.dict-cols-table thead th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--ap-text-muted);
+    background: #f9fafb;
+    border-bottom: 1px solid var(--ap-border-strong);
+}
+.dict-cols-table tbody tr:last-child td { border-bottom: none; }
+.dict-col-name { font-weight: 600; color: var(--ap-text); }
+.dict-col-type {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11px;
+    color: var(--ap-text-soft);
+    background: #f4f5f7;
+    border-radius: 4px;
+    padding: 2px 6px !important;
+    white-space: nowrap;
+}
+.dict-col-desc {
+    color: var(--ap-text-soft);
+    max-width: 320px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.dict-cols-actions { width: 88px; text-align: right !important; white-space: nowrap; }
+.dict-cols-actions .btn-small + .btn-small { margin-left: 4px; }
+
+/* =================================================================
+   Toggle button (Ativo/Inativo) — sem inline-styles
+   ================================================================= */
+
+.btn-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #ffffff;
+    color: #495057;
+    border: 1px solid #dee2e6;
+}
+.btn-toggle[data-active="true"] {
+    background: #e8f5e9;
+    color: #1b5e20;
+    border-color: #a5d6a7;
+}
+.btn-toggle[data-active="true"] i { color: #2e7d32; }
+.btn-toggle[data-active="false"] i { color: var(--ap-text-muted); }
+.btn-toggle:hover:not(:disabled) {
+    filter: brightness(0.97);
+}
+.btn-toggle.is-busy { opacity: 0.7; cursor: wait; }
+
+/* Botões de ação compactos com label + ícone */
+.menu-list-item-actions .btn-small {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.menu-list-item-actions .btn-small .btn-label {
+    font-size: 12px;
+}
+@media (max-width: 720px) {
+    /* Em mobile, esconde labels — só ícones, mantém ações acessíveis. */
+    .menu-list-item-actions .btn-small .btn-label { display: none; }
+}
+
+/* =================================================================
+   Tipografia em Configurações: linhas compactas
+   ================================================================= */
+.typography-row {
+    display: grid;
+    grid-template-columns: 160px 1fr 130px auto;
+    gap: 12px 14px;
+    align-items: end;
+    padding: 8px 0;
+    border-bottom: 1px dashed var(--ap-border);
+}
+.typography-row:last-child {
+    border-bottom: none;
+}
+.typography-row .form-group { margin-bottom: 0; }
+.typography-area-label label {
+    margin-bottom: 0 !important;
+    font-size: 13px;
+    color: var(--ap-text);
+}
+.typography-area-label .admin-help {
+    display: inline-block;
+    font-size: 12px;
+    color: var(--ap-text-muted);
+    margin: 0;
+    padding-left: 6px;
+}
+.typography-row--secondary .typography-area-label {
+    /* As 3 sub-linhas de Páginas (título/subtítulo/descrição) são indentadas. */
+    padding-left: 16px;
+}
+.typography-row .typography-bold {
+    align-self: end;
+    padding-bottom: 8px;
+}
+@media (max-width: 720px) {
+    .typography-row {
+        grid-template-columns: 1fr 1fr;
+        align-items: stretch;
+    }
+    .typography-row--secondary .typography-area-label {
+        padding-left: 0;
+    }
+}

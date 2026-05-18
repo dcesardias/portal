@@ -20,6 +20,16 @@ window.PortalAuth = {
         let authToken = window.PortalApp.authToken;
         if (!authToken) {
             authToken = sessionStorage.getItem('authToken');
+            // Migracao one-shot: ate hoje so se guardava authToken em sessionStorage,
+            // o que quebra abas abertas via target="_blank" (ex.: botao Sistema de
+            // Carga). Espelha no localStorage para que outras abas/janelas leiam.
+            if (authToken) {
+                try {
+                    if (!localStorage.getItem('authToken')) localStorage.setItem('authToken', authToken);
+                    const cu = sessionStorage.getItem('currentUser');
+                    if (cu && !localStorage.getItem('currentUser')) localStorage.setItem('currentUser', cu);
+                } catch(e) { /* storage indisponivel — ignora */ }
+            }
             try {
                 window.PortalApp.currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
             } catch(e) {
@@ -96,6 +106,8 @@ window.PortalAuth = {
                 window.PortalApp.isAdmin = !!data.user.isAdmin;
                 sessionStorage.setItem('authToken', window.PortalApp.authToken);
                 sessionStorage.setItem('currentUser', JSON.stringify(window.PortalApp.currentUser));
+                localStorage.setItem('authToken', window.PortalApp.authToken);
+                localStorage.setItem('currentUser', JSON.stringify(window.PortalApp.currentUser));
                 document.getElementById('loginUsername').value = '';
                 document.getElementById('loginPassword').value = '';
                 document.getElementById('loginModal').classList.remove('show');
@@ -105,11 +117,10 @@ window.PortalAuth = {
                 this.syncAuthUI();
                 await window.PortalData.loadDataFromAPI();
                 if (window.PortalApp.isAdmin) {
-                    setTimeout(() => {
-                        if (window.PortalAdmin) {
-                            window.PortalAdmin.openAdminPanel();
-                        }
-                    }, 300);
+                    // Migracao drawer -> pagina dedicada: redireciona direto para /admin
+                    // (mesma aba, preserva sessionStorage). O drawer antigo deixou de
+                    // ser o destino padrao apos a refatoracao das telas de admin.
+                    window.location.href = '/admin#/paginas';
                 } else {
                     alert('Login realizado com sucesso. Este usuario nao possui acesso administrativo ao portal.');
                 }
@@ -254,6 +265,8 @@ window.PortalAuth = {
     clearAuth() {
         sessionStorage.removeItem('authToken');
         sessionStorage.removeItem('currentUser');
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('currentUser');
         window.PortalApp.authToken = null;
         window.PortalApp.currentUser = null;
         window.PortalApp.isAdmin = false;

@@ -7,31 +7,34 @@
    CSS VARIABLES - Design Tokens
    ============================================ */
 :root {
-    /* Cores Primárias */
-    --admin-primary: #0066cc;
-    --admin-primary-dark: #0052a3;
-    --admin-primary-light: #e3f2fd;
-    --admin-primary-gradient: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
-    
-    /* Cores de Sucesso */
-    --admin-success: #28a745;
-    --admin-success-dark: #218838;
-    --admin-success-light: #d4edda;
-    --admin-success-gradient: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-    
-    /* Cores de Perigo */
-    --admin-danger: #dc3545;
-    --admin-danger-dark: #c82333;
-    --admin-danger-light: #f8d7da;
-    
-    /* Cores de Aviso */
-    --admin-warning: #ffc107;
-    --admin-warning-dark: #e0a800;
-    --admin-warning-light: #fff3cd;
-    
-    /* Cores de Info */
-    --admin-info: #17a2b8;
-    --admin-info-light: #d1ecf1;
+    /* Cor institucional AACD (vermelho). Primária única da admin. */
+    --admin-primary: #c8102e;
+    --admin-primary-dark: #a30d25;
+    --admin-primary-light: #fbe7ea;
+    --admin-primary-gradient: linear-gradient(135deg, #c8102e 0%, #a30d25 100%);
+
+    /* Tokens semânticos de ação — usar estes em vez de cores cruas em botões/badges. */
+    --admin-action-neutral: #6c757d;        /* editar, mover, upload, ações secundárias */
+    --admin-action-neutral-hover: #495057;
+    --admin-action-destructive: #c82333;    /* somente excluir/remover */
+    --admin-action-destructive-hover: #a01c2a;
+
+    /* Sucesso/aviso/info usados apenas em ALERTAS de feedback (toasts), não em botões. */
+    --admin-success: #2e7d32;
+    --admin-success-dark: #1b5e20;
+    --admin-success-light: #e8f5e9;
+    --admin-success-gradient: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%);
+
+    --admin-danger: #c82333;
+    --admin-danger-dark: #a01c2a;
+    --admin-danger-light: #fdecea;
+
+    --admin-warning: #b26a00;
+    --admin-warning-dark: #8a5200;
+    --admin-warning-light: #fff4e0;
+
+    --admin-info: #0b5fa3;
+    --admin-info-light: #e3f1fb;
     
     /* Cores Neutras */
     --admin-white: #ffffff;
@@ -49,7 +52,7 @@
     /* Texto */
     --admin-text-primary: #212529;
     --admin-text-secondary: #6c757d;
-    --admin-text-muted: #adb5bd;
+    --admin-text-muted: #6c757d;  /* Subido de #adb5bd para passar WCAG AA (4.6:1 sobre branco). */
     --admin-text-inverse: #ffffff;
     
     /* Backgrounds */
@@ -57,7 +60,7 @@
     --admin-bg-card: #ffffff;
     --admin-bg-sidebar: rgba(255, 255, 255, 0.98);
     --admin-bg-input: #ffffff;
-    --admin-bg-hover: rgba(0, 102, 204, 0.05);
+    --admin-bg-hover: rgba(200, 16, 46, 0.05);
     
     /* Borders */
     --admin-border-color: #e0e0e0;
@@ -72,9 +75,9 @@
     --admin-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
     --admin-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
     --admin-shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.15);
-    --admin-shadow-primary: 0 4px 15px rgba(0, 102, 204, 0.3);
-    --admin-shadow-success: 0 4px 15px rgba(40, 167, 69, 0.3);
-    --admin-shadow-danger: 0 4px 15px rgba(220, 53, 69, 0.3);
+    --admin-shadow-primary: 0 4px 15px rgba(200, 16, 46, 0.25);
+    --admin-shadow-success: 0 4px 15px rgba(46, 125, 50, 0.22);
+    --admin-shadow-danger: 0 4px 15px rgba(200, 35, 51, 0.22);
     
     /* Transitions */
     --admin-transition-fast: 0.15s ease;
@@ -180,7 +183,7 @@
     padding: var(--admin-spacing-xl) var(--admin-spacing-xl);
     background: var(--admin-primary-gradient);
     color: var(--admin-text-inverse);
-    box-shadow: 0 4px 20px rgba(0, 102, 204, 0.3);
+    box-shadow: 0 4px 20px rgba(200, 16, 46, 0.3);
     display: flex;
     flex-direction: column;
     gap: var(--admin-spacing-lg);
@@ -257,8 +260,8 @@
 
 /* Info Cards */
 .admin-info-card {
-    background: linear-gradient(135deg, rgba(0, 102, 204, 0.08) 0%, rgba(102, 126, 234, 0.08) 100%);
-    border: 2px solid rgba(0, 102, 204, 0.15);
+    background: linear-gradient(135deg, rgba(200, 16, 46, 0.08) 0%, rgba(200, 16, 46, 0.04) 100%);
+    border: 2px solid rgba(200, 16, 46, 0.15);
     border-radius: var(--admin-border-radius);
     padding: var(--admin-spacing-xl);
     margin-bottom: var(--admin-spacing-xl);
@@ -267,7 +270,7 @@
 
 .admin-info-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(0, 102, 204, 0.15);
+    box-shadow: 0 6px 20px rgba(200, 16, 46, 0.15);
 }
 
 .admin-info-card h3 {
@@ -339,7 +342,7 @@
 
 .admin-btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 25px rgba(0, 102, 204, 0.4);
+    box-shadow: 0 6px 25px rgba(200, 16, 46, 0.4);
 }
 
 /* Success Button */
@@ -350,20 +353,21 @@
 }
 
 .admin-btn-success:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 25px rgba(40, 167, 69, 0.4);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 22px rgba(46, 125, 50, 0.32);
 }
 
-/* Danger Button */
+/* Danger Button — exclusivo para AÇÕES DESTRUTIVAS (excluir/remover). */
 .admin-btn-danger {
-    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    background: var(--admin-action-destructive);
     color: var(--admin-text-inverse);
     box-shadow: var(--admin-shadow-danger);
 }
 
 .admin-btn-danger:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 25px rgba(220, 53, 69, 0.4);
+    background: var(--admin-action-destructive-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 22px rgba(200, 35, 51, 0.32);
 }
 
 /* Secondary Button */
@@ -468,7 +472,7 @@
 .admin-form-textarea:focus {
     outline: none;
     border-color: var(--admin-primary);
-    box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+    box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.1);
 }
 
 .admin-form-input::placeholder {
@@ -480,11 +484,13 @@
     min-height: 100px;
 }
 
-.admin-form-hint {
+.admin-form-hint,
+.admin-field-hint {
     display: block;
     font-size: var(--admin-font-size-xs);
     color: var(--admin-text-muted);
     margin-top: var(--admin-spacing-xs);
+    line-height: 1.5;
 }
 
 /* Checkbox and Radio */
@@ -511,18 +517,18 @@
     text-align: center;
     cursor: pointer;
     transition: all var(--admin-transition);
-    background: linear-gradient(135deg, rgba(0, 102, 204, 0.02) 0%, rgba(102, 126, 234, 0.02) 100%);
+    background: linear-gradient(135deg, rgba(200, 16, 46, 0.02) 0%, rgba(200, 16, 46, 0.02) 100%);
 }
 
 .admin-file-upload:hover {
     border-color: var(--admin-primary);
-    background: linear-gradient(135deg, rgba(0, 102, 204, 0.05) 0%, rgba(102, 126, 234, 0.05) 100%);
+    background: linear-gradient(135deg, rgba(200, 16, 46, 0.05) 0%, rgba(200, 16, 46, 0.03) 100%);
     transform: translateY(-2px);
 }
 
 .admin-file-upload.dragover {
     border-color: var(--admin-primary);
-    background: linear-gradient(135deg, rgba(0, 102, 204, 0.1) 0%, rgba(102, 126, 234, 0.1) 100%);
+    background: linear-gradient(135deg, rgba(200, 16, 46, 0.1) 0%, rgba(200, 16, 46, 0.06) 100%);
     transform: scale(1.01);
 }
 
@@ -567,7 +573,7 @@
 }
 
 .admin-table th {
-    background: linear-gradient(135deg, rgba(0, 102, 204, 0.08) 0%, rgba(102, 126, 234, 0.08) 100%);
+    background: linear-gradient(135deg, rgba(200, 16, 46, 0.08) 0%, rgba(200, 16, 46, 0.04) 100%);
     color: var(--admin-primary);
     font-weight: var(--admin-font-weight-semibold);
     font-size: var(--admin-font-size-sm);
@@ -621,8 +627,8 @@
 }
 
 .admin-nav-link:hover {
-    background: rgba(0, 102, 204, 0.08);
-    border-color: rgba(0, 102, 204, 0.15);
+    background: rgba(200, 16, 46, 0.08);
+    border-color: rgba(200, 16, 46, 0.15);
     color: var(--admin-primary);
     transform: translateX(4px);
 }
@@ -809,27 +815,27 @@
 }
 
 .admin-alert-success {
-    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
-    color: #155724;
-    border: 2px solid var(--admin-success);
+    background: var(--admin-success-light);
+    color: var(--admin-success-dark);
+    border-left: 4px solid var(--admin-success);
 }
 
 .admin-alert-error {
-    background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
-    color: #721c24;
-    border: 2px solid var(--admin-danger);
+    background: var(--admin-danger-light);
+    color: var(--admin-danger-dark);
+    border-left: 4px solid var(--admin-danger);
 }
 
 .admin-alert-warning {
-    background: linear-gradient(135deg, #fff3cd 0%, #ffeeba 100%);
-    color: #856404;
-    border: 2px solid var(--admin-warning);
+    background: var(--admin-warning-light);
+    color: var(--admin-warning-dark);
+    border-left: 4px solid var(--admin-warning);
 }
 
 .admin-alert-info {
-    background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
-    color: #0c5460;
-    border: 2px solid var(--admin-info);
+    background: var(--admin-info-light);
+    color: var(--admin-info);
+    border-left: 4px solid var(--admin-info);
 }
 
 /* ============================================
@@ -845,23 +851,28 @@
 }
 
 .admin-badge-primary {
-    background: rgba(0, 102, 204, 0.1);
+    background: rgba(200, 16, 46, 0.1);
     color: var(--admin-primary);
 }
 
 .admin-badge-success {
-    background: rgba(40, 167, 69, 0.1);
-    color: var(--admin-success);
+    background: var(--admin-success-light);
+    color: var(--admin-success-dark);
 }
 
 .admin-badge-danger {
-    background: rgba(220, 53, 69, 0.1);
-    color: var(--admin-danger);
+    background: var(--admin-danger-light);
+    color: var(--admin-danger-dark);
 }
 
 .admin-badge-warning {
-    background: rgba(255, 193, 7, 0.15);
-    color: #856404;
+    background: var(--admin-warning-light);
+    color: var(--admin-warning-dark);
+}
+
+.admin-badge-neutral {
+    background: var(--admin-gray-100);
+    color: var(--admin-gray-700);
 }
 
 /* ============================================
@@ -870,7 +881,7 @@
 .admin-progress {
     width: 100%;
     height: 12px;
-    background: rgba(0, 102, 204, 0.1);
+    background: rgba(200, 16, 46, 0.1);
     border-radius: 20px;
     overflow: hidden;
     box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -926,7 +937,7 @@
 .admin-search-box input:focus {
     outline: none;
     border-color: var(--admin-primary);
-    box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+    box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.1);
 }
 
 .admin-search-box .search-icon {
@@ -1088,6 +1099,58 @@
 .admin-gap-sm { gap: var(--admin-spacing-sm) !important; }
 .admin-gap-md { gap: var(--admin-spacing-md) !important; }
 .admin-gap-lg { gap: var(--admin-spacing-lg) !important; }
+
+/* ============================================
+   EXCEL ADMIN — SEARCH BAR (acima das tabelas)
+   ============================================ */
+.excel-search-bar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #ffffff;
+    border: 1px solid var(--admin-border-color);
+    border-radius: var(--admin-border-radius);
+    padding: 10px 14px 10px 40px;
+    margin: 16px 0 4px;
+    box-shadow: var(--admin-shadow-sm);
+    transition: all var(--admin-transition);
+}
+
+.excel-search-bar:focus-within {
+    border-color: var(--admin-primary);
+    box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.1);
+}
+
+.excel-search-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--admin-text-muted);
+    font-size: 14px;
+}
+
+.excel-search-bar input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: var(--admin-font-family);
+    font-size: var(--admin-font-size-base);
+    color: var(--admin-text-primary);
+}
+
+.excel-search-bar input::placeholder {
+    color: var(--admin-text-muted);
+}
+
+.excel-search-count {
+    flex-shrink: 0;
+    font-size: var(--admin-font-size-sm);
+    color: var(--admin-text-secondary);
+    font-variant-numeric: tabular-nums;
+}
 
 /* ============================================
    RESPONSIVE

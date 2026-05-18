@@ -35,13 +35,17 @@ window.PortalAdmin = {
             document.getElementById('overlay').classList.add('show');
             document.getElementById('loginUsername').focus();
         } else {
-            this.openAdminPanel();
+            // Migração drawer → página dedicada: o botão "Configurações" agora
+            // navega para /admin. O drawer (openAdminPanel) ainda existe como
+            // fallback para chamadas legadas, mas não é mais o caminho principal.
+            window.location.href = '/admin#/paginas';
         }
     },
 
     openAdminPanel() {
         const panel = document.getElementById('adminPanel');
         panel.classList.add('show');
+        panel.setAttribute('aria-hidden', 'false');
         if (window.PortalUI && typeof window.PortalUI.syncOverlayState === 'function') {
             window.PortalUI.syncOverlayState();
         } else {
@@ -80,10 +84,26 @@ window.PortalAdmin = {
         }
         
         document.getElementById('overlay').onclick = () => this.closeAdminPanel();
+
+        // Esc fecha o painel — registrado uma única vez.
+        if (!this._escListenerInstalled) {
+            this._escListenerInstalled = true;
+            document.addEventListener('keydown', (e) => {
+                if (e.key !== 'Escape') return;
+                const panel = document.getElementById('adminPanel');
+                if (!panel || !panel.classList.contains('show')) return;
+                // Não fecha se houver modal de confirmação ou modal de form aberto.
+                if (document.querySelector('.admin-confirm-overlay')) return;
+                if (document.getElementById('adminModalOverlay')) return;
+                this.closeAdminPanel();
+            });
+        }
     },
 
     closeAdminPanel() {
-        document.getElementById('adminPanel').classList.remove('show');
+        const panel = document.getElementById('adminPanel');
+        panel.classList.remove('show');
+        panel.setAttribute('aria-hidden', 'true');
         if (window.PortalUI && typeof window.PortalUI.syncOverlayState === 'function') {
             window.PortalUI.syncOverlayState();
         } else {
@@ -204,75 +224,122 @@ window.PortalAdmin = {
         container.innerHTML = '';
 
         if (pages.length === 0) {
-            container.innerHTML = '<div style="text-align:center;color:#999;padding:24px;">Nenhuma página encontrada.</div>';
+            container.innerHTML = '<div class="admin-placeholder">Nenhuma página encontrada.</div>';
             return;
         }
 
-        pages.forEach((page, index) => {
-            const item = document.createElement('div');
-            item.className = 'menu-list-item';
+        // Drag-and-drop só faz sentido para páginas que aparecem no Acesso Rápido
+        // — a ordem controla os cards na home. Para "Outras páginas" (não-home),
+        // a ordem é irrelevante. Também desligado quando há filtro ativo (índices
+        // visuais não corresponderiam à lista real).
+        const dragEnabled = !filter;
 
-            const infoDiv = document.createElement('div');
-            infoDiv.style.cssText = 'flex:1;min-width:0;';
+        const quickAccessPages = pages.filter(p => p.showInHome !== false);
+        const otherPages = pages.filter(p => p.showInHome === false);
 
-            let badges = '';
-            if (page.showInHome !== false) badges += '<span class="page-list-badge badge-blue">HOME</span>';
-            if (page.icon) badges += '<span class="page-list-badge badge-blue" title="Tem ícone personalizado">🎨</span>';
-            if (page.redirectPowerBIUrl && page.redirectEmails) badges += '<span class="page-list-badge badge-purple">REDIRECT</span>';
-            const menuLinks = this._countMenuLinksToPage(page.id);
-            if (menuLinks > 0) badges += `<span class="page-list-badge badge-green" title="${menuLinks} item(ns) do menu apontam para esta página">${menuLinks}× menu</span>`;
+        // ---------- Seção 1: Acesso Rápido (ordenável) ----------
+        const quickSection = document.createElement('section');
+        quickSection.className = 'pages-section';
+        quickSection.innerHTML = `
+            <header class="pages-section-head">
+                <h2><i class="fas fa-bolt" aria-hidden="true"></i> Acesso rápido <span class="pages-section-count">${quickAccessPages.length}</span></h2>
+                <p>Aparecem como cards na home do portal. ${dragEnabled ? 'Arraste pelo <strong>⠿</strong> para reordenar.' : 'A reordenação é desativada quando há um filtro ativo.'}</p>
+            </header>
+            <div class="menu-list pages-section-list" id="pagesListQuickAccess"></div>
+        `;
+        container.appendChild(quickSection);
+        const quickList = quickSection.querySelector('#pagesListQuickAccess');
+        if (quickAccessPages.length === 0) {
+            quickList.innerHTML = '<div class="admin-placeholder">Nenhuma página marcada para o Acesso Rápido. Edite uma página e marque <em>"Mostrar na tela inicial"</em>.</div>';
+        } else {
+            quickAccessPages.forEach(page => quickList.appendChild(this._buildPageRow(page, { draggable: dragEnabled })));
+        }
 
-            infoDiv.innerHTML = `
-                <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:3px;">
-                    <strong>${this._escHtml(page.title || 'Sem título')}</strong>
-                    ${badges}
-                </div>
-                <small style="color:var(--text-secondary);">${this._escHtml(page.subtitle || 'Sem subtítulo')}</small>
-            `;
+        // ---------- Seção 2: Outras páginas (não ordenável) ----------
+        const otherSection = document.createElement('section');
+        otherSection.className = 'pages-section';
+        otherSection.innerHTML = `
+            <header class="pages-section-head">
+                <h2><i class="fas fa-folder" aria-hidden="true"></i> Outras páginas <span class="pages-section-count">${otherPages.length}</span></h2>
+                <p>Não aparecem na home. Acessíveis pelo menu lateral ou por links diretos.</p>
+            </header>
+            <div class="menu-list pages-section-list" id="pagesListOther"></div>
+        `;
+        container.appendChild(otherSection);
+        const otherList = otherSection.querySelector('#pagesListOther');
+        if (otherPages.length === 0) {
+            otherList.innerHTML = '<div class="admin-placeholder">Nenhuma página fora do Acesso Rápido.</div>';
+        } else {
+            otherPages.forEach(page => otherList.appendChild(this._buildPageRow(page, { draggable: false })));
+        }
 
-            const actionsDiv = document.createElement('div');
-            actionsDiv.className = 'menu-list-item-actions';
-            actionsDiv.style.flexShrink = '0';
+        if (dragEnabled && quickAccessPages.length > 1) this._initPagesDragDrop(quickList);
+    },
 
-            const isFirst = index === 0;
-            const isLast = index === (pages.length - 1);
+    // Helper que constrói uma linha de página. Extraído para ser usado pelas duas seções.
+    _buildPageRow(page, { draggable }) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'menu-item-wrapper';
+        wrapper.dataset.id = String(page.id);
+        if (draggable) wrapper.draggable = true;
 
-            const upBtn = document.createElement('button');
-            upBtn.className = 'btn-small btn-move';
-            upBtn.title = 'Mover para cima';
-            upBtn.textContent = '↑';
-            upBtn.disabled = isFirst;
-            upBtn.dataset.pageMove = page.id;
-            upBtn.addEventListener('click', () => this.movePageUp(page.id));
+        const item = document.createElement('div');
+        item.className = 'menu-list-item';
 
-            const downBtn = document.createElement('button');
-            downBtn.className = 'btn-small btn-move';
-            downBtn.title = 'Mover para baixo';
-            downBtn.textContent = '↓';
-            downBtn.disabled = isLast;
-            downBtn.dataset.pageMove = page.id;
-            downBtn.addEventListener('click', () => this.movePageDown(page.id));
+        if (draggable) {
+            const handle = document.createElement('span');
+            handle.className = 'menu-drag-handle';
+            handle.innerHTML = '<i class="fa-solid fa-grip-vertical" aria-hidden="true"></i>';
+            handle.title = 'Arrastar para reordenar';
+            item.appendChild(handle);
+        }
 
-            const editBtn = document.createElement('button');
-            editBtn.className = 'btn-small btn-edit';
-            editBtn.textContent = 'Editar';
-            editBtn.addEventListener('click', () => this.editPage(page.id));
+        const infoDiv = document.createElement('div');
+        infoDiv.style.cssText = 'flex:1;min-width:0;';
 
-            const deleteBtn = document.createElement('button');
-            deleteBtn.className = 'btn-small btn-delete';
-            deleteBtn.textContent = 'Excluir';
-            deleteBtn.addEventListener('click', () => this.deletePage(page.id));
+        let badges = '';
+        if (page.icon) badges += '<span class="page-list-badge badge-blue" title="Tem ícone personalizado">🎨</span>';
+        if (page.redirectPowerBIUrl && page.redirectEmails) badges += '<span class="page-list-badge badge-purple">REDIRECT</span>';
+        const menuLinks = this._countMenuLinksToPage(page.id);
+        if (menuLinks > 0) badges += `<span class="page-list-badge badge-green" title="${menuLinks} item(ns) do menu apontam para esta página">${menuLinks}× menu</span>`;
 
-            actionsDiv.appendChild(upBtn);
-            actionsDiv.appendChild(downBtn);
-            actionsDiv.appendChild(editBtn);
-            actionsDiv.appendChild(deleteBtn);
-            this.addTutorialButtonToPage(page.id, actionsDiv);
+        infoDiv.innerHTML = `
+            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:3px;">
+                <strong>${this._escHtml(page.title || 'Sem título')}</strong>
+                ${badges}
+            </div>
+            <small style="color:var(--text-secondary);">${this._escHtml(page.subtitle || 'Sem subtítulo')}</small>
+        `;
 
-            item.appendChild(infoDiv);
-            item.appendChild(actionsDiv);
-            container.appendChild(item);
-        });
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'menu-list-item-actions';
+        actionsDiv.style.flexShrink = '0';
+
+        const editBtn = document.createElement('button');
+        editBtn.className = 'btn-small btn-edit';
+        editBtn.textContent = 'Editar';
+        editBtn.addEventListener('click', () => this.editPage(page.id));
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'btn-small btn-delete';
+        deleteBtn.textContent = 'Excluir';
+        deleteBtn.addEventListener('click', () => this.deletePage(page.id));
+
+        actionsDiv.appendChild(editBtn);
+        actionsDiv.appendChild(deleteBtn);
+        this.addTutorialButtonToPage(page.id, actionsDiv);
+
+        wrapper.addEventListener('mousedown', (e) => {
+            if (e.target.closest('button')) {
+                wrapper.draggable = false;
+                requestAnimationFrame(() => { if (draggable) wrapper.draggable = true; });
+            }
+        }, true);
+
+        item.appendChild(infoDiv);
+        item.appendChild(actionsDiv);
+        wrapper.appendChild(item);
+        return wrapper;
     },
 
     _escHtml(str) {
@@ -299,7 +366,10 @@ window.PortalAdmin = {
         this._closeAdminModal();
         const isEdit = !!pageId;
         const page = isEdit ? window.PortalApp.pagesData.find(p => p.id === pageId) : null;
-        if (isEdit && !page) return alert('Página não encontrada');
+        if (isEdit && !page) {
+            window.adminConfirm({ title: 'Página não encontrada', message: 'Pode ter sido removida por outra sessão.', confirmText: 'OK', cancelText: ' ' });
+            return;
+        }
 
         window.PortalApp.editingPageId = pageId || null;
 
@@ -309,60 +379,78 @@ window.PortalAdmin = {
         overlay.addEventListener('click', (e) => { e.stopPropagation(); });
 
         overlay.innerHTML = `
-        <div class="admin-modal">
+        <div class="admin-modal admin-modal--page" role="dialog" aria-modal="true" aria-labelledby="pageModalTitle">
             <div class="admin-modal-header">
-                <h3>${isEdit ? 'Editar Página' : 'Nova Página'}</h3>
-                <button class="admin-modal-close" onclick="closeAdminModal()">&times;</button>
+                <h3 id="pageModalTitle">${isEdit ? 'Editar página' : 'Nova página'}</h3>
+                <button class="admin-modal-close" onclick="closeAdminModal()" aria-label="Fechar">&times;</button>
             </div>
-            <div class="form-group">
-                <label>Título da Página</label>
-                <input type="text" id="pageNameInput" placeholder="Ex: Dashboard de Vendas">
-            </div>
-            <div class="form-group">
-                <label>Subtítulo</label>
-                <input type="text" id="pageSubtitleInput" placeholder="Ex: Análise detalhada de vendas">
-            </div>
-            <div class="form-group">
-                <label>Descrição</label>
-                <textarea id="pageDescInput" placeholder="Descrição detalhada da página..."></textarea>
-            </div>
-            <div class="form-group">
-                <label>URL do Power BI Embed</label>
-                <input type="text" id="powerbiUrlInput" placeholder="https://app.powerbi.com/view?r=...">
-            </div>
-            <div class="form-group">
-                <label>URL de Redirecionamento (opcional)</label>
-                <input type="text" id="redirectPowerbiUrlInput" placeholder="https://app.powerbi.com/view?r=...">
-                <small class="admin-help">Se preenchida, será usada apenas para os e-mails abaixo.</small>
-            </div>
-            <div class="form-group">
-                <label>E-mails Microsoft para redirecionamento (opcional)</label>
-                <textarea id="redirectEmailsInput" placeholder="usuario1@aacd.org.br&#10;usuario2@aacd.org.br" rows="3"></textarea>
-                <small class="admin-help">Um e-mail por linha. Aceita vírgula ou ponto e vírgula.</small>
-            </div>
-            <div class="form-group">
-                <label class="admin-inline-row">
-                    <input type="checkbox" id="showInHomeCheckbox">
-                    <span>Mostrar na tela inicial (Acesso Rápido)</span>
-                </label>
-            </div>
-            <div class="form-group">
-                <label>Ícone do Card (opcional)</label>
-                <div class="admin-inline-row">
-                    <input type="text" id="pageIconInput" placeholder="Ex: 📊 ou escolha abaixo" class="admin-flex-1">
-                    <div id="pageIconPreview" class="icon-preview" title="Preview do ícone"></div>
-                </div>
-                <div id="pageIconDropdown" class="admin-dropdown">
-                    <div id="pageIconDropdownToggle" class="admin-dropdown-toggle">
-                        <span id="pageIconDropdownSelected" class="admin-inline-row"><span class="admin-muted">Selecione um ícone...</span></span>
-                        <span class="admin-dropdown-caret">›</span>
+            <div class="admin-modal-body">
+                <fieldset class="admin-fieldset">
+                    <legend class="admin-legend">Conteúdo</legend>
+                    <div class="form-group">
+                        <label for="pageNameInput">Título da página <span aria-hidden="true">*</span></label>
+                        <input type="text" id="pageNameInput" placeholder="Ex: Dashboard de Vendas">
                     </div>
-                    <div id="pageIconDropdownMenu" class="admin-dropdown-menu" style="display:none;"></div>
-                </div>
+                    <div class="form-group">
+                        <label for="pageSubtitleInput">Subtítulo</label>
+                        <input type="text" id="pageSubtitleInput" placeholder="Ex: Análise detalhada de vendas">
+                    </div>
+                    <div class="form-group">
+                        <label for="pageDescInput">Descrição</label>
+                        <textarea id="pageDescInput" rows="3" placeholder="Descrição detalhada da página…"></textarea>
+                    </div>
+                </fieldset>
+
+                <fieldset class="admin-fieldset">
+                    <legend class="admin-legend">Power BI</legend>
+                    <p class="admin-fieldset-hint">URL principal do dashboard embed.</p>
+                    <div class="form-group">
+                        <label for="powerbiUrlInput">URL do Power BI Embed</label>
+                        <input type="text" id="powerbiUrlInput" placeholder="https://app.powerbi.com/view?r=…">
+                    </div>
+                </fieldset>
+
+                <fieldset class="admin-fieldset">
+                    <legend class="admin-legend">Redirecionamento condicional <span class="admin-legend-tag">(opcional)</span></legend>
+                    <p class="admin-fieldset-hint">URL alternativa usada quando o usuário Microsoft logado estiver na lista de e-mails abaixo.</p>
+                    <div class="form-group">
+                        <label for="redirectPowerbiUrlInput">URL alternativa</label>
+                        <input type="text" id="redirectPowerbiUrlInput" placeholder="https://app.powerbi.com/view?r=…">
+                    </div>
+                    <div class="form-group">
+                        <label for="redirectEmailsInput">E-mails Microsoft</label>
+                        <textarea id="redirectEmailsInput" rows="3" placeholder="usuario1@aacd.org.br&#10;usuario2@aacd.org.br"></textarea>
+                        <small class="admin-help">Um e-mail por linha. Aceita vírgula ou ponto e vírgula.</small>
+                    </div>
+                </fieldset>
+
+                <fieldset class="admin-fieldset">
+                    <legend class="admin-legend">Aparência e visibilidade</legend>
+                    <div class="form-group">
+                        <label class="admin-checkbox-row">
+                            <input type="checkbox" id="showInHomeCheckbox">
+                            <span>Mostrar na tela inicial (Acesso Rápido)</span>
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label for="pageIconInput">Ícone do card</label>
+                        <div class="admin-inline-row">
+                            <input type="text" id="pageIconInput" placeholder="Ex: 📊 ou escolha abaixo" class="admin-flex-1">
+                            <div id="pageIconPreview" class="icon-preview" title="Preview do ícone"></div>
+                        </div>
+                        <div id="pageIconDropdown" class="admin-dropdown">
+                            <div id="pageIconDropdownToggle" class="admin-dropdown-toggle">
+                                <span id="pageIconDropdownSelected" class="admin-inline-row"><span class="admin-muted">Selecione um ícone…</span></span>
+                                <span class="admin-dropdown-caret">›</span>
+                            </div>
+                            <div id="pageIconDropdownMenu" class="admin-dropdown-menu" style="display:none;"></div>
+                        </div>
+                    </div>
+                </fieldset>
             </div>
             <div class="admin-modal-actions">
                 <button class="btn" onclick="closeAdminModal()">Cancelar</button>
-                <button class="btn btn-admin" id="savePageBtn" onclick="savePage()">${isEdit ? 'Atualizar Página' : 'Salvar Página'}</button>
+                <button class="btn btn-admin" id="savePageBtn" onclick="savePage()">${isEdit ? 'Atualizar página' : 'Criar página'}</button>
             </div>
         </div>`;
 
@@ -391,7 +479,10 @@ window.PortalAdmin = {
         this._closeAdminModal();
         const isEdit = !!menuItemId;
         const item = isEdit ? this.findMenuItemById(window.PortalApp.menuData, menuItemId) : null;
-        if (isEdit && !item) return alert('Item não encontrado');
+        if (isEdit && !item) {
+            window.adminConfirm({ title: 'Item não encontrado', message: 'Pode ter sido removido por outra sessão.', confirmText: 'OK', cancelText: ' ' });
+            return;
+        }
 
         window.PortalApp.editingMenuId = menuItemId || null;
 
@@ -401,55 +492,68 @@ window.PortalAdmin = {
         overlay.addEventListener('click', (e) => { e.stopPropagation(); });
 
         overlay.innerHTML = `
-        <div class="admin-modal">
+        <div class="admin-modal admin-modal--page" role="dialog" aria-modal="true" aria-labelledby="menuModalTitle">
             <div class="admin-modal-header">
-                <h3>${isEdit ? 'Editar Item do Menu' : 'Novo Item do Menu'}</h3>
-                <button class="admin-modal-close" onclick="closeAdminModal()">&times;</button>
+                <h3 id="menuModalTitle">${isEdit ? 'Editar item do menu' : 'Novo item do menu'}</h3>
+                <button class="admin-modal-close" onclick="closeAdminModal()" aria-label="Fechar">&times;</button>
             </div>
-            <div class="form-group">
-                <label>Nome do Item</label>
-                <input type="text" id="menuItemInput" placeholder="Ex: Financeiro">
-            </div>
-            <div class="form-group">
-                <label>Tipo</label>
-                <select id="menuTypeSelect">
-                    <option value="item">Item Simples</option>
-                    <option value="category">Categoria (com subitens)</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Ícone (emoji ou classe)</label>
-                <div class="admin-inline-row">
-                    <input type="text" id="menuIconInput" placeholder="Ex: 📊 ou fas fa-chart" class="admin-flex-1">
-                    <div id="menuIconPreview" class="icon-preview" title="Preview do ícone"></div>
-                </div>
-                <div id="iconDropdown" class="admin-dropdown">
-                    <div id="iconDropdownToggle" class="admin-dropdown-toggle">
-                        <span id="iconDropdownSelected" class="admin-inline-row"><span class="admin-muted">Selecione um ícone...</span></span>
-                        <span class="admin-dropdown-caret">›</span>
+            <div class="admin-modal-body">
+                <fieldset class="admin-fieldset">
+                    <legend class="admin-legend">Identificação</legend>
+                    <div class="form-group">
+                        <label for="menuItemInput">Nome do item <span aria-hidden="true">*</span></label>
+                        <input type="text" id="menuItemInput" placeholder="Ex: Financeiro">
                     </div>
-                    <div id="iconDropdownMenu" class="admin-dropdown-menu" style="display:none;"></div>
-                </div>
-            </div>
-            <div class="form-group" id="parentSelectGroup" style="display:none;">
-                <label>Item Pai (Categoria)</label>
-                <select id="parentSelect">
-                    <option value="">Nenhum (Nível Principal)</option>
-                </select>
-                <small class="admin-help">Selecione uma categoria existente para criar subitens.</small>
-            </div>
-            <div class="form-group" id="pageSelectGroup">
-                <label>Página Associada</label>
-                <input type="hidden" id="pageSelect" value="">
-                <div class="page-search-select" id="pageSearchSelect">
-                    <input type="text" id="pageSearchInput" class="page-search-input" placeholder="Buscar página..." autocomplete="off">
-                    <div id="pageSearchResults" class="page-search-results"></div>
-                </div>
-                <small class="admin-help">Apenas itens simples podem ter páginas associadas.</small>
+                    <div class="form-group">
+                        <label for="menuTypeSelect">Tipo</label>
+                        <select id="menuTypeSelect">
+                            <option value="item">Item simples (vai para uma página)</option>
+                            <option value="category">Categoria (agrupa subitens)</option>
+                        </select>
+                    </div>
+                </fieldset>
+
+                <fieldset class="admin-fieldset">
+                    <legend class="admin-legend">Aparência</legend>
+                    <div class="form-group">
+                        <label for="menuIconInput">Ícone</label>
+                        <div class="admin-inline-row">
+                            <input type="text" id="menuIconInput" placeholder="Ex: 📊 ou fas fa-chart" class="admin-flex-1">
+                            <div id="menuIconPreview" class="icon-preview" title="Preview do ícone"></div>
+                        </div>
+                        <div id="iconDropdown" class="admin-dropdown">
+                            <div id="iconDropdownToggle" class="admin-dropdown-toggle">
+                                <span id="iconDropdownSelected" class="admin-inline-row"><span class="admin-muted">Selecione um ícone…</span></span>
+                                <span class="admin-dropdown-caret">›</span>
+                            </div>
+                            <div id="iconDropdownMenu" class="admin-dropdown-menu" style="display:none;"></div>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="admin-fieldset">
+                    <legend class="admin-legend">Hierarquia e destino</legend>
+                    <div class="form-group" id="parentSelectGroup">
+                        <label for="parentSelect">Item pai (categoria)</label>
+                        <select id="parentSelect">
+                            <option value="">Nenhum (nível principal)</option>
+                        </select>
+                        <small class="admin-help">Deixe em branco para colocar no nível principal do menu.</small>
+                    </div>
+                    <div class="form-group" id="pageSelectGroup">
+                        <label for="pageSearchInput">Página associada</label>
+                        <input type="hidden" id="pageSelect" value="">
+                        <div class="page-search-select" id="pageSearchSelect">
+                            <input type="text" id="pageSearchInput" class="page-search-input" placeholder="Buscar página…" autocomplete="off">
+                            <div id="pageSearchResults" class="page-search-results"></div>
+                        </div>
+                        <small class="admin-help">Categorias não têm página associada — agrupam subitens.</small>
+                    </div>
+                </fieldset>
             </div>
             <div class="admin-modal-actions">
                 <button class="btn" onclick="closeAdminModal()">Cancelar</button>
-                <button class="btn btn-admin" id="saveMenuBtn" onclick="saveMenuItem()">${isEdit ? 'Atualizar Item' : 'Adicionar ao Menu'}</button>
+                <button class="btn btn-admin" id="saveMenuBtn" onclick="saveMenuItem()">${isEdit ? 'Atualizar item' : 'Adicionar ao menu'}</button>
             </div>
         </div>`;
 
@@ -461,17 +565,20 @@ window.PortalAdmin = {
         this._populateModalParentSelect();
         this.updatePageSelect();
 
-        // Configurar handler do tipo
+        // Configurar handler do tipo. Tanto item quanto categoria podem ter pai
+        // (categoria pode estar dentro de outra). Mas só item simples tem página.
         const typeSelect = document.getElementById('menuTypeSelect');
-        typeSelect.addEventListener('change', function() {
-            const psg = document.getElementById('parentSelectGroup');
+        typeSelect.addEventListener('change', function () {
             const pgsg = document.getElementById('pageSelectGroup');
+            if (!pgsg) return;
             if (this.value === 'category') {
-                if (psg) psg.style.display = 'block';
-                if (pgsg) { pgsg.style.display = 'none'; const ps = document.getElementById('pageSelect'); if (ps) ps.value = ''; }
+                pgsg.style.display = 'none';
+                const ps = document.getElementById('pageSelect');
+                if (ps) ps.value = '';
+                const searchInp = document.getElementById('pageSearchInput');
+                if (searchInp) searchInp.value = '';
             } else {
-                if (psg) psg.style.display = 'block';
-                if (pgsg) pgsg.style.display = 'block';
+                pgsg.style.display = 'block';
             }
         });
 
@@ -561,18 +668,62 @@ window.PortalAdmin = {
             if (Array.isArray(window.PortalApp.menuData)) collectCategories(window.PortalApp.menuData);
         }
 
+        // Injeta barra de busca uma vez (mesmo padrão da lista de páginas).
+        if (!document.getElementById('menuSearchBar')) {
+            const bar = document.createElement('div');
+            bar.id = 'menuSearchBar';
+            bar.className = 'pages-search-bar';
+            bar.innerHTML = `
+                <i class="fa fa-search search-icon" aria-hidden="true"></i>
+                <input type="text" id="menuSearchInput" placeholder="Filtrar itens do menu..." autocomplete="off" aria-label="Filtrar itens do menu">
+                <span id="menuSearchCount" class="pages-search-count"></span>
+            `;
+            container.parentNode.insertBefore(bar, container);
+            document.getElementById('menuSearchInput').addEventListener('input', () => this.loadMenuStructure());
+        }
+
+        const filter = (document.getElementById('menuSearchInput')?.value || '').toLowerCase().trim();
+
         container.innerHTML = '';
 
         const parentSelect = document.getElementById('parentSelect');
         if (parentSelect) parentSelect.innerHTML = '<option value="">Nenhum (Nível Principal)</option>';
 
-        const rootItems = [...window.PortalApp.menuData].sort((a, b) => {
+        let rootItems = [...window.PortalApp.menuData].sort((a, b) => {
             const ao = a.order ?? 0, bo = b.order ?? 0;
             return ao !== bo ? ao - bo : a.id - b.id;
         });
 
+        // Filtragem recursiva: mantém pais cujos filhos casam, e expande categorias com match.
+        let totalAll = 0;
+        const countAll = (items) => { for (const it of items) { totalAll++; if (it.children) countAll(it.children); } };
+        countAll(rootItems);
+
+        let totalFiltered = totalAll;
+        if (filter) {
+            const filterTree = (items) => {
+                const out = [];
+                for (const it of items) {
+                    const selfMatch = (it.name || it.title || '').toLowerCase().includes(filter);
+                    const filteredChildren = it.children ? filterTree(it.children) : [];
+                    if (selfMatch || filteredChildren.length > 0) {
+                        out.push({ ...it, children: filteredChildren });
+                        if (it.type === 'category') this._collapsedCategories.delete(it.id);
+                    }
+                }
+                return out;
+            };
+            rootItems = filterTree(rootItems);
+            totalFiltered = 0;
+            const countFiltered = (items) => { for (const it of items) { totalFiltered++; if (it.children) countFiltered(it.children); } };
+            countFiltered(rootItems);
+        }
+
+        const countEl = document.getElementById('menuSearchCount');
+        if (countEl) countEl.textContent = filter ? `${totalFiltered} de ${totalAll}` : `${totalAll} item(ns)`;
+
         this._renderMenuItems(container, rootItems, 0);
-        if (parentSelect) this._populateParentSelect(parentSelect, rootItems, 0);
+        if (parentSelect) this._populateParentSelect(parentSelect, [...window.PortalApp.menuData], 0);
         this._initMenuDragDrop(container);
     },
 
@@ -749,11 +900,18 @@ window.PortalAdmin = {
         });
     },
 
-    _initMenuDragDrop(rootContainer) {
+    // Helper genérico de drag-and-drop. Usado tanto pelo Menu (siblings dentro de
+    // categorias) quanto pelas Páginas (lista flat). Quando `onReorder` retorna,
+    // chamamos com o array completo de {id, newOrder} dos siblings do container
+    // onde o drop aconteceu.
+    _initListDragDrop(rootContainer, onReorder, opts) {
+        if (rootContainer._dragDropInstalled) return;
+        rootContainer._dragDropInstalled = true;
+
+        const restrictToSameParent = !opts || opts.restrictToSameParent !== false;
         let draggedWrapper = null;
         let dropTarget = null;
         let dropPos = null;
-        const self = this;
 
         const clearDropHighlight = () => {
             rootContainer.querySelectorAll('.drag-drop-before, .drag-drop-after').forEach(el => {
@@ -765,7 +923,7 @@ window.PortalAdmin = {
 
         rootContainer.addEventListener('dragstart', (e) => {
             const wrapper = e.target.closest('.menu-item-wrapper');
-            if (!wrapper) return;
+            if (!wrapper || !rootContainer.contains(wrapper)) return;
             draggedWrapper = wrapper;
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData('text/plain', wrapper.dataset.id);
@@ -788,7 +946,7 @@ window.PortalAdmin = {
 
             const target = e.target.closest('.menu-item-wrapper');
             if (!target || target === draggedWrapper) { clearDropHighlight(); return; }
-            if (target.parentNode !== draggedWrapper.parentNode) { clearDropHighlight(); return; }
+            if (restrictToSameParent && target.parentNode !== draggedWrapper.parentNode) { clearDropHighlight(); return; }
             if (draggedWrapper.contains(target)) { clearDropHighlight(); return; }
 
             const itemEl = target.querySelector(':scope > .menu-list-item');
@@ -796,7 +954,6 @@ window.PortalAdmin = {
             const midY = rect.top + rect.height / 2;
             const pos = e.clientY < midY ? 'before' : 'after';
 
-            // So atualizar classe se mudou
             if (target === dropTarget && pos === dropPos) {
                 e.dataTransfer.dropEffect = 'move';
                 return;
@@ -818,7 +975,7 @@ window.PortalAdmin = {
             if (!draggedWrapper || !dropTarget || !dropPos) { clearDropHighlight(); return; }
 
             const dropContainer = dropTarget.parentNode;
-            if (dropContainer !== draggedWrapper.parentNode) { clearDropHighlight(); return; }
+            if (restrictToSameParent && dropContainer !== draggedWrapper.parentNode) { clearDropHighlight(); return; }
 
             if (dropPos === 'before') {
                 dropContainer.insertBefore(draggedWrapper, dropTarget);
@@ -836,8 +993,47 @@ window.PortalAdmin = {
             draggedWrapper.classList.remove('dragging-active');
             draggedWrapper = null;
 
-            self._applyMenuDragOrder(orderUpdates);
+            try { onReorder(orderUpdates); } catch (err) { console.error('[drag-drop] onReorder falhou:', err); }
         });
+    },
+
+    _initMenuDragDrop(rootContainer) {
+        this._initListDragDrop(rootContainer, (orderUpdates) => this._applyMenuDragOrder(orderUpdates));
+    },
+
+    _initPagesDragDrop(rootContainer) {
+        this._initListDragDrop(rootContainer, (orderUpdates) => this._applyPagesDragOrder(orderUpdates));
+    },
+
+    async _applyPagesDragOrder(orderUpdates) {
+        if (!window.PortalApp.authToken || !orderUpdates.length) return;
+
+        const container = document.getElementById('pagesList');
+        if (container) container.style.pointerEvents = 'none';
+
+        try {
+            await this.applyPageReorderPlan(orderUpdates);
+            // Atualiza ordem em memória sem re-render (evita "flash" visual após o drop).
+            const pageById = new Map(window.PortalApp.pagesData.map(p => [p.id, p]));
+            for (const upd of orderUpdates) {
+                const p = pageById.get(upd.id);
+                if (p) p.order = upd.newOrder;
+            }
+            this._pagesListSorted = [...window.PortalApp.pagesData].sort((a, b) => {
+                const ao = a.order ?? 0, bo = b.order ?? 0;
+                return ao !== bo ? ao - bo : a.id - b.id;
+            });
+            // Repropaga na home (Acesso Rápido) sem recarregar tudo.
+            if (window.PortalApp.selectedPageId === null && window.PortalPages) {
+                window.PortalPages.loadQuickAccessCards();
+            }
+        } catch (err) {
+            console.error('Erro ao reordenar páginas via drag:', err);
+            await window.adminConfirm({ title: 'Erro ao reordenar páginas', message: err.message || 'Erro desconhecido', confirmText: 'OK', cancelText: ' ' });
+            await window.PortalData.loadDataFromAPI();
+        } finally {
+            if (container) container.style.pointerEvents = '';
+        }
     },
 
     async _applyMenuDragOrder(orderUpdates) {
@@ -865,7 +1061,7 @@ window.PortalAdmin = {
             if (window.PortalMenu) window.PortalMenu.renderMenu();
         } catch (err) {
             console.error('Erro ao salvar ordem do menu:', err);
-            alert(`Erro ao reordenar: ${err.message}`);
+            await window.adminConfirm({ title: 'Erro ao reordenar', message: err.message || 'Erro desconhecido', confirmText: 'OK', cancelText: ' ' });
             await window.PortalData.loadDataFromAPI();
         } finally {
             if (container) container.style.pointerEvents = '';
@@ -971,6 +1167,20 @@ window.PortalAdmin = {
             return;
         }
 
+        // Injeta barra de busca uma única vez.
+        if (!document.getElementById('usersSearchBar')) {
+            const bar = document.createElement('div');
+            bar.id = 'usersSearchBar';
+            bar.className = 'pages-search-bar';
+            bar.innerHTML = `
+                <i class="fa fa-search search-icon" aria-hidden="true"></i>
+                <input type="text" id="usersSearchInput" placeholder="Filtrar por nome, usuário ou e-mail..." autocomplete="off" aria-label="Filtrar usuários">
+                <span id="usersSearchCount" class="pages-search-count"></span>
+            `;
+            container.parentNode.insertBefore(bar, container);
+            document.getElementById('usersSearchInput').addEventListener('input', () => this._renderUsersList());
+        }
+
         container.innerHTML = '<div class="admin-placeholder">Carregando usuários...</div>';
 
         try {
@@ -986,114 +1196,184 @@ window.PortalAdmin = {
             }
 
             const users = await response.json();
-
-            if (!Array.isArray(users) || users.length === 0) {
-                container.innerHTML = '<div class="admin-placeholder">Nenhum usuário encontrado.</div>';
-                return;
-            }
-
-            container.innerHTML = '';
-            users.forEach((user) => {
-                const item = document.createElement('div');
-                item.className = 'menu-list-item';
-
-                const infoDiv = document.createElement('div');
-                const title = document.createElement('strong');
-                title.textContent = user.fullName || user.username;
-                infoDiv.appendChild(title);
-
-                if (user.isAdmin) {
-                    const adminBadge = document.createElement('span');
-                    adminBadge.style.cssText = 'margin-left: 8px; padding: 2px 6px; background: #14532d; color: white; border-radius: 10px; font-size: 10px;';
-                    adminBadge.textContent = 'ADMIN';
-                    infoDiv.appendChild(adminBadge);
-                }
-
-                if (!user.isActive) {
-                    const inactiveBadge = document.createElement('span');
-                    inactiveBadge.style.cssText = 'margin-left: 8px; padding: 2px 6px; background: #6b7280; color: white; border-radius: 10px; font-size: 10px;';
-                    inactiveBadge.textContent = 'INATIVO';
-                    infoDiv.appendChild(inactiveBadge);
-                }
-
-                infoDiv.appendChild(document.createElement('br'));
-                const details = document.createElement('small');
-                details.style.color = 'var(--text-secondary)';
-                const email = user.email || 'Sem e-mail';
-                const lastLogin = user.lastLogin ? ` • Último login: ${new Date(user.lastLogin).toLocaleString('pt-BR')}` : '';
-                details.textContent = `${user.username} • ${email}${lastLogin}`;
-                infoDiv.appendChild(details);
-
-                const actionsDiv = document.createElement('div');
-                actionsDiv.className = 'menu-list-item-actions';
-                actionsDiv.innerHTML = `
-                    <button class="btn-small btn-edit" onclick="editUser(${user.id})">Editar</button>
-                    <button class="btn-small btn-delete" onclick="deleteUser(${user.id}, '${String(user.username).replace(/'/g, "\\'")}')">Excluir</button>
-                `;
-
-                item.appendChild(infoDiv);
-                item.appendChild(actionsDiv);
-                container.appendChild(item);
-            });
+            this._usersListCache = Array.isArray(users) ? users : [];
+            this._renderUsersList();
         } catch (error) {
             console.error('Erro ao carregar usuários:', error);
             container.innerHTML = `<div class="admin-placeholder">${error.message || 'Erro ao carregar usuários.'}</div>`;
         }
     },
 
-    clearUserForm() {
-        document.getElementById('userUsernameInput').value = '';
-        document.getElementById('userFullNameInput').value = '';
-        document.getElementById('userEmailInput').value = '';
-        document.getElementById('userPasswordInput').value = '';
-        document.getElementById('userIsAdminCheckbox').checked = false;
-        document.getElementById('userIsActiveCheckbox').checked = true;
-    },
+    _renderUsersList() {
+        const container = document.getElementById('usersList');
+        if (!container) return;
+        const all = this._usersListCache || [];
 
-    cancelUserEdit() {
-        window.PortalApp.editingUserId = null;
-        this.clearUserForm();
-        document.getElementById('saveUserBtn').textContent = 'Salvar Usuário';
-        document.getElementById('cancelUserEditBtn').style.display = 'none';
-    },
+        const filter = (document.getElementById('usersSearchInput')?.value || '').toLowerCase().trim();
+        const users = filter
+            ? all.filter(u =>
+                (u.username || '').toLowerCase().includes(filter) ||
+                (u.fullName || '').toLowerCase().includes(filter) ||
+                (u.email || '').toLowerCase().includes(filter))
+            : all;
 
-    async editUser(id) {
-        try {
-            const response = await fetch(`${window.PortalApp.API_URL}/users`, {
-                headers: {
-                    'Authorization': `Bearer ${window.PortalApp.authToken}`
-                }
-            });
+        const countEl = document.getElementById('usersSearchCount');
+        if (countEl) countEl.textContent = filter ? `${users.length} de ${all.length}` : `${all.length} usuário(s)`;
 
-            if (!response.ok) {
-                throw new Error('Erro ao carregar dados do usuário');
-            }
-
-            const users = await response.json();
-            const user = Array.isArray(users) ? users.find((item) => item.id === id) : null;
-            if (!user) {
-                alert('Usuário não encontrado.');
-                return;
-            }
-
-            window.PortalApp.editingUserId = id;
-            document.getElementById('userUsernameInput').value = user.username || '';
-            document.getElementById('userFullNameInput').value = user.fullName || '';
-            document.getElementById('userEmailInput').value = user.email || '';
-            document.getElementById('userPasswordInput').value = '';
-            document.getElementById('userIsAdminCheckbox').checked = !!user.isAdmin;
-            document.getElementById('userIsActiveCheckbox').checked = !!user.isActive;
-            document.getElementById('saveUserBtn').textContent = 'Atualizar Usuário';
-            document.getElementById('cancelUserEditBtn').style.display = 'inline-block';
-        } catch (error) {
-            console.error('Erro ao editar usuário:', error);
-            alert(error.message || 'Erro ao carregar usuário');
+        if (users.length === 0) {
+            container.innerHTML = `<div class="admin-placeholder">${filter ? 'Nenhum usuário corresponde ao filtro.' : 'Nenhum usuário encontrado.'}</div>`;
+            return;
         }
+
+        container.innerHTML = '';
+        users.forEach((user) => {
+            const item = document.createElement('div');
+            item.className = 'menu-list-item';
+
+            const infoDiv = document.createElement('div');
+            const title = document.createElement('strong');
+            title.textContent = user.fullName || user.username;
+            infoDiv.appendChild(title);
+
+            if (user.isAdmin) {
+                const adminBadge = document.createElement('span');
+                adminBadge.className = 'admin-pill admin-pill--admin';
+                adminBadge.textContent = 'ADMIN';
+                infoDiv.appendChild(adminBadge);
+            }
+
+            if (!user.isActive) {
+                const inactiveBadge = document.createElement('span');
+                inactiveBadge.className = 'admin-pill admin-pill--inactive';
+                inactiveBadge.textContent = 'INATIVO';
+                infoDiv.appendChild(inactiveBadge);
+            }
+
+            infoDiv.appendChild(document.createElement('br'));
+            const details = document.createElement('small');
+            details.style.color = 'var(--text-secondary)';
+            const email = user.email || 'Sem e-mail';
+            const lastLogin = user.lastLogin ? ` • Último login: ${new Date(user.lastLogin).toLocaleString('pt-BR')}` : '';
+            details.textContent = `${user.username} • ${email}${lastLogin}`;
+            infoDiv.appendChild(details);
+
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'menu-list-item-actions';
+            actionsDiv.innerHTML = `
+                <button type="button" class="btn-small btn-edit" onclick="editUser(${user.id})" aria-label="Editar usuário ${user.username}">Editar</button>
+                <button type="button" class="btn-small btn-delete" onclick="deleteUser(${user.id}, '${String(user.username).replace(/'/g, "\\'")}')" aria-label="Excluir usuário ${user.username}">Excluir</button>
+            `;
+
+            item.appendChild(infoDiv);
+            item.appendChild(actionsDiv);
+            container.appendChild(item);
+        });
+    },
+
+    // Abre modal de criar/editar usuário. Substituiu o card inline em /admin
+    // que ficava sempre visível (com 2 cards desconectados na mesma tela).
+    openUserModal(userId) {
+        if (!window.PortalApp.authToken || !window.PortalApp.isAdmin) {
+            window.adminConfirm({ title: 'Acesso restrito', message: 'Faça login como administrador para gerenciar usuários.', confirmText: 'OK', cancelText: ' ' });
+            return;
+        }
+        const isEdit = !!userId;
+        window.PortalApp.editingUserId = userId || null;
+
+        const body = `
+            <fieldset class="admin-fieldset">
+                <legend class="admin-legend">Dados de acesso</legend>
+                <div class="admin-grid-2">
+                    <div class="form-group">
+                        <label for="userUsernameInput">Usuário</label>
+                        <input type="text" id="userUsernameInput" placeholder="Ex: joao.silva" autocomplete="username">
+                    </div>
+                    <div class="form-group">
+                        <label for="userFullNameInput">Nome completo</label>
+                        <input type="text" id="userFullNameInput" placeholder="Ex: João Silva" autocomplete="name">
+                    </div>
+                    <div class="form-group">
+                        <label for="userEmailInput">E-mail</label>
+                        <input type="email" id="userEmailInput" placeholder="usuario@aacd.org.br" autocomplete="email">
+                    </div>
+                    <div class="form-group">
+                        <label for="userPasswordInput">Senha${isEdit ? '' : ' *'}</label>
+                        <input type="password" id="userPasswordInput" placeholder="${isEdit ? 'Deixe em branco para manter' : 'Obrigatória ao criar'}" autocomplete="new-password">
+                        <small class="admin-help">${isEdit ? 'Em branco mantém a senha atual.' : 'Mínimo recomendado: 8 caracteres.'}</small>
+                    </div>
+                </div>
+            </fieldset>
+            <fieldset class="admin-fieldset">
+                <legend class="admin-legend">Permissões</legend>
+                <div class="form-group admin-form-spaced">
+                    <label class="admin-checkbox-row">
+                        <input type="checkbox" id="userIsAdminCheckbox">
+                        <span>Conceder acesso administrativo ao portal</span>
+                    </label>
+                    <label class="admin-checkbox-row">
+                        <input type="checkbox" id="userIsActiveCheckbox" checked>
+                        <span>Usuário ativo</span>
+                    </label>
+                    <label class="admin-checkbox-row">
+                        <input type="checkbox" id="userAppFaturaCheckbox">
+                        <span>Acesso à aplicação <code>/fatura</code> (OCR de faturas)</span>
+                    </label>
+                </div>
+            </fieldset>
+        `;
+        const footer = `
+            <button type="button" class="btn" data-role="cancel">Cancelar</button>
+            <button type="button" class="btn btn-admin" data-role="save">${isEdit ? 'Atualizar usuário' : 'Criar usuário'}</button>
+        `;
+        const { overlay, close } = this._buildAdminModal({
+            id: 'userModal',
+            title: isEdit ? 'Editar usuário' : 'Novo usuário',
+            bodyHTML: body,
+            footerHTML: footer,
+            onClose: () => { window.PortalApp.editingUserId = null; }
+        });
+
+        overlay.querySelector('[data-role="cancel"]').addEventListener('click', close);
+        overlay.querySelector('[data-role="save"]').addEventListener('click', () => this.saveUser());
+
+        // Pré-popula em edição buscando dados frescos.
+        if (isEdit) {
+            (async () => {
+                try {
+                    const response = await fetch(`${window.PortalApp.API_URL}/users`, {
+                        headers: { 'Authorization': `Bearer ${window.PortalApp.authToken}` }
+                    });
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    const users = await response.json();
+                    const user = Array.isArray(users) ? users.find(u => u.id === userId) : null;
+                    if (!user) {
+                        await window.adminConfirm({ title: 'Usuário não encontrado', message: 'Pode ter sido removido por outra sessão.', confirmText: 'OK', cancelText: ' ' });
+                        close();
+                        return;
+                    }
+                    overlay.querySelector('#userUsernameInput').value = user.username || '';
+                    overlay.querySelector('#userFullNameInput').value = user.fullName || '';
+                    overlay.querySelector('#userEmailInput').value = user.email || '';
+                    overlay.querySelector('#userPasswordInput').value = '';
+                    overlay.querySelector('#userIsAdminCheckbox').checked = !!user.isAdmin;
+                    overlay.querySelector('#userIsActiveCheckbox').checked = !!user.isActive;
+                    overlay.querySelector('#userAppFaturaCheckbox').checked = Array.isArray(user.apps) && user.apps.includes('fatura');
+                } catch (err) {
+                    console.error('[Usuário] openUserModal load failed:', err);
+                    await window.adminConfirm({ title: 'Erro ao carregar usuário', message: err.message || 'Erro desconhecido', confirmText: 'OK', cancelText: ' ' });
+                }
+            })();
+        }
+        setTimeout(() => overlay.querySelector('#userUsernameInput')?.focus(), 50);
+    },
+
+    editUser(id) {
+        this.openUserModal(id);
     },
 
     async saveUser() {
         if (!window.PortalApp.authToken || !window.PortalApp.isAdmin) {
-            alert('Faça login como administrador para gerenciar usuários.');
+            await window.adminConfirm({ title: 'Acesso restrito', message: 'Faça login como administrador para gerenciar usuários.', confirmText: 'OK', cancelText: ' ' });
             return;
         }
 
@@ -1103,14 +1383,15 @@ window.PortalAdmin = {
         const password = document.getElementById('userPasswordInput').value;
         const isAdmin = document.getElementById('userIsAdminCheckbox').checked;
         const isActive = document.getElementById('userIsActiveCheckbox').checked;
+        const apps = [];
+        if (document.getElementById('userAppFaturaCheckbox').checked) apps.push('fatura');
 
         if (!username) {
-            alert('Informe o usuário.');
+            await window.adminConfirm({ title: 'Usuário obrigatório', message: 'Informe o nome de usuário.', confirmText: 'OK', cancelText: ' ' });
             return;
         }
-
         if (!window.PortalApp.editingUserId && !password) {
-            alert('Informe a senha para criar o usuário.');
+            await window.adminConfirm({ title: 'Senha obrigatória', message: 'Informe a senha para criar o usuário.', confirmText: 'OK', cancelText: ' ' });
             return;
         }
 
@@ -1130,52 +1411,50 @@ window.PortalAdmin = {
                         email: email || null,
                         password: password || null,
                         isAdmin,
-                        isActive
+                        isActive,
+                        apps
                     })
                 }
             );
-
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({ error: response.statusText }));
-                throw new Error(errorData.error || 'Erro ao salvar usuário');
+                throw new Error(errorData.error || errorData.message || 'Erro ao salvar usuário');
             }
-
-            this.cancelUserEdit();
+            document.getElementById('userModal')?.remove();
+            window.PortalApp.editingUserId = null;
             await this.loadUsersList();
-            alert(isEditing ? 'Usuário atualizado com sucesso!' : 'Usuário criado com sucesso!');
         } catch (error) {
-            console.error('Erro ao salvar usuário:', error);
-            alert(error.message || 'Erro ao salvar usuário');
+            console.error('[Usuário] saveUser falhou:', error);
+            await window.adminConfirm({ title: 'Erro ao salvar usuário', message: error.message || 'Erro desconhecido', confirmText: 'OK', cancelText: ' ' });
         }
     },
 
     async deleteUser(id, username) {
-        if (!confirm(`Deseja realmente remover o usuário "${username}"?`)) {
-            return;
-        }
+        const ok = await window.adminConfirm({
+            title: 'Excluir usuário',
+            message: `Deseja realmente remover o usuário "${username}"? Esta ação não pode ser desfeita.`,
+            confirmText: 'Excluir',
+            destructive: true
+        });
+        if (!ok) return;
 
         try {
             const response = await fetch(`${window.PortalApp.API_URL}/users/${id}`, {
                 method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${window.PortalApp.authToken}`
-                }
+                headers: { 'Authorization': `Bearer ${window.PortalApp.authToken}` }
             });
-
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({ error: response.statusText }));
-                throw new Error(errorData.error || 'Erro ao excluir usuário');
+                throw new Error(errorData.error || errorData.message || 'Erro ao excluir usuário');
             }
-
             if (window.PortalApp.editingUserId === id) {
-                this.cancelUserEdit();
+                document.getElementById('userModal')?.remove();
+                window.PortalApp.editingUserId = null;
             }
-
             await this.loadUsersList();
-            alert('Usuário removido com sucesso!');
         } catch (error) {
-            console.error('Erro ao excluir usuário:', error);
-            alert(error.message || 'Erro ao excluir usuário');
+            console.error('[Usuário] deleteUser falhou:', error);
+            await window.adminConfirm({ title: 'Erro ao excluir usuário', message: error.message || 'Erro desconhecido', confirmText: 'OK', cancelText: ' ' });
         }
     },
 
@@ -1208,13 +1487,13 @@ window.PortalAdmin = {
         const showInHome = document.getElementById('showInHomeCheckbox').checked;
         const rawIcon = document.getElementById('pageIconInput').value;
 
-        if (!rawTitle) { 
-            alert('Por favor, preencha o título da página'); 
-            return; 
+        if (!rawTitle) {
+            await window.adminConfirm({ title: 'Título obrigatório', message: 'Informe o título da página.', confirmText: 'OK', cancelText: ' ' });
+            return;
         }
-        if (!window.PortalApp.authToken) { 
-            alert('Faça login como administrador para salvar páginas'); 
-            return; 
+        if (!window.PortalApp.authToken) {
+            await window.adminConfirm({ title: 'Sessão expirada', message: 'Faça login como administrador para salvar páginas.', confirmText: 'OK', cancelText: ' ' });
+            return;
         }
 
         const prepared = {
@@ -1229,7 +1508,12 @@ window.PortalAdmin = {
         
         const truncatedFields = this.collectTruncationMessages(prepared);
         if (truncatedFields.length) {
-            const proceed = confirm(`Alguns campos excedem o tamanho suportado pelo banco e serão truncados: ${truncatedFields.join(', ')}.\nDeseja continuar?`);
+            const proceed = await window.adminConfirm({
+                title: 'Conteúdo será truncado',
+                message: `Alguns campos excedem o tamanho suportado pelo banco e serão cortados:\n\n${truncatedFields.join(', ')}\n\nDeseja continuar mesmo assim?`,
+                confirmText: 'Continuar',
+                cancelText: 'Cancelar'
+            });
             if (!proceed) return;
         }
 
@@ -1262,30 +1546,21 @@ window.PortalAdmin = {
             
             if (!response.ok) {
                 let bodyText = '';
-                try { 
-                    const json = await response.json(); 
-                    bodyText = json.error || JSON.stringify(json); 
-                } catch(e) { 
-                    bodyText = await response.text().catch(() => response.statusText); 
-                }
+                try { const json = await response.json(); bodyText = json.error || JSON.stringify(json); }
+                catch (_) { bodyText = await response.text().catch(() => response.statusText); }
                 console.error('savePage failed', response.status, bodyText);
-                alert(`Erro ao salvar página: ${bodyText} (status ${response.status})`);
+                await window.adminConfirm({ title: 'Erro ao salvar página', message: `${bodyText} (status ${response.status})`, confirmText: 'OK', cancelText: ' ' });
                 return;
             }
 
             this._closeAdminModal();
-
             await window.PortalData.loadDataFromAPI();
-
             if (window.PortalApp.selectedPageId === null && window.PortalPages) {
                 window.PortalPages.loadQuickAccessCards();
             }
-
-            alert('Página salva com sucesso!');
-            
         } catch (err) {
-            console.error('Erro ao finalizar salvamento de página:', err);
-            alert(`Erro ao salvar página: ${err.message || err}`);
+            console.error('[Página] savePage falhou:', err);
+            await window.adminConfirm({ title: 'Erro ao salvar página', message: err.message || String(err), confirmText: 'OK', cancelText: ' ' });
         }
     },
 
@@ -1297,14 +1572,13 @@ window.PortalAdmin = {
         const parentSelect = document.getElementById('parentSelect');
         const parentId = parentSelect ? (parentSelect.value ? parseInt(parentSelect.value) : null) : null;
 
-        if (!rawName) { 
-            alert('Por favor, preencha o nome do item'); 
-            return; 
+        if (!rawName) {
+            await window.adminConfirm({ title: 'Nome obrigatório', message: 'Informe o nome do item.', confirmText: 'OK', cancelText: ' ' });
+            return;
         }
-
-        if (!window.PortalApp.authToken) { 
-            alert('Faça login como administrador para alterar o menu'); 
-            return; 
+        if (!window.PortalApp.authToken) {
+            await window.adminConfirm({ title: 'Sessão expirada', message: 'Faça login como administrador para alterar o menu.', confirmText: 'OK', cancelText: ' ' });
+            return;
         }
 
         const prepared = {
@@ -1317,106 +1591,98 @@ window.PortalAdmin = {
             const method = window.PortalApp.editingMenuId ? 'PUT' : 'POST';
             const response = await fetch(url, {
                 method,
-                headers: { 
-                    'Authorization': `Bearer ${window.PortalApp.authToken}`, 
-                    'Content-Type': 'application/json' 
+                headers: {
+                    'Authorization': `Bearer ${window.PortalApp.authToken}`,
+                    'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ 
-                    name: prepared.name.value, 
-                    type, 
-                    parentId, 
-                    pageId: pageId ? parseInt(pageId) : null, 
-                    icon: prepared.icon.value || null 
+                body: JSON.stringify({
+                    name: prepared.name.value,
+                    type,
+                    parentId,
+                    pageId: pageId ? parseInt(pageId) : null,
+                    icon: prepared.icon.value || null
                 })
             });
-            
-            if (response.ok) {
-                this._closeAdminModal();
-                await window.PortalData.loadDataFromAPI();
-                alert(method === 'PUT' ? 'Item atualizado com sucesso!' : 'Item adicionado ao menu!');
-            } else {
+            if (!response.ok) {
                 let bodyText = '';
-                try { 
-                    const json = await response.json(); 
-                    bodyText = json.error || JSON.stringify(json); 
-                } catch(e) { 
-                    bodyText = await response.text().catch(() => response.statusText); 
-                }
-                alert(`Erro ao salvar item: ${bodyText}`);
+                try { const json = await response.json(); bodyText = json.error || JSON.stringify(json); }
+                catch (_) { bodyText = await response.text().catch(() => response.statusText); }
+                await window.adminConfirm({ title: 'Erro ao salvar item', message: bodyText, confirmText: 'OK', cancelText: ' ' });
+                return;
             }
+            this._closeAdminModal();
+            await window.PortalData.loadDataFromAPI();
         } catch (err) {
-            alert('Erro de conexão ao salvar item do menu.');
+            console.error('[Menu] saveMenuItem falhou:', err);
+            await window.adminConfirm({ title: 'Erro de conexão', message: 'Não foi possível salvar o item do menu.', confirmText: 'OK', cancelText: ' ' });
         }
     },
 
     async deletePage(id) {
-        if (!confirm('Tem certeza que deseja excluir esta página?')) return;
-        if (!window.PortalApp.authToken) { 
-            alert('Faça login como administrador para excluir páginas'); 
-            return; 
+        const ok = await window.adminConfirm({
+            title: 'Excluir página',
+            message: 'Tem certeza que deseja excluir esta página? Itens de menu que apontem para ela ficarão sem destino.',
+            confirmText: 'Excluir',
+            destructive: true
+        });
+        if (!ok) return;
+        if (!window.PortalApp.authToken) {
+            await window.adminConfirm({ title: 'Sessão expirada', message: 'Faça login como administrador para excluir páginas.', confirmText: 'OK', cancelText: ' ' });
+            return;
         }
-        
+
         try {
-            const response = await fetch(`${window.PortalApp.API_URL}/pages/${id}`, { 
-                method: 'DELETE', 
+            const response = await fetch(`${window.PortalApp.API_URL}/pages/${id}`, {
+                method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${window.PortalApp.authToken}` }
             });
-            
-            if (response.ok) { 
-                await window.PortalData.loadDataFromAPI(); 
-                alert('Página excluída!'); 
-            } else {
+            if (!response.ok) {
                 let bodyText = '';
-                try { 
-                    const json = await response.json(); 
-                    bodyText = json.error || JSON.stringify(json); 
-                } catch(e) { 
-                    bodyText = await response.text().catch(() => response.statusText); 
-                }
-                alert(`Erro ao excluir página: ${bodyText}`);
+                try { const json = await response.json(); bodyText = json.error || JSON.stringify(json); }
+                catch (_) { bodyText = await response.text().catch(() => response.statusText); }
+                await window.adminConfirm({ title: 'Erro ao excluir página', message: bodyText, confirmText: 'OK', cancelText: ' ' });
+                return;
             }
+            await window.PortalData.loadDataFromAPI();
         } catch (err) {
-            alert('Erro de conexão ao excluir página.');
+            console.error('[Página] deletePage falhou:', err);
+            await window.adminConfirm({ title: 'Erro de conexão', message: 'Não foi possível excluir a página.', confirmText: 'OK', cancelText: ' ' });
         }
     },
 
     async deleteMenuItem(id) {
-        if (!confirm('Tem certeza que deseja excluir este item?')) return;
+        const ok = await window.adminConfirm({
+            title: 'Excluir item do menu',
+            message: 'Tem certeza que deseja excluir este item? Se for uma categoria com filhos, os filhos também serão removidos.',
+            confirmText: 'Excluir',
+            destructive: true
+        });
+        if (!ok) return;
         if (!window.PortalApp.authToken) {
-            alert('Faça login como administrador para excluir itens do menu');
+            await window.adminConfirm({ title: 'Sessão expirada', message: 'Faça login como administrador para excluir itens.', confirmText: 'OK', cancelText: ' ' });
             return;
         }
-        
+
         try {
-            const response = await fetch(`${window.PortalApp.API_URL}/menu/${id}`, { 
-                method: 'DELETE', 
+            const response = await fetch(`${window.PortalApp.API_URL}/menu/${id}`, {
+                method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${window.PortalApp.authToken}` }
             });
-            
-            if (response.ok) { 
-                await window.PortalData.loadDataFromAPI(); 
-                alert('Item excluído com sucesso!'); 
-            } else {
+            if (!response.ok) {
                 let errorMessage = 'Erro desconhecido';
-                try { 
-                    const errorData = await response.json(); 
-                    errorMessage = errorData.error || errorData.message || JSON.stringify(errorData);
-                } catch(e) { 
-                    errorMessage = await response.text().catch(() => `Status ${response.status}: ${response.statusText}`);
-                }
-                
-                if (response.status === 403) {
-                    alert('Acesso negado. Verifique se você está logado como administrador.');
-                } else if (response.status === 404) {
-                    alert('Item não encontrado ou já foi excluído.');
-                    await window.PortalData.loadDataFromAPI();
-                } else {
-                    alert(`Erro ao excluir item: ${errorMessage}`);
-                }
+                try { const errorData = await response.json(); errorMessage = errorData.error || errorData.message || JSON.stringify(errorData); }
+                catch (_) { errorMessage = await response.text().catch(() => `Status ${response.status}: ${response.statusText}`); }
+
+                let title = 'Erro ao excluir item';
+                if (response.status === 403) { title = 'Acesso negado'; errorMessage = 'Verifique se você está logado como administrador.'; }
+                else if (response.status === 404) { title = 'Item não encontrado'; errorMessage = 'Pode ter sido excluído por outra sessão.'; await window.PortalData.loadDataFromAPI(); }
+                await window.adminConfirm({ title, message: errorMessage, confirmText: 'OK', cancelText: ' ' });
+                return;
             }
+            await window.PortalData.loadDataFromAPI();
         } catch (err) {
-            console.error('Network error deleting menu item:', err);
-            alert('Erro de conexão ao excluir item do menu.');
+            console.error('[Menu] deleteMenuItem falhou:', err);
+            await window.adminConfirm({ title: 'Erro de conexão', message: 'Não foi possível excluir o item do menu.', confirmText: 'OK', cancelText: ' ' });
         }
     },
 
@@ -1430,88 +1696,6 @@ window.PortalAdmin = {
 
     cancelMenuEdit() {
         this._closeAdminModal();
-    },
-
-    async movePageUp(id) {
-        await this.movePage(id, -1);
-    },
-
-    async movePageDown(id) {
-        await this.movePage(id, +1);
-    },
-
-    async movePage(id, direction) {
-        if (!window.PortalApp.authToken) { 
-            alert('Faça login como administrador'); 
-            return; 
-        }
-        
-        const pg = window.PortalApp.pagesData.find(p => p.id === id);
-        if (!pg) { 
-            alert('Página não encontrada'); 
-            return; 
-        }
-
-        const plan = this.computePageReorderPlan(window.PortalApp.pagesData, id, direction);
-        if (!plan) return;
-
-        const btns = document.querySelectorAll(`[data-page-move="${id}"]`);
-        btns.forEach(b => {
-            b.disabled = true;
-            b.textContent = '⏳';
-        });
-
-        try {
-            await this.applyPageReorderPlan(plan);
-            await window.PortalData.loadDataFromAPI();
-            if (window.PortalApp.selectedPageId === null && window.PortalPages) {
-                window.PortalPages.loadQuickAccessCards();
-            }
-        } catch (err) {
-            console.error('Erro ao reordenar páginas:', err);
-            alert(`Erro ao reordenar "${pg.title || 'página'}": ${err.message}`);
-            await window.PortalData.loadDataFromAPI();
-        }
-    },
-
-    async moveMenuItemUp(id) {
-        await this.moveMenuItem(id, -1);
-    },
-
-    async moveMenuItemDown(id) {
-        await this.moveMenuItem(id, +1);
-    },
-
-    async moveMenuItem(id, direction) {
-        if (!window.PortalApp.authToken) { 
-            alert('Faça login como administrador'); 
-            return; 
-        }
-        
-        const item = this.findMenuItemById(window.PortalApp.menuData, id);
-        if (!item) {
-            alert('Item não encontrado');
-            return;
-        }
-        
-        const plan = this.computeReorderPlan(window.PortalApp.menuData, id, direction);
-        if (!plan) return;
-        
-        try {
-            const buttons = document.querySelectorAll(`[onclick*="moveMenuItemUp(${id})"], [onclick*="moveMenuItemDown(${id})"]`);
-            buttons.forEach(btn => {
-                btn.disabled = true;
-                btn.textContent = '⏳';
-            });
-            
-            await this.applyReorderPlan(plan);
-            await window.PortalData.loadDataFromAPI();
-            
-        } catch (err) {
-            console.error('Error moving item:', err);
-            alert(`Erro ao reordenar item "${item.name}": ${err.message}`);
-            await window.PortalData.loadDataFromAPI();
-        }
     },
 
     computePageReorderPlan(pages, pageId, direction) {
@@ -1565,99 +1749,6 @@ window.PortalAdmin = {
         }
     },
 
-    computeReorderPlan(rootMenu, itemId, direction) {
-        const parent = this.findParentOfMenuItem(rootMenu, itemId);
-        const siblings = parent ? parent.children : rootMenu;
-        if (!Array.isArray(siblings) || siblings.length < 2) return null;
-
-        const sorted = [...siblings].sort((a, b) => {
-            const aOrder = a.order ?? 0;
-            const bOrder = b.order ?? 0;
-            if (aOrder === bOrder) {
-                return a.id - b.id;
-            }
-            return aOrder - bOrder;
-        });
-        
-        const currentIndex = sorted.findIndex(x => x.id === itemId);
-        if (currentIndex < 0) return null;
-
-        const targetIndex = currentIndex + direction;
-        if (targetIndex < 0 || targetIndex >= sorted.length) return null;
-
-        const currentItem = sorted[currentIndex];
-        const targetItem = sorted[targetIndex];
-        
-        const newOrders = [];
-        sorted.forEach((item, index) => {
-            newOrders.push({
-                id: item.id,
-                originalIndex: index,
-                newOrder: (index + 1) * 10
-            });
-        });
-        
-        const temp = newOrders[currentIndex];
-        newOrders[currentIndex] = newOrders[targetIndex];
-        newOrders[targetIndex] = temp;
-        
-        newOrders[currentIndex].newOrder = (targetIndex + 1) * 10;
-        newOrders[targetIndex].newOrder = (currentIndex + 1) * 10;
-        
-        return [
-            { id: currentItem.id, newOrder: newOrders[currentIndex].newOrder },
-            { id: targetItem.id, newOrder: newOrders[targetIndex].newOrder }
-        ];
-    },
-
-    async applyReorderPlan(plan) {
-        if (!Array.isArray(plan) || plan.length === 0) return;
-
-        try {
-            const results = [];
-            for (const update of plan) {
-                const response = await fetch(`${window.PortalApp.API_URL}/menu/${update.id}/order`, {
-                    method: 'PUT',
-                    headers: { 
-                        'Authorization': `Bearer ${window.PortalApp.authToken}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ order: update.newOrder })
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    results.push({ success: true, id: update.id, data });
-                } else {
-                    const errorText = await response.text().catch(() => 'Unknown error');
-                    results.push({ success: false, id: update.id, error: errorText });
-                }
-            }
-            
-            const failureCount = results.filter(r => !r.success).length;
-            
-            if (failureCount > 0) {
-                const failedIds = results.filter(r => !r.success).map(r => r.id);
-                throw new Error(`Falha ao atualizar alguns itens: ${failedIds.join(', ')}`);
-            }
-            
-        } catch (err) {
-            console.error('Error applying plan:', err);
-            throw err;
-        }
-    },
-
-    findParentOfMenuItem(items, id, parent = null) {
-        for (const it of items) {
-            if (it.id === id) return parent;
-            if (it.children && it.children.length) {
-                const found = this.findParentOfMenuItem(it.children, id, it);
-                if (found !== null) return found;
-            }
-        }
-        return null;
-    },
-
     prepareStringForDb(input, max) {
         if (input === undefined || input === null) return { value: '', truncated: false };
         const s = String(input);
@@ -1682,7 +1773,7 @@ window.PortalAdmin = {
     async loadDataDictionaries() {
         const container = document.getElementById('dictionariesList');
         if (!container) return;
-        container.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">Carregando dicionários...</div>';
+        container.innerHTML = '<div class="admin-placeholder">Carregando dicionários...</div>';
         try {
             const response = await fetch(`${window.PortalApp.API_URL}/data-dictionaries`, {
                 headers: window.PortalApp.authToken ? { 'Authorization': `Bearer ${window.PortalApp.authToken}` } : {}
@@ -1693,11 +1784,14 @@ window.PortalAdmin = {
         } catch (error) {
             console.error('Erro ao carregar dicionários:', error);
             container.innerHTML = `
-                <div style="text-align: center; color: #d32f2f; padding: 20px;">
-                    <div style="font-size: 48px; margin-bottom: 16px;">❌</div>
-                    <p>Erro ao carregar dicionários</p>
-                    <p style="font-size: 12px; color: #666;">${error.message}</p>
-                    <button onclick="window.PortalAdmin.loadDataDictionaries()" style="margin-top: 10px; padding: 8px 16px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer;">Tentar Novamente</button>
+                <div class="admin-placeholder">
+                    <p style="margin:0 0 6px;color:var(--admin-action-destructive,#c82333);font-weight:600;">
+                        <i class="fas fa-circle-exclamation" aria-hidden="true"></i> Erro ao carregar dicionários
+                    </p>
+                    <p style="margin:0 0 12px;font-size:12px;">${this._escHtml(error.message)}</p>
+                    <button type="button" class="btn btn-admin" onclick="window.PortalAdmin.loadDataDictionaries()">
+                        <i class="fas fa-rotate-right" aria-hidden="true"></i> Tentar novamente
+                    </button>
                 </div>
             `;
         }
@@ -1709,10 +1803,11 @@ window.PortalAdmin = {
 
         if (!Array.isArray(dictionaries) || dictionaries.length === 0) {
             container.innerHTML = `
-                <div style="text-align: center; color: #666; padding: 40px;">
-                    <div style="font-size: 48px; margin-bottom: 16px;">📚</div>
-                    <p>Nenhum dicionário encontrado</p>
-                    <button onclick="window.PortalAdmin.showCreateDictionaryForm()" class="btn-primary" style="margin-top: 10px;">Criar Primeiro Dicionário</button>
+                <div class="admin-placeholder">
+                    <p style="margin:0 0 12px;">Nenhum dicionário cadastrado.</p>
+                    <button type="button" class="btn btn-admin" onclick="window.PortalAdmin.showCreateDictionaryForm()">
+                        <i class="fas fa-plus" aria-hidden="true"></i> Criar primeiro dicionário
+                    </button>
                 </div>
             `;
             return;
@@ -1724,94 +1819,63 @@ window.PortalAdmin = {
             item.className = 'menu-list-item';
 
             const infoDiv = document.createElement('div');
-            const strong = document.createElement('strong');
-            strong.textContent = dict.name || 'Sem nome';
-            infoDiv.appendChild(strong);
+            infoDiv.style.cssText = 'flex:1;min-width:0;';
 
-            if (dict.isDefault) {
-                const badge = document.createElement('span');
-                badge.style.cssText = 'margin-left: 8px; padding: 2px 6px; background: #0066cc; color: white; border-radius: 10px; font-size: 10px;';
-                badge.textContent = 'PADRÃO';
-                infoDiv.appendChild(badge);
-            }
-            if (dict.isActive === false) {
-                const inactive = document.createElement('span');
-                inactive.style.cssText = 'margin-left: 8px; padding: 2px 6px; background: #757575; color: white; border-radius: 10px; font-size: 10px;';
-                inactive.textContent = 'INATIVO';
-                infoDiv.appendChild(inactive);
-            }
+            let badges = '';
+            if (dict.isDefault) badges += '<span class="page-list-badge badge-blue">PADRÃO</span>';
+            if (dict.isActive === false) badges += '<span class="page-list-badge badge-gray">INATIVO</span>';
 
-            infoDiv.appendChild(document.createElement('br'));
-            const small = document.createElement('small');
-            small.style.color = 'var(--text-secondary)';
             const tableCount = (typeof dict.tableCount === 'number')
                 ? dict.tableCount
                 : (Array.isArray(dict.tables) ? dict.tables.length : 0);
-            small.textContent = `${dict.description || 'Sem descrição'} • ${tableCount} tabela(s)`;
-            infoDiv.appendChild(small);
+
+            infoDiv.innerHTML = `
+                <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:3px;">
+                    <strong>${this._escHtml(dict.name || 'Sem nome')}</strong>
+                    ${badges}
+                </div>
+                <small style="color:var(--text-secondary);">${this._escHtml(dict.description || 'Sem descrição')} • ${tableCount} tabela(s)</small>
+            `;
 
             const actionsDiv = document.createElement('div');
             actionsDiv.className = 'menu-list-item-actions';
+            actionsDiv.style.flexShrink = '0';
 
-            const manageBtn = document.createElement('button');
-            manageBtn.className = 'btn-small';
-            manageBtn.style.cssText = 'background: #FF9800; color: white;';
-            manageBtn.title = 'Gerenciar Tabelas';
-            manageBtn.textContent = '📋';
-            manageBtn.addEventListener('click', (e) => {
-                e.preventDefault(); e.stopPropagation();
-                window.PortalAdmin.manageDictionaryStructure(dict.id);
-            });
+            const mkBtn = (cls, icon, label, title, handler) => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = `btn-small ${cls}`;
+                b.title = title;
+                b.setAttribute('aria-label', title);
+                b.innerHTML = `<i class="fas ${icon}" aria-hidden="true"></i><span class="btn-label">${label}</span>`;
+                b.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); handler(); });
+                return b;
+            };
 
-            const editBtn = document.createElement('button');
-            editBtn.className = 'btn-small btn-edit';
-            editBtn.title = 'Editar';
-            editBtn.textContent = '✏️';
-            editBtn.addEventListener('click', (e) => {
-                e.preventDefault(); e.stopPropagation();
-                window.PortalAdmin.editDictionary(dict.id);
-            });
-
-            actionsDiv.appendChild(manageBtn);
-            actionsDiv.appendChild(editBtn);
+            actionsDiv.appendChild(mkBtn('btn-edit', 'fa-table-list', 'Tabelas', 'Gerenciar tabelas e colunas',
+                () => window.PortalAdmin.manageDictionaryStructure(dict.id)));
+            actionsDiv.appendChild(mkBtn('btn-edit', 'fa-pen', 'Editar', 'Editar dicionário',
+                () => window.PortalAdmin.editDictionary(dict.id)));
 
             if (!dict.isDefault) {
-                const defaultBtn = document.createElement('button');
-                defaultBtn.className = 'btn-small btn-primary';
-                defaultBtn.title = 'Definir como padrão';
-                defaultBtn.textContent = '⭐';
-                defaultBtn.addEventListener('click', (e) => {
-                    e.preventDefault(); e.stopPropagation();
-                    window.PortalAdmin.setDefaultDictionary(dict.id);
-                });
-                actionsDiv.appendChild(defaultBtn);
+                actionsDiv.appendChild(mkBtn('btn-edit', 'fa-star', 'Padrão', 'Definir como dicionário padrão',
+                    () => window.PortalAdmin.setDefaultDictionary(dict.id)));
             }
 
             const toggleBtn = document.createElement('button');
+            toggleBtn.type = 'button';
             toggleBtn.className = 'btn-small btn-toggle';
             toggleBtn.dataset.active = String(!!dict.isActive);
-            
             this.setToggleButtonVisual(toggleBtn, !!dict.isActive);
-            
             toggleBtn.addEventListener('click', (e) => {
-                e.preventDefault(); 
-                e.stopPropagation();
-                console.log(`Toggle clicked for dictionary ${dict.id}, current active: ${dict.isActive}`);
+                e.preventDefault(); e.stopPropagation();
                 window.PortalAdmin.toggleDictionaryStatus(dict.id, toggleBtn);
             });
-            
             actionsDiv.appendChild(toggleBtn);
 
             if (!dict.isDefault) {
-                const deleteBtn = document.createElement('button');
-                deleteBtn.className = 'btn-small btn-delete';
-                deleteBtn.title = 'Excluir';
-                deleteBtn.textContent = '🗑️';
-                deleteBtn.addEventListener('click', (e) => {
-                    e.preventDefault(); e.stopPropagation();
-                    window.PortalAdmin.deleteDictionary(dict.id);
-                });
-                actionsDiv.appendChild(deleteBtn);
+                actionsDiv.appendChild(mkBtn('btn-delete', 'fa-trash', 'Excluir', 'Excluir dicionário',
+                    () => window.PortalAdmin.deleteDictionary(dict.id)));
             }
 
             item.appendChild(infoDiv);
@@ -1820,503 +1884,327 @@ window.PortalAdmin = {
         });
     },
 
+    // Toggle ativo/inativo: pílula clara, sem inline-style. CSS em admin-page.css.
     setToggleButtonVisual(btn, isActive) {
         if (!btn) return;
-        
         btn.dataset.active = String(!!isActive);
-        
-        if (isActive) {
-            btn.textContent = '🔴';
-            btn.title = 'Clique para desativar';
-            btn.style.background = '#f44336';
-            btn.style.color = '#fff';
-            btn.style.border = '1px solid #d32f2f';
-        } else {
-            btn.textContent = '🟢';
-            btn.title = 'Clique para ativar';
-            btn.style.background = '#4caf50';
-            btn.style.color = '#fff';
-            btn.style.border = '1px solid #388e3c';
-        }
-        
-        btn.style.cursor = 'pointer';
-        btn.style.transition = 'all 0.2s ease';
+        const labelOn = 'Clique para desativar';
+        const labelOff = 'Clique para ativar';
+        btn.title = isActive ? labelOn : labelOff;
+        btn.setAttribute('aria-label', isActive ? labelOn : labelOff);
+        btn.innerHTML = isActive
+            ? '<i class="fas fa-toggle-on" aria-hidden="true"></i><span class="btn-label">Ativo</span>'
+            : '<i class="fas fa-toggle-off" aria-hidden="true"></i><span class="btn-label">Inativo</span>';
+    },
+
+    // Helper genérico que monta um modal no padrão admin-modal-overlay/admin-modal
+    // já existente no portal.css. Substituiu 4 cópias de modais com <style> injetado.
+    // - id: identificador do overlay (pra ter um close específico depois).
+    // - title: título do modal.
+    // - bodyHTML: HTML do conteúdo (já escapado pelo chamador).
+    // - footerHTML: HTML dos botões de ação (geralmente .btn / .btn-admin).
+    // - size: 'default' (560px), 'wide' (920px) — wide é usado pelo Estrutura.
+    // - onClose: callback opcional ao fechar.
+    _buildAdminModal({ id, title, bodyHTML, footerHTML, size, onClose }) {
+        const existing = document.getElementById(id);
+        if (existing) existing.remove();
+
+        const overlay = document.createElement('div');
+        overlay.id = id;
+        overlay.className = 'admin-modal-overlay';
+        if (size === 'wide') overlay.classList.add('admin-modal-overlay--wide');
+
+        overlay.innerHTML = `
+            <div class="admin-modal" role="dialog" aria-modal="true" aria-labelledby="${id}_title">
+                <div class="admin-modal-header">
+                    <h3 id="${id}_title">${title}</h3>
+                    <button type="button" class="admin-modal-close" data-role="close" aria-label="Fechar">&times;</button>
+                </div>
+                <div class="admin-modal-body">${bodyHTML}</div>
+                <div class="admin-modal-actions">${footerHTML}</div>
+            </div>
+        `;
+
+        const close = () => {
+            overlay.remove();
+            if (typeof onClose === 'function') {
+                try { onClose(); } catch (e) { console.error('[admin-modal] onClose erro:', e); }
+            }
+        };
+        overlay.querySelector('[data-role="close"]').addEventListener('click', close);
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+
+        // Esc fecha — só esse modal, não propaga.
+        const onKey = (e) => {
+            if (e.key !== 'Escape') return;
+            // Não fecha se houver confirm overlay sobreposto.
+            if (document.querySelector('.admin-confirm-overlay')) return;
+            // Só age se este modal for o topo.
+            const overlays = Array.from(document.querySelectorAll('.admin-modal-overlay'));
+            if (overlays[overlays.length - 1] !== overlay) return;
+            e.stopPropagation();
+            close();
+        };
+        document.addEventListener('keydown', onKey);
+        overlay.addEventListener('remove', () => document.removeEventListener('keydown', onKey));
+        // Como 'remove' não dispara DOM event nativo, observamos via MutationObserver.
+        const mo = new MutationObserver(() => {
+            if (!document.body.contains(overlay)) {
+                document.removeEventListener('keydown', onKey);
+                mo.disconnect();
+            }
+        });
+        mo.observe(document.body, { childList: true, subtree: true });
+
+        document.body.appendChild(overlay);
+        return { overlay, close };
+    },
+
+    escapeHtml(text) {
+        if (text === undefined || text === null) return '';
+        const div = document.createElement('div');
+        div.textContent = String(text);
+        return div.innerHTML;
     },
 
     async manageDictionaryStructure(id) {
-        console.log('=== MANAGING DICTIONARY STRUCTURE ===');
-        console.log('Dictionary ID:', id);
-        
         try {
             this.closeDictionaryModal();
             this.closeDictionaryStructureManager();
-            
-            console.log('Fetching dictionary data from API...');
+
             const response = await fetch(`${window.PortalApp.API_URL}/data-dictionaries/${id}/full`, {
-                headers: {
-                    'Authorization': `Bearer ${window.PortalApp.authToken}`
-                }
+                headers: { 'Authorization': `Bearer ${window.PortalApp.authToken}` }
             });
-            
-            console.log('API Response status:', response.status);
-            
             if (!response.ok) {
-                const errorText = await response.text();
-                console.error('API Error:', errorText);
-                throw new Error(`Erro ao carregar dicionário: ${response.status} - ${errorText}`);
+                const errorText = await response.text().catch(() => '');
+                throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
             }
-            
             const dictData = await response.json();
-            console.log('Dictionary data loaded:', dictData);
-            
             this.showDictionaryStructureManager(dictData);
-            
         } catch (error) {
-            console.error('=== ERROR IN MANAGE DICTIONARY STRUCTURE ===');
-            console.error('Error details:', error);
-            console.error('Stack trace:', error.stack);
-            
-            let errorMessage = error.message || 'Erro desconhecido';
-            if (error.message.includes('Failed to fetch')) {
-                errorMessage = 'Erro de conexão. Verifique se o servidor está rodando.';
-            }
-            
-            alert(`Erro ao carregar estrutura do dicionário:\n${errorMessage}\n\nVerifique o console para mais detalhes.`);
+            console.error('[Dicionário] manageDictionaryStructure falhou:', error);
+            const msg = (error.message || '').includes('Failed to fetch')
+                ? 'Erro de conexão. Verifique se o servidor está rodando.'
+                : (error.message || 'Erro desconhecido');
+            await window.adminConfirm({
+                title: 'Erro ao carregar estrutura do dicionário',
+                message: msg,
+                confirmText: 'OK',
+                cancelText: ' '
+            });
         }
     },
 
     showDictionaryStructureManager(dictData) {
-        console.log('=== SHOWING STRUCTURE MANAGER ===');
         this.closeDictionaryStructureManager();
-        
-        const modal = document.createElement('div');
-        modal.id = 'dictionaryStructureModal';
-        modal.className = 'modal-overlay';
-        
-        let tablesHtml = '';
-        if (dictData.tables && dictData.tables.length > 0) {
-            dictData.tables.forEach((table) => {
-                let columnsHtml = '';
-                if (table.columns && table.columns.length > 0) {
-                    columnsHtml = `
-                        <table style="width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 12px;">
+
+        const esc = (s) => this.escapeHtml(s);
+        const tables = Array.isArray(dictData.tables) ? dictData.tables : [];
+
+        const tablesHtml = tables.length === 0
+            ? '<div class="admin-placeholder">Nenhuma tabela definida neste dicionário.</div>'
+            : tables.map(table => {
+                const colsHtml = (Array.isArray(table.columns) && table.columns.length > 0)
+                    ? `
+                        <table class="dict-cols-table">
                             <thead>
-                                <tr style="background: #f1f3f4;">
-                                    <th style="padding: 5px 8px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Coluna</th>
-                                    <th style="padding: 5px 8px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Tipo</th>
-                                    <th style="padding: 5px 8px; text-align: left; border: 1px solid #ddd; max-width: 250px; font-size: 11px;">Descrição</th>
-                                    <th style="padding: 5px 8px; text-align: center; border: 1px solid #ddd; width: 80px; font-size: 11px;">Ações</th>
+                                <tr>
+                                    <th>Coluna</th>
+                                    <th>Tipo</th>
+                                    <th>Descrição</th>
+                                    <th class="dict-cols-actions">Ações</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                ${table.columns.map((col) => {
-                                    const displayDesc = (col.description || '-').length > 80 
-                                        ? (col.description || '').substring(0, 77) + '...' 
-                                        : (col.description || '-');
-                                    
-                                    return `
+                                ${table.columns.map(col => `
                                     <tr>
-                                        <td style="padding: 4px 8px; border: 1px solid #ddd; font-weight: 600; font-size: 12px;">${this.escapeHtml(col.name)}</td>
-                                        <td style="padding: 4px 8px; border: 1px solid #ddd; font-family: monospace; background: #f8f9fa; font-size: 11px;">${this.escapeHtml(col.type)}</td>
-                                        <td style="padding: 4px 8px; border: 1px solid #ddd; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px;" title="${this.escapeHtml(col.description || '-')}">${this.escapeHtml(displayDesc)}</td>
-                                        <td style="padding: 4px 8px; border: 1px solid #ddd; text-align: center;">
-                                            <button class="btn-small btn-edit btn-edit-column" 
-                                                    data-dict-id="${dictData.id}" 
-                                                    data-table-id="${table.id}" 
-                                                    data-col-id="${col.id || 0}" 
-                                                    data-col-name="${this.escapeHtml(col.name || '')}" 
-                                                    data-col-type="${this.escapeHtml(col.type || '')}" 
-                                                    data-col-desc="${this.escapeHtml(col.description || '')}">✏️</button>
-                                            <button class="btn-small btn-delete btn-delete-column" 
-                                                    data-dict-id="${dictData.id}" 
-                                                    data-table-id="${table.id}" 
-                                                    data-col-id="${col.id || 0}" 
-                                                    data-col-name="${this.escapeHtml(col.name || '')}">🗑️</button>
+                                        <td class="dict-col-name">${esc(col.name)}</td>
+                                        <td class="dict-col-type">${esc(col.type)}</td>
+                                        <td class="dict-col-desc" title="${esc(col.description || '')}">${esc(col.description || '—')}</td>
+                                        <td class="dict-cols-actions">
+                                            <button type="button" class="btn-small btn-edit" data-action="edit-col"
+                                                    data-dict-id="${dictData.id}"
+                                                    data-table-id="${table.id}"
+                                                    data-col-id="${col.id || 0}"
+                                                    data-col-name="${esc(col.name || '')}"
+                                                    data-col-type="${esc(col.type || '')}"
+                                                    data-col-desc="${esc(col.description || '')}"
+                                                    title="Editar coluna" aria-label="Editar coluna">
+                                                <i class="fas fa-pen" aria-hidden="true"></i>
+                                            </button>
+                                            <button type="button" class="btn-small btn-delete" data-action="del-col"
+                                                    data-dict-id="${dictData.id}"
+                                                    data-table-id="${table.id}"
+                                                    data-col-id="${col.id || 0}"
+                                                    data-col-name="${esc(col.name || '')}"
+                                                    title="Excluir coluna" aria-label="Excluir coluna">
+                                                <i class="fas fa-trash" aria-hidden="true"></i>
+                                            </button>
                                         </td>
                                     </tr>
-                                `}).join('')}
+                                `).join('')}
                             </tbody>
                         </table>
-                    `;
-                } else {
-                    columnsHtml = '<p style="color: #666; font-style: italic; margin-top: 10px;">Nenhuma coluna definida</p>';
-                }
-                
-                const displayTableDesc = (table.description || '').length > 150 
-                    ? (table.description || '').substring(0, 147) + '...' 
-                    : (table.description || '');
-                
-                tablesHtml += `
-                    <div class="table-card" style="margin-bottom: 10px; border: 1px solid #ddd; border-radius: 6px; overflow: hidden;">
-                        <div class="table-header" style="background: #f8f9fa; padding: 8px 12px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center;">
-                            <div style="flex: 1; min-width: 0;">
-                                <h4 style="margin: 0; color: #333; font-size: 14px;">${this.escapeHtml(table.name)}</h4>
-                                ${table.description ? `<p style="margin: 2px 0 0 0; color: #666; font-size: 12px; overflow: hidden; text-overflow: ellipsis;" title="${this.escapeHtml(table.description)}">${this.escapeHtml(displayTableDesc)}</p>` : ''}
-                                <small style="color: #999; font-size: 11px;">ID: ${table.id} | ${table.columns ? table.columns.length : 0} coluna(s)</small>
+                    `
+                    : '<p class="dict-empty-cols">Nenhuma coluna definida.</p>';
+
+                return `
+                    <div class="dict-table-card">
+                        <div class="dict-table-head">
+                            <div class="dict-table-info">
+                                <h4>${esc(table.name)}</h4>
+                                ${table.description ? `<p title="${esc(table.description)}">${esc(table.description)}</p>` : ''}
+                                <small>${(table.columns ? table.columns.length : 0)} coluna(s)</small>
                             </div>
-                            <div style="flex-shrink: 0; margin-left: 10px; display: flex; gap: 4px;">
-                                <button class="btn-small" style="background: #0066cc; color: white; padding: 4px 8px; font-size: 11px;" onclick="event.stopPropagation(); window.PortalAdmin.showCreateColumnForm(${dictData.id}, ${table.id})">+ Coluna</button>
-                                <button class="btn-small btn-edit btn-edit-table" style="padding: 4px 8px; font-size: 11px;"
-                                        data-dict-id="${dictData.id}" 
-                                        data-table-id="${table.id}" 
-                                        data-table-name="${this.escapeHtml(table.name || '')}" 
-                                        data-table-desc="${this.escapeHtml(table.description || '')}">✏️</button>
-                                <button class="btn-small btn-delete btn-delete-table" style="padding: 4px 8px; font-size: 11px;"
-                                        data-dict-id="${dictData.id}" 
-                                        data-table-id="${table.id}" 
-                                        data-table-name="${this.escapeHtml(table.name || '')}">🗑️</button>
+                            <div class="dict-table-actions">
+                                <button type="button" class="btn-small btn-edit" data-action="add-col"
+                                        data-dict-id="${dictData.id}" data-table-id="${table.id}"
+                                        title="Adicionar coluna">
+                                    <i class="fas fa-plus" aria-hidden="true"></i><span class="btn-label">Coluna</span>
+                                </button>
+                                <button type="button" class="btn-small btn-edit" data-action="edit-table"
+                                        data-dict-id="${dictData.id}" data-table-id="${table.id}"
+                                        data-table-name="${esc(table.name || '')}"
+                                        data-table-desc="${esc(table.description || '')}"
+                                        title="Editar tabela" aria-label="Editar tabela">
+                                    <i class="fas fa-pen" aria-hidden="true"></i>
+                                </button>
+                                <button type="button" class="btn-small btn-delete" data-action="del-table"
+                                        data-dict-id="${dictData.id}" data-table-id="${table.id}"
+                                        data-table-name="${esc(table.name || '')}"
+                                        title="Excluir tabela" aria-label="Excluir tabela">
+                                    <i class="fas fa-trash" aria-hidden="true"></i>
+                                </button>
                             </div>
                         </div>
-                        <div class="table-columns" style="padding: 8px;">
-                            ${columnsHtml}
-                        </div>
+                        <div class="dict-table-cols">${colsHtml}</div>
                     </div>
                 `;
+            }).join('');
+
+        const statusBadges = `
+            <span class="page-list-badge ${dictData.isActive ? 'badge-green' : 'badge-gray'}">
+                ${dictData.isActive ? 'ATIVO' : 'INATIVO'}
+            </span>
+            ${dictData.isDefault ? '<span class="page-list-badge badge-blue">PADRÃO</span>' : ''}
+            <span class="page-list-badge badge-gray">${tables.length} tabela(s)</span>
+        `;
+
+        const body = `
+            <div class="dict-struct-summary">
+                <div class="dict-struct-meta">
+                    <strong>${esc(dictData.name)}</strong>
+                    ${dictData.description ? `<p>${esc(dictData.description)}</p>` : ''}
+                    <div class="dict-struct-badges">${statusBadges}</div>
+                </div>
+                <button type="button" class="btn btn-admin" data-action="add-table">
+                    <i class="fas fa-plus" aria-hidden="true"></i> Nova tabela
+                </button>
+            </div>
+            <h4 class="dict-struct-section-title">Tabelas e colunas</h4>
+            <div class="dict-tables-list">${tablesHtml}</div>
+        `;
+
+        const footer = `
+            <button type="button" class="btn" data-role="close-footer">Fechar</button>
+            <button type="button" class="btn btn-admin" data-action="edit-dict">
+                <i class="fas fa-pen" aria-hidden="true"></i> Editar dicionário
+            </button>
+        `;
+
+        const { overlay, close } = this._buildAdminModal({
+            id: 'dictionaryStructureModal',
+            title: `Estrutura do dicionário`,
+            bodyHTML: body,
+            footerHTML: footer,
+            size: 'wide'
+        });
+
+        // Wire-up dos botões com data-action.
+        overlay.querySelector('[data-role="close-footer"]').addEventListener('click', close);
+        overlay.querySelectorAll('[data-action]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const action = btn.dataset.action;
+                if (action === 'add-table') return window.PortalAdmin.showCreateTableForm(dictData.id);
+                if (action === 'edit-dict') return window.PortalAdmin.editDictionary(dictData.id);
+                if (action === 'add-col') return window.PortalAdmin.showCreateColumnForm(parseInt(btn.dataset.dictId), parseInt(btn.dataset.tableId));
+                if (action === 'edit-table') return window.PortalAdmin.editTable(
+                    parseInt(btn.dataset.dictId), parseInt(btn.dataset.tableId),
+                    btn.dataset.tableName, btn.dataset.tableDesc);
+                if (action === 'del-table') return window.PortalAdmin.deleteTable(
+                    parseInt(btn.dataset.dictId), parseInt(btn.dataset.tableId), btn.dataset.tableName);
+                if (action === 'edit-col') return window.PortalAdmin.editColumn(
+                    parseInt(btn.dataset.dictId), parseInt(btn.dataset.tableId), parseInt(btn.dataset.colId),
+                    btn.dataset.colName, btn.dataset.colType, btn.dataset.colDesc);
+                if (action === 'del-col') return window.PortalAdmin.deleteColumn(
+                    parseInt(btn.dataset.dictId), parseInt(btn.dataset.tableId), parseInt(btn.dataset.colId),
+                    btn.dataset.colName);
             });
-        } else {
-            tablesHtml = '<p style="text-align: center; color: #666; font-style: italic; padding: 20px;">Nenhuma tabela definida neste dicionário</p>';
+        });
+    },
+
+    _openDictionaryFormModal({ id, dict }) {
+        const isEdit = !!id;
+        const body = `
+            <fieldset class="admin-fieldset">
+                <legend class="admin-legend">Identificação</legend>
+                <div class="form-group">
+                    <label for="dictName">Nome do dicionário <span aria-hidden="true">*</span></label>
+                    <input type="text" id="dictName" placeholder="Ex: Dicionário de Atendimentos" maxlength="200">
+                </div>
+                <div class="form-group">
+                    <label for="dictDescription">Descrição</label>
+                    <textarea id="dictDescription" rows="3" placeholder="Descreva o propósito deste dicionário…" maxlength="1000"></textarea>
+                </div>
+            </fieldset>
+            <fieldset class="admin-fieldset">
+                <legend class="admin-legend">Comportamento</legend>
+                <label class="admin-checkbox-row">
+                    <input type="checkbox" id="dictIsDefault">
+                    <span>Definir como dicionário padrão</span>
+                </label>
+                <small class="admin-help">O dicionário padrão é usado pelo chatbot IA quando ativo.</small>
+            </fieldset>
+        `;
+        const footer = `
+            <button type="button" class="btn" data-role="cancel">Cancelar</button>
+            <button type="button" class="btn btn-admin" data-role="save">${isEdit ? 'Atualizar dicionário' : 'Criar dicionário'}</button>
+        `;
+        const { overlay, close } = this._buildAdminModal({
+            id: 'dictionaryModal',
+            title: isEdit ? 'Editar dicionário' : 'Novo dicionário',
+            bodyHTML: body,
+            footerHTML: footer
+        });
+        if (dict) {
+            overlay.querySelector('#dictName').value = dict.name || '';
+            overlay.querySelector('#dictDescription').value = dict.description || '';
+            overlay.querySelector('#dictIsDefault').checked = !!dict.isDefault;
         }
-        
-        modal.innerHTML = `
-            <div class="modal-content" style="max-width: 900px; max-height: 80vh;">
-                <div class="modal-header">
-                    <div>
-                        <h3 style="font-size: 16px; margin: 0;">📋 Estrutura: ${this.escapeHtml(dictData.name)}</h3>
-                        ${dictData.description ? `<p style="margin: 2px 0 0 0; color: #666; font-size: 12px;">${this.escapeHtml(dictData.description)}</p>` : ''}
-                    </div>
-                    <button type="button" class="modal-close" onclick="window.PortalAdmin.closeDictionaryStructureManager()">×</button>
-                </div>
-                <div class="modal-body">
-                    <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-                        <div style="display: flex; gap: 12px; align-items: center; padding: 8px 12px; background: #e3f2fd; border-radius: 6px; flex: 1; min-width: 200px;">
-                            <div style="font-size: 12px;">
-                                <span style="font-weight: 600; color: #1565c0;">Status:</span>
-                                <span style="color: ${dictData.isActive ? '#2e7d32' : '#d32f2f'};">
-                                    ${dictData.isActive ? '✅ Ativo' : '❌ Inativo'}
-                                </span>
-                            </div>
-                            ${dictData.isDefault ? '<div><span style="background: #0066cc; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px;">⭐ PADRÃO</span></div>' : ''}
-                            <div>
-                                <span style="font-weight: 600; color: #1565c0;">Tabelas:</span>
-                                <span>${dictData.tables ? dictData.tables.length : 0}</span>
-                            </div>
-                            <div>
-                                <span style="font-weight: 600; color: #1565c0;">ID:</span>
-                                <span>${dictData.id}</span>
-                            </div>
-                        </div>
-                        <button onclick="window.PortalAdmin.showCreateTableForm(${dictData.id})" style="background: #0066cc; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; white-space: nowrap;">+ Nova Tabela</button>
-                    </div>
-                    
-                    <h4 style="margin-bottom: 15px; color: #333;">📋 Tabelas e Colunas</h4>
-                    ${tablesHtml}
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn-secondary" onclick="window.PortalAdmin.closeDictionaryStructureManager()">Fechar</button>
-                    <button type="button" class="btn-primary" onclick="window.PortalAdmin.editDictionary(${dictData.id})">✏️ Editar Dicionário</button>
-                </div>
-            </div>
-            
-            <style>
-                #dictionaryStructureModal {
-                    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-                    background: rgba(0,0,0,0.5); display: none; align-items: center;
-                    justify-content: center; z-index: 10001;
-                }
-                #dictionaryStructureModal.show { display: flex; }
-                #dictionaryStructureModal .modal-content {
-                    background: white !important; 
-                    color: #333 !important;
-                    border-radius: 8px; width: 85%;
-                    max-width: 900px;
-                    max-height: 80vh; 
-                    overflow: hidden;
-                    display: flex;
-                    flex-direction: column;
-                    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-                }
-                #dictionaryStructureModal .modal-header {
-                    padding: 12px 16px; border-bottom: 1px solid #eee;
-                    display: flex; justify-content: space-between; align-items: center;
-                    background-color: #f8f9fa !important;
-                    flex-shrink: 0;
-                }
-                #dictionaryStructureModal .modal-header h3 { 
-                    margin: 0; 
-                    color: #333 !important;
-                    font-size: 16px;
-                }
-                #dictionaryStructureModal .modal-header p {
-                    color: #666 !important;
-                    font-size: 12px;
-                    margin: 0;
-                }
-                #dictionaryStructureModal .modal-close {
-                    background: none; border: none; font-size: 20px; cursor: pointer;
-                    color: #999 !important; padding: 0; width: 28px; height: 28px;
-                    display: flex; align-items: center; justify-content: center;
-                    border-radius: 50%;
-                }
-                #dictionaryStructureModal .modal-close:hover { 
-                    background: #f5f5f5 !important; 
-                    color: #333 !important; 
-                }
-                #dictionaryStructureModal .modal-body { 
-                    padding: 12px 16px; 
-                    background: white !important;
-                    overflow-y: auto;
-                    flex: 1;
-                    min-height: 0;
-                }
-                #dictionaryStructureModal .modal-footer {
-                    padding: 10px 16px; border-top: 1px solid #eee;
-                    display: flex; justify-content: flex-end; gap: 8px;
-                    background-color: #f8f9fa !important;
-                    flex-shrink: 0;
-                }
-                #dictionaryStructureModal .btn-primary {
-                    background: #0066cc !important; color: white !important; border: none;
-                    padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 13px;
-                }
-                #dictionaryStructureModal .btn-primary:hover { background: #0052a3 !important; }
-                #dictionaryStructureModal .btn-secondary {
-                    background: #6c757d !important; color: white !important; border: none;
-                    padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 13px;
-                }
-                #dictionaryStructureModal .btn-secondary:hover { background: #545b62 !important; }
-                #dictionaryStructureModal .table-card {
-                    background: white !important;
-                    border: 1px solid #ddd !important;
-                    margin-bottom: 8px;
-                }
-                #dictionaryStructureModal .table-header {
-                    background: #f8f9fa !important;
-                    border-bottom: 1px solid #ddd !important;
-                    padding: 8px 12px !important;
-                }
-                #dictionaryStructureModal .table-header h4 {
-                    color: #333 !important;
-                    font-size: 14px !important;
-                    margin: 0 !important;
-                }
-                #dictionaryStructureModal .table-header p {
-                    color: #666 !important;
-                    font-size: 12px !important;
-                    margin: 2px 0 0 0 !important;
-                }
-                #dictionaryStructureModal .table-header small {
-                    color: #999 !important;
-                    font-size: 11px !important;
-                }
-                #dictionaryStructureModal .table-columns {
-                    background: white !important;
-                    padding: 8px !important;
-                }
-                #dictionaryStructureModal table {
-                    background: white !important;
-                    font-size: 12px !important;
-                }
-                #dictionaryStructureModal thead {
-                    background: #f1f3f4 !important;
-                }
-                #dictionaryStructureModal th {
-                    color: #333 !important;
-                    background: #f1f3f4 !important;
-                    border: 1px solid #ddd !important;
-                    padding: 6px 8px !important;
-                    font-size: 11px !important;
-                }
-                #dictionaryStructureModal td {
-                    color: #333 !important;
-                    background: white !important;
-                    border: 1px solid #ddd !important;
-                    padding: 4px 8px !important;
-                    font-size: 12px !important;
-                }
-                #dictionaryStructureModal tr:hover td {
-                    background: #f8f9fa !important;
-                }
-                #dictionaryStructureModal .btn-small {
-                    background: white !important;
-                    color: #333 !important;
-                    border: 1px solid #ddd !important;
-                    padding: 4px 8px !important;
-                    font-size: 11px !important;
-                }
-                #dictionaryStructureModal .btn-small:hover {
-                    background: #f5f5f5 !important;
-                }
-                #dictionaryStructureModal .btn-edit {
-                    background: #2196F3 !important;
-                    color: white !important;
-                }
-                #dictionaryStructureModal .btn-delete {
-                    background: #f44336 !important;
-                    color: white !important;
-                }
-            </style>
-        `;
-        
-        document.body.appendChild(modal);
-        
-        // Adicionar event listeners após inserir no DOM
-        setTimeout(() => {
-            // Listeners para botões de editar coluna
-            modal.querySelectorAll('.btn-edit-column').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const dictId = btn.dataset.dictId;
-                    const tableId = btn.dataset.tableId;
-                    const colId = btn.dataset.colId;
-                    const colName = btn.dataset.colName;
-                    const colType = btn.dataset.colType;
-                    const colDesc = btn.dataset.colDesc;
-                    window.PortalAdmin.editColumn(dictId, tableId, colId, colName, colType, colDesc);
-                });
-            });
-            
-            // Listeners para botões de deletar coluna
-            modal.querySelectorAll('.btn-delete-column').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const dictId = btn.dataset.dictId;
-                    const tableId = btn.dataset.tableId;
-                    const colId = btn.dataset.colId;
-                    const colName = btn.dataset.colName;
-                    window.PortalAdmin.deleteColumn(dictId, tableId, colId, colName);
-                });
-            });
-            
-            // Listeners para botões de editar tabela
-            modal.querySelectorAll('.btn-edit-table').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const dictId = btn.dataset.dictId;
-                    const tableId = btn.dataset.tableId;
-                    const tableName = btn.dataset.tableName;
-                    const tableDesc = btn.dataset.tableDesc;
-                    window.PortalAdmin.editTable(dictId, tableId, tableName, tableDesc);
-                });
-            });
-            
-            // Listeners para botões de deletar tabela
-            modal.querySelectorAll('.btn-delete-table').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const dictId = btn.dataset.dictId;
-                    const tableId = btn.dataset.tableId;
-                    const tableName = btn.dataset.tableName;
-                    window.PortalAdmin.deleteTable(dictId, tableId, tableName);
-                });
-            });
-            
-            modal.classList.add('show');
-        }, 100);
+        overlay.querySelector('[data-role="cancel"]').addEventListener('click', close);
+        overlay.querySelector('[data-role="save"]').addEventListener('click', () => this.saveDictionary(id || null));
+        setTimeout(() => overlay.querySelector('#dictName')?.focus(), 50);
     },
 
-    // Função helper para escapar HTML
-    escapeHtml(text) {
-        if (!text) return '';
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    },
-
-    createDictionaryModal() {
-        const existing = document.getElementById('dictionaryModal');
-        if (existing) existing.remove();
-
-        const modal = document.createElement('div');
-        modal.id = 'dictionaryModal';
-        modal.className = 'modal-overlay';
-        modal.innerHTML = `
-            <div class="modal-content" style="max-width: 500px;">
-                <div class="modal-header">
-                    <h3 id="dictModalTitle">Dicionário</h3>
-                    <button type="button" class="modal-close" onclick="window.PortalAdmin.closeDictionaryModal()">×</button>
-                </div>
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label for="dictName">Nome do Dicionário *</label>
-                        <input type="text" id="dictName" class="form-control" placeholder="Ex: Dicionário de Atendimentos" maxlength="200">
-                    </div>
-                    <div class="form-group">
-                        <label for="dictDescription">Descrição</label>
-                        <textarea id="dictDescription" class="form-control" rows="3" placeholder="Descreva o propósito deste dicionário..." maxlength="1000"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="dictIsDefault">
-                            <span class="checkmark"></span>
-                            Definir como dicionário padrão
-                        </label>
-                        <small class="form-help">O dicionário padrão será usado pelo chatbot IA quando ativo</small>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn-secondary" onclick="window.PortalAdmin.closeDictionaryModal()">Cancelar</button>
-                    <button type="button" id="saveDictBtn" class="btn-primary">Salvar</button>
-                </div>
-            </div>
-            <style>
-                .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:10000}
-                .modal-overlay.show{display:flex}
-                .modal-content{background:#fff;border-radius:8px;width:90%;max-height:90vh;overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,.2)}
-                .modal-header{padding:20px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center}
-                .modal-header h3{margin:0;color:#333}
-                .modal-close{background:none;border:none;font-size:24px;cursor:pointer;color:#999;padding:0;width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:50%}
-                .modal-close:hover{background:#f5f5f5;color:#333}
-                .modal-body{padding:20px}
-                .modal-footer{padding:20px;border-top:1px solid #eee;display:flex;justify-content:flex-end;gap:10px}
-                .form-group{margin-bottom:20px}
-                .form-group label{display:block;margin-bottom:5px;font-weight:600;color:#333}
-                .form-control{width:100%;padding:10px;border:1px solid #ddd;border-radius:4px;font-size:14px;box-sizing:border-box}
-                .form-control:focus{outline:none;border-color:#0066cc;box-shadow:0 0 0 2px rgba(0,102,204,.2)}
-                .checkbox-label{display:flex;align-items:center;cursor:pointer;font-weight:normal!important}
-                .checkbox-label input[type="checkbox"]{margin-right:8px}
-                .form-help{display:block;margin-top:5px;font-size:12px;color:#666}
-                .btn-primary{background:#0066cc;color:#fff;border:none;padding:10px 20px;border-radius:4px;cursor:pointer;font-size:14px}
-                .btn-primary:hover{background:#0052a3}
-                .btn-secondary{background:#6c757d;color:#fff;border:none;padding:10px 20px;border-radius:4px;cursor:pointer;font-size:14px}
-                .btn-secondary:hover{background:#545b62}
-            </style>
-        `;
-        return modal;
-    },
-
-    // Criar novo dicionário
     showCreateDictionaryForm() {
         this.closeDictionaryModal();
-        const modal = this.createDictionaryModal();
-        document.body.appendChild(modal);
-        
-        document.getElementById('dictModalTitle').textContent = 'Novo Dicionário';
-        document.getElementById('dictName').value = '';
-        document.getElementById('dictDescription').value = '';
-        document.getElementById('dictIsDefault').checked = false;
-        
-        const saveBtn = document.getElementById('saveDictBtn');
-        saveBtn.textContent = 'Criar Dicionário';
-        saveBtn.onclick = () => this.saveDictionary(null);
-        
-        requestAnimationFrame(() => modal.classList.add('show'));
+        this._openDictionaryFormModal({ id: null, dict: null });
     },
 
-    // Salvar dicionário
     async saveDictionary(id) {
         const name = document.getElementById('dictName').value.trim();
         const description = document.getElementById('dictDescription').value.trim();
         const isDefault = document.getElementById('dictIsDefault').checked;
-        
+
         if (!name) {
-            alert('Nome é obrigatório');
+            await window.adminConfirm({ title: 'Nome obrigatório', message: 'Informe o nome do dicionário.', confirmText: 'OK', cancelText: ' ' });
             return;
         }
-        
+
         try {
             const url = id ? `${window.PortalApp.API_URL}/data-dictionaries/${id}` : `${window.PortalApp.API_URL}/data-dictionaries`;
             const method = id ? 'PUT' : 'POST';
-            
             const response = await fetch(url, {
                 method,
                 headers: {
@@ -2325,82 +2213,63 @@ window.PortalAdmin = {
                 },
                 body: JSON.stringify({ name, description, isDefault })
             });
-            
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Erro ao salvar');
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || errorData.error || 'Erro ao salvar');
             }
-            
             this.closeDictionaryModal();
             await this.loadDataDictionaries();
-            alert(id ? 'Dicionário atualizado!' : 'Dicionário criado!');
-            
         } catch (error) {
-            console.error('Erro ao salvar dicionário:', error);
-            alert(error.message || 'Erro ao salvar dicionário');
+            console.error('[Dicionário] saveDictionary falhou:', error);
+            await window.adminConfirm({ title: 'Erro ao salvar dicionário', message: error.message || 'Erro desconhecido', confirmText: 'OK', cancelText: ' ' });
         }
     },
 
-    // Excluir dicionário
     async deleteDictionary(id) {
-        if (!confirm('Excluir este dicionário permanentemente?')) return;
-        
+        const ok = await window.adminConfirm({
+            title: 'Excluir dicionário',
+            message: 'Excluir este dicionário e todas as suas tabelas/colunas permanentemente?',
+            confirmText: 'Excluir',
+            destructive: true
+        });
+        if (!ok) return;
+
         try {
             const response = await fetch(`${window.PortalApp.API_URL}/data-dictionaries/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${window.PortalApp.authToken}` }
             });
-            
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Erro ao excluir');
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || errorData.error || 'Erro ao excluir');
             }
-            
             await this.loadDataDictionaries();
-            alert('Dicionário excluído!');
-            
         } catch (error) {
-            console.error('Erro ao excluir dicionário:', error);
-            alert(error.message || 'Erro ao excluir dicionário');
+            console.error('[Dicionário] deleteDictionary falhou:', error);
+            await window.adminConfirm({ title: 'Erro ao excluir dicionário', message: error.message || 'Erro desconhecido', confirmText: 'OK', cancelText: ' ' });
         }
     },
 
     async editDictionary(id) {
-        console.log('Editing dictionary:', id);
         try {
             this.closeDictionaryModal();
             this.closeDictionaryStructureManager();
 
             if (!window.PortalApp?.authToken) {
-                alert('Faça login como administrador');
+                await window.adminConfirm({ title: 'Sessão expirada', message: 'Faça login como administrador.', confirmText: 'OK', cancelText: ' ' });
                 return;
             }
 
             const response = await fetch(`${window.PortalApp.API_URL}/data-dictionaries/${id}`, {
                 headers: { 'Authorization': `Bearer ${window.PortalApp.authToken}` }
             });
-            if (!response.ok) throw new Error(`Erro ao carregar dicionário (HTTP ${response.status})`);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
             const dict = await response.json();
-
-            const modal = this.createDictionaryModal();
-            document.body.appendChild(modal);
-
-            document.getElementById('dictName').value = dict.name || '';
-            document.getElementById('dictDescription').value = dict.description || '';
-            document.getElementById('dictIsDefault').checked = !!dict.isDefault;
-
-            document.getElementById('dictModalTitle').textContent = 'Editar Dicionário';
-            const saveBtn = document.getElementById('saveDictBtn');
-            if (saveBtn) {
-                saveBtn.textContent = 'Atualizar Dicionário';
-                saveBtn.onclick = () => this.saveDictionary(id);
-            }
-
-            requestAnimationFrame(() => modal.classList.add('show'));
+            this._openDictionaryFormModal({ id, dict });
         } catch (error) {
-            console.error('Erro ao editar dicionário:', error);
-            alert('Erro ao carregar dados do dicionário para edição');
+            console.error('[Dicionário] editDictionary falhou:', error);
+            await window.adminConfirm({ title: 'Erro ao carregar dicionário', message: error.message || 'Não foi possível carregar os dados.', confirmText: 'OK', cancelText: ' ' });
         }
     },
 
@@ -2409,48 +2278,40 @@ window.PortalAdmin = {
     },
 
     async setDefaultDictionary(id) {
-        if (!confirm('Deseja definir este dicionário como padrão?')) return;
-        
+        const ok = await window.adminConfirm({
+            title: 'Definir como padrão',
+            message: 'Deseja definir este dicionário como padrão? Ele passará a ser usado pelo chatbot IA.',
+            confirmText: 'Definir como padrão'
+        });
+        if (!ok) return;
+
         try {
             const response = await fetch(`${window.PortalApp.API_URL}/data-dictionaries/${id}/set-default`, {
                 method: 'PUT',
-                headers: {
-                    'Authorization': `Bearer ${window.PortalApp.authToken}`
-                }
+                headers: { 'Authorization': `Bearer ${window.PortalApp.authToken}` }
             });
-            
-            if (!response.ok) throw new Error('Erro ao definir dicionário padrão');
-            
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
             await this.loadDataDictionaries();
-            alert('Dicionário definido como padrão!');
-            
         } catch (error) {
-            console.error('Erro ao definir dicionário padrão:', error);
-            alert('Erro ao definir dicionário padrão');
+            console.error('[Dicionário] setDefaultDictionary falhou:', error);
+            await window.adminConfirm({ title: 'Erro', message: 'Não foi possível definir como padrão.', confirmText: 'OK', cancelText: ' ' });
         }
     },
 
     async toggleDictionaryStatus(id, btn) {
         if (!window.PortalApp?.authToken) {
-            alert('Faça login como administrador');
+            await window.adminConfirm({ title: 'Sessão expirada', message: 'Faça login como administrador.', confirmText: 'OK', cancelText: ' ' });
             return;
         }
-
-        if (!btn) {
-            console.error('Toggle button not found');
-            return;
-        }
+        if (!btn) return;
 
         const wasActive = btn.dataset.active === 'true';
-
         btn.disabled = true;
-        btn.textContent = '⏳';
-        btn.title = 'Alterando status...';
-        btn.style.background = '#757575';
+        btn.classList.add('is-busy');
+        const prevHTML = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i>';
 
         try {
-            console.log(`Toggling dictionary ${id} from ${wasActive ? 'active' : 'inactive'} to ${!wasActive ? 'active' : 'inactive'}`);
-            
             const response = await fetch(`${window.PortalApp.API_URL}/data-dictionaries/${id}/toggle-status`, {
                 method: 'PUT',
                 headers: {
@@ -2458,392 +2319,87 @@ window.PortalAdmin = {
                     'Content-Type': 'application/json'
                 }
             });
-
             if (!response.ok) {
-                let errorMessage = `Erro HTTP ${response.status}`;
-
-                try {
-                    const errorData = await response.json();
-                    errorMessage = errorData.message || errorData.error || errorMessage;
-                } catch (e) {
-                    errorMessage = await response.text().catch(() => errorMessage);
-                }
-                
-                if (response.status === 401 || response.status === 403) {
-                    alert('Acesso negado. Faça login como administrador novamente.');
-                } else if (response.status === 400) {
-                    alert('Não é possível desativar o dicionário padrão.');
-                } else if (response.status >= 500) {
-                    alert('Erro interno do servidor. Tente novamente em alguns segundos.');
-                } else {
-                    alert(`Erro ao alterar status: ${errorMessage}`);
-                }
-                
-                return;
+                const errorData = await response.json().catch(() => ({}));
+                let msg = errorData.message || errorData.error || `HTTP ${response.status}`;
+                if (response.status === 400) msg = 'Não é possível desativar o dicionário padrão.';
+                else if (response.status === 401 || response.status === 403) msg = 'Acesso negado. Faça login como administrador novamente.';
+                throw new Error(msg);
             }
-
-            const result = await response.json();
-            console.log('Toggle result:', result);
-
             const newActive = !wasActive;
             btn.dataset.active = String(newActive);
             this.setToggleButtonVisual(btn, newActive);
-
             await this.loadDataDictionaries();
-            
-            const statusText = newActive ? 'ativado' : 'desativado';
-            console.log(`Dictionary ${id} successfully ${statusText}`);
-
         } catch (error) {
-            console.error('Error toggling dictionary status:', error);
-            
-            if (error.name === 'TypeError' || error.message.includes('Failed to fetch')) {
-                alert('Erro de conexão. Verifique sua internet e tente novamente.');
-            } else {
-                alert('Erro inesperado. Verifique o console para mais detalhes.');
-            }
-            
-            btn.dataset.active = String(wasActive);
+            console.error('[Dicionário] toggleDictionaryStatus falhou:', error);
+            btn.innerHTML = prevHTML;
             this.setToggleButtonVisual(btn, wasActive);
-            
+            await window.adminConfirm({ title: 'Erro ao alterar status', message: error.message || 'Erro desconhecido', confirmText: 'OK', cancelText: ' ' });
         } finally {
             btn.disabled = false;
+            btn.classList.remove('is-busy');
         }
     },
 
     closeDictionaryStructureManager() {
         const modal = document.getElementById('dictionaryStructureModal');
-        if (modal) {
-            modal.classList.remove('show');
-            setTimeout(() => modal.remove(), 300);
-        }
+        if (modal) modal.remove();
     },
 
     closeDictionaryModal() {
         const modal = document.getElementById('dictionaryModal');
-        if (modal) {
-            modal.classList.remove('show');
-            setTimeout(() => modal.remove(), 300);
-        }
+        if (modal) modal.remove();
     },
 
-    // GERENCIAMENTO DE TABELAS
-    showCreateTableForm(dictionaryId) {
-        const modal = document.createElement('div');
-        modal.id = 'tableModal';
-        modal.className = 'modal-overlay';
-        modal.innerHTML = `
-            <style>
-                #tableModal, #columnModal {
-                    position: fixed !important;
-                    top: 0 !important;
-                    left: 0 !important;
-                    width: 100% !important;
-                    height: 100% !important;
-                    background: rgba(0,0,0,0.5) !important;
-                    display: flex !important;
-                    align-items: center !important;
-                    justify-content: center !important;
-                    z-index: 10002 !important;
-                }
-                #tableModal .modal-content,
-                #columnModal .modal-content {
-                    background: white;
-                    border-radius: 8px;
-                    width: 90%;
-                    max-width: 500px;
-                    max-height: 90vh;
-                    overflow-y: auto;
-                    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-                }
-                #tableModal .modal-header,
-                #columnModal .modal-header {
-                    padding: 20px;
-                    border-bottom: 1px solid #eee;
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    background-color: #f8f9fa;
-                }
-                #tableModal .modal-header h3,
-                #columnModal .modal-header h3 {
-                    margin: 0;
-                    color: #333;
-                }
-                #tableModal .modal-close,
-                #columnModal .modal-close {
-                    background: none;
-                    border: none;
-                    font-size: 24px;
-                    cursor: pointer;
-                    color: #999;
-                    padding: 0;
-                    width: 30px;
-                    height: 30px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    border-radius: 50%;
-                }
-                #tableModal .modal-close:hover,
-                #columnModal .modal-close:hover {
-                    background: #f5f5f5;
-                    color: #333;
-                }
-                #tableModal .modal-body,
-                #columnModal .modal-body {
-                    padding: 20px;
-                }
-                #tableModal .modal-footer,
-                #columnModal .modal-footer {
-                    padding: 20px;
-                    border-top: 1px solid #eee;
-                    display: flex;
-                    justify-content: flex-end;
-                    gap: 10px;
-                    background-color: #f8f9fa;
-                }
-                #tableModal .form-group,
-                #columnModal .form-group {
-                    margin-bottom: 20px;
-                }
-                #tableModal .form-group label,
-                #columnModal .form-group label {
-                    display: block;
-                    margin-bottom: 5px;
-                    font-weight: 600;
-                    color: #333;
-                }
-                #tableModal .form-control,
-                #columnModal .form-control {
-                    width: 100%;
-                    padding: 10px;
-                    border: 1px solid #ddd;
-                    border-radius: 4px;
-                    font-size: 14px;
-                    box-sizing: border-box;
-                }
-                #tableModal .form-control:focus,
-                #columnModal .form-control:focus {
-                    outline: none;
-                    border-color: #0066cc;
-                    box-shadow: 0 0 0 2px rgba(0,102,204,.2);
-                }
-                #tableModal .btn-primary,
-                #columnModal .btn-primary {
-                    background: #0066cc;
-                    color: white;
-                    border: none;
-                    padding: 10px 20px;
-                    border-radius: 4px;
-                    cursor: pointer;
-                    font-size: 14px;
-                }
-                #tableModal .btn-primary:hover,
-                #columnModal .btn-primary:hover {
-                    background: #0052a3;
-                }
-                #tableModal .btn-secondary,
-                #columnModal .btn-secondary {
-                    background: #6c757d;
-                    color: white;
-                    border: none;
-                    padding: 10px 20px;
-                    border-radius: 4px;
-                    cursor: pointer;
-                    font-size: 14px;
-                }
-                #tableModal .btn-secondary:hover,
-                #columnModal .btn-secondary:hover {
-                    background: #545b62;
-                }
-            </style>
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>Nova Tabela</h3>
-                    <button type="button" class="modal-close" onclick="document.getElementById('tableModal').remove()">×</button>
-                </div>
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label for="tableName">Nome da Tabela *</label>
-                        <input type="text" id="tableName" class="form-control" placeholder="Ex: Atendimentos" maxlength="200">
-                    </div>
-                    <div class="form-group">
-                        <label for="tableDescription">Descrição</label>
-                        <textarea id="tableDescription" class="form-control" rows="3" placeholder="Descreva o propósito desta tabela..." maxlength="1000"></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn-secondary" onclick="document.getElementById('tableModal').remove()">Cancelar</button>
-                    <button type="button" class="btn-primary" onclick="window.PortalAdmin.saveTable(${dictionaryId})">Criar Tabela</button>
-                </div>
+    // === Tabelas do dicionário ===
+    _openTableModal({ dictionaryId, tableId, name, description }) {
+        const isEdit = !!tableId;
+        const body = `
+            <div class="form-group">
+                <label for="tableName">Nome da tabela <span aria-hidden="true">*</span></label>
+                <input type="text" id="tableName" placeholder="Ex: Atendimentos" maxlength="200">
+            </div>
+            <div class="form-group">
+                <label for="tableDescription">Descrição</label>
+                <textarea id="tableDescription" rows="3" placeholder="Descreva o propósito desta tabela…" maxlength="1000"></textarea>
             </div>
         `;
-        document.body.appendChild(modal);
-        setTimeout(() => document.getElementById('tableName')?.focus(), 100);
+        const footer = `
+            <button type="button" class="btn" data-role="cancel">Cancelar</button>
+            <button type="button" class="btn btn-admin" data-role="save">${isEdit ? 'Atualizar tabela' : 'Criar tabela'}</button>
+        `;
+        const { overlay, close } = this._buildAdminModal({
+            id: 'tableModal',
+            title: isEdit ? 'Editar tabela' : 'Nova tabela',
+            bodyHTML: body,
+            footerHTML: footer
+        });
+        if (isEdit) {
+            overlay.querySelector('#tableName').value = name || '';
+            overlay.querySelector('#tableDescription').value = description || '';
+        }
+        overlay.querySelector('[data-role="cancel"]').addEventListener('click', close);
+        overlay.querySelector('[data-role="save"]').addEventListener('click', () => this.saveTable(dictionaryId, tableId));
+        setTimeout(() => overlay.querySelector('#tableName')?.focus(), 50);
+    },
+
+    showCreateTableForm(dictionaryId) {
+        this._openTableModal({ dictionaryId });
     },
 
     editTable(dictionaryId, tableId, name, description) {
-        const modal = document.createElement('div');
-        modal.id = 'tableModal';
-        modal.className = 'modal-overlay';
-        modal.innerHTML = `
-            <style>
-                #tableModal, #columnModal {
-                    position: fixed !important;
-                    top: 0 !important;
-                    left: 0 !important;
-                    width: 100% !important;
-                    height: 100% !important;
-                    background: rgba(0,0,0,0.5) !important;
-                    display: flex !important;
-                    align-items: center !important;
-                    justify-content: center !important;
-                    z-index: 10002 !important;
-                }
-                #tableModal .modal-content,
-                #columnModal .modal-content {
-                    background: white;
-                    border-radius: 8px;
-                    width: 90%;
-                    max-width: 500px;
-                    max-height: 90vh;
-                    overflow-y: auto;
-                    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-                }
-                #tableModal .modal-header,
-                #columnModal .modal-header {
-                    padding: 20px;
-                    border-bottom: 1px solid #eee;
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    background-color: #f8f9fa;
-                }
-                #tableModal .modal-header h3,
-                #columnModal .modal-header h3 {
-                    margin: 0;
-                    color: #333;
-                }
-                #tableModal .modal-close,
-                #columnModal .modal-close {
-                    background: none;
-                    border: none;
-                    font-size: 24px;
-                    cursor: pointer;
-                    color: #999;
-                    padding: 0;
-                    width: 30px;
-                    height: 30px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    border-radius: 50%;
-                }
-                #tableModal .modal-close:hover,
-                #columnModal .modal-close:hover {
-                    background: #f5f5f5;
-                    color: #333;
-                }
-                #tableModal .modal-body,
-                #columnModal .modal-body {
-                    padding: 20px;
-                }
-                #tableModal .modal-footer,
-                #columnModal .modal-footer {
-                    padding: 20px;
-                    border-top: 1px solid #eee;
-                    display: flex;
-                    justify-content: flex-end;
-                    gap: 10px;
-                    background-color: #f8f9fa;
-                }
-                #tableModal .form-group,
-                #columnModal .form-group {
-                    margin-bottom: 20px;
-                }
-                #tableModal .form-group label,
-                #columnModal .form-group label {
-                    display: block;
-                    margin-bottom: 5px;
-                    font-weight: 600;
-                    color: #333;
-                }
-                #tableModal .form-control,
-                #columnModal .form-control {
-                    width: 100%;
-                    padding: 10px;
-                    border: 1px solid #ddd;
-                    border-radius: 4px;
-                    font-size: 14px;
-                    box-sizing: border-box;
-                }
-                #tableModal .form-control:focus,
-                #columnModal .form-control:focus {
-                    outline: none;
-                    border-color: #0066cc;
-                    box-shadow: 0 0 0 2px rgba(0,102,204,.2);
-                }
-                #tableModal .btn-primary,
-                #columnModal .btn-primary {
-                    background: #0066cc;
-                    color: white;
-                    border: none;
-                    padding: 10px 20px;
-                    border-radius: 4px;
-                    cursor: pointer;
-                    font-size: 14px;
-                }
-                #tableModal .btn-primary:hover,
-                #columnModal .btn-primary:hover {
-                    background: #0052a3;
-                }
-                #tableModal .btn-secondary,
-                #columnModal .btn-secondary {
-                    background: #6c757d;
-                    color: white;
-                    border: none;
-                    padding: 10px 20px;
-                    border-radius: 4px;
-                    cursor: pointer;
-                    font-size: 14px;
-                }
-                #tableModal .btn-secondary:hover,
-                #columnModal .btn-secondary:hover {
-                    background: #545b62;
-                }
-            </style>
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>Editar Tabela</h3>
-                    <button type="button" class="modal-close" onclick="document.getElementById('tableModal').remove()">×</button>
-                </div>
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label for="tableName">Nome da Tabela *</label>
-                        <input type="text" id="tableName" class="form-control" value="${name}" maxlength="200">
-                    </div>
-                    <div class="form-group">
-                        <label for="tableDescription">Descrição</label>
-                        <textarea id="tableDescription" class="form-control" rows="3" maxlength="1000">${description}</textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn-secondary" onclick="document.getElementById('tableModal').remove()">Cancelar</button>
-                    <button type="button" class="btn-primary" onclick="window.PortalAdmin.saveTable(${dictionaryId}, ${tableId})">Atualizar</button>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-        setTimeout(() => document.getElementById('tableName')?.focus(), 100);
+        this._openTableModal({ dictionaryId, tableId, name, description });
     },
 
     async saveTable(dictionaryId, tableId) {
         const name = document.getElementById('tableName')?.value?.trim();
         const description = document.getElementById('tableDescription')?.value?.trim();
-        if (!name) { alert('Nome obrigatório'); return; }
+        if (!name) {
+            await window.adminConfirm({ title: 'Nome obrigatório', message: 'Informe o nome da tabela.', confirmText: 'OK', cancelText: ' ' });
+            return;
+        }
         try {
-            const url = tableId 
+            const url = tableId
                 ? `${window.PortalApp.API_URL}/data-dictionaries/${dictionaryId}/tables/${tableId}`
                 : `${window.PortalApp.API_URL}/data-dictionaries/${dictionaryId}/tables`;
             const response = await fetch(url, {
@@ -2855,357 +2411,103 @@ window.PortalAdmin = {
                 body: JSON.stringify({ name, description })
             });
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Erro ao salvar');
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || errorData.error || 'Erro ao salvar');
             }
-            const modal = document.getElementById('tableModal');
-            if (modal) modal.remove();
-            alert(tableId ? 'Tabela atualizada!' : 'Tabela criada!');
+            document.getElementById('tableModal')?.remove();
             await this.manageDictionaryStructure(dictionaryId);
         } catch (error) {
-            console.error('Erro:', error);
-            alert(error.message || 'Erro ao salvar');
+            console.error('[Tabela] saveTable falhou:', error);
+            await window.adminConfirm({ title: 'Erro ao salvar tabela', message: error.message || 'Erro desconhecido', confirmText: 'OK', cancelText: ' ' });
         }
     },
 
     async deleteTable(dictionaryId, tableId, tableName) {
-        if (!confirm(`Excluir "${tableName}" e suas colunas?`)) return;
+        const ok = await window.adminConfirm({
+            title: 'Excluir tabela do dicionário',
+            message: `Excluir "${tableName}" e todas as suas colunas?`,
+            confirmText: 'Excluir',
+            destructive: true
+        });
+        if (!ok) return;
         try {
             const response = await fetch(`${window.PortalApp.API_URL}/data-dictionaries/${dictionaryId}/tables/${tableId}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${window.PortalApp.authToken}` }
             });
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Erro ao excluir');
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || errorData.error || 'Erro ao excluir');
             }
-            alert('Tabela excluída!');
             await this.manageDictionaryStructure(dictionaryId);
         } catch (error) {
-            console.error('Erro:', error);
-            alert(error.message || 'Erro ao excluir');
+            console.error('[Tabela] deleteTable falhou:', error);
+            await window.adminConfirm({ title: 'Erro ao excluir tabela', message: error.message || 'Erro desconhecido', confirmText: 'OK', cancelText: ' ' });
         }
     },
 
-    // GERENCIAMENTO DE COLUNAS
-    showCreateColumnForm(dictionaryId, tableId) {
-        const modal = document.createElement('div');
-        modal.id = 'columnModal';
-        modal.className = 'modal-overlay';
-        modal.innerHTML = `
-            <style>
-                #columnModal {
-                    position: fixed !important;
-                    top: 0 !important;
-                    left: 0 !important;
-                    width: 100% !important;
-                    height: 100% !important;
-                    background: rgba(0,0,0,0.5) !important;
-                    display: flex !important;
-                    align-items: center !important;
-                    justify-content: center !important;
-                    z-index: 10002 !important;
-                }
-                #columnModal .modal-content {
-                    background: white;
-                    border-radius: 8px;
-                    width: 90%;
-                    max-width: 500px;
-                    max-height: 90vh;
-                    overflow-y: auto;
-                    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-                }
-                #columnModal .modal-header {
-                    padding: 20px;
-                    border-bottom: 1px solid #eee;
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    background-color: #f8f9fa;
-                }
-                #columnModal .modal-header h3 {
-                    margin: 0;
-                    color: #333;
-                }
-                #columnModal .modal-close {
-                    background: none;
-                    border: none;
-                    font-size: 24px;
-                    cursor: pointer;
-                    color: #999;
-                    padding: 0;
-                    width: 30px;
-                    height: 30px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    border-radius: 50%;
-                }
-                #columnModal .modal-close:hover {
-                    background: #f5f5f5;
-                    color: #333;
-                }
-                #columnModal .modal-body {
-                    padding: 20px;
-                }
-                #columnModal .modal-footer {
-                    padding: 20px;
-                    border-top: 1px solid #eee;
-                    display: flex;
-                    justify-content: flex-end;
-                    gap: 10px;
-                    background-color: #f8f9fa;
-                }
-                #columnModal .form-group {
-                    margin-bottom: 20px;
-                }
-                #columnModal .form-group label {
-                    display: block;
-                    margin-bottom: 5px;
-                    font-weight: 600;
-                    color: #333;
-                }
-                #columnModal .form-control {
-                    width: 100%;
-                    padding: 10px;
-                    border: 1px solid #ddd;
-                    border-radius: 4px;
-                    font-size: 14px;
-                    box-sizing: border-box;
-                }
-                #columnModal .form-control:focus {
-                    outline: none;
-                    border-color: #0066cc;
-                    box-shadow: 0 0 0 2px rgba(0,102,204,.2);
-                }
-                #columnModal .btn-primary {
-                    background: #0066cc;
-                    color: white;
-                    border: none;
-                    padding: 10px 20px;
-                    border-radius: 4px;
-                    cursor: pointer;
-                    font-size: 14px;
-                }
-                #columnModal .btn-primary:hover {
-                    background: #0052a3;
-                }
-                #columnModal .btn-secondary {
-                    background: #6c757d;
-                    color: white;
-                    border: none;
-                    padding: 10px 20px;
-                    border-radius: 4px;
-                    cursor: pointer;
-                    font-size: 14px;
-                }
-                #columnModal .btn-secondary:hover {
-                    background: #545b62;
-                }
-            </style>
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>Nova Coluna</h3>
-                    <button type="button" class="modal-close" onclick="document.getElementById('columnModal').remove()">×</button>
-                </div>
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label for="columnName">Nome *</label>
-                        <input type="text" id="columnName" class="form-control" placeholder="Ex: DataAtendimento">
-                    </div>
-                    <div class="form-group">
-                        <label for="columnType">Tipo *</label>
-                        <select id="columnType" class="form-control">
-                            <option value="">Selecione</option>
-                            <option value="INT">INT</option>
-                            <option value="BIGINT">BIGINT</option>
-                            <option value="VARCHAR(50)">VARCHAR(50)</option>
-                            <option value="VARCHAR(200)">VARCHAR(200)</option>
-                            <option value="VARCHAR(MAX)">VARCHAR(MAX)</option>
-                            <option value="NVARCHAR(200)">NVARCHAR(200)</option>
-                            <option value="DATE">DATE</option>
-                            <option value="DATETIME">DATETIME</option>
-                            <option value="DECIMAL(18,2)">DECIMAL(18,2)</option>
-                            <option value="BIT">BIT</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="columnDescription">Descrição</label>
-                        <textarea id="columnDescription" class="form-control" rows="2"></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn-secondary" onclick="document.getElementById('columnModal').remove()">Cancelar</button>
-                    <button type="button" class="btn-primary" onclick="window.PortalAdmin.saveColumn(${dictionaryId}, ${tableId})">Criar</button>
-                </div>
+    // === Colunas do dicionário ===
+    _COLUMN_TYPES: ['INT', 'BIGINT', 'VARCHAR(50)', 'VARCHAR(200)', 'VARCHAR(MAX)', 'NVARCHAR(200)', 'DATE', 'DATETIME', 'DECIMAL(18,2)', 'BIT'],
+
+    _openColumnModal({ dictionaryId, tableId, columnId, name, type, description }) {
+        const isEdit = !!columnId;
+        const typesOpts = this._COLUMN_TYPES.map(t =>
+            `<option value="${t}"${t === type ? ' selected' : ''}>${t}</option>`
+        ).join('');
+        const body = `
+            <div class="form-group">
+                <label for="columnName">Nome <span aria-hidden="true">*</span></label>
+                <input type="text" id="columnName" placeholder="Ex: DataAtendimento" maxlength="200">
+            </div>
+            <div class="form-group">
+                <label for="columnType">Tipo <span aria-hidden="true">*</span></label>
+                <select id="columnType">
+                    <option value="">Selecione…</option>
+                    ${typesOpts}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="columnDescription">Descrição</label>
+                <textarea id="columnDescription" rows="2" placeholder="Descreva o que esta coluna representa…"></textarea>
             </div>
         `;
-        document.body.appendChild(modal);
-        setTimeout(() => document.getElementById('columnName')?.focus(), 100);
+        const footer = `
+            <button type="button" class="btn" data-role="cancel">Cancelar</button>
+            <button type="button" class="btn btn-admin" data-role="save">${isEdit ? 'Atualizar coluna' : 'Criar coluna'}</button>
+        `;
+        const { overlay, close } = this._buildAdminModal({
+            id: 'columnModal',
+            title: isEdit ? 'Editar coluna' : 'Nova coluna',
+            bodyHTML: body,
+            footerHTML: footer
+        });
+        if (isEdit) {
+            overlay.querySelector('#columnName').value = name || '';
+            overlay.querySelector('#columnDescription').value = description || '';
+        }
+        overlay.querySelector('[data-role="cancel"]').addEventListener('click', close);
+        overlay.querySelector('[data-role="save"]').addEventListener('click', () => this.saveColumn(dictionaryId, tableId, columnId));
+        setTimeout(() => overlay.querySelector('#columnName')?.focus(), 50);
+    },
+
+    showCreateColumnForm(dictionaryId, tableId) {
+        this._openColumnModal({ dictionaryId, tableId });
     },
 
     editColumn(dictionaryId, tableId, columnId, name, type, description) {
-        const modal = document.createElement('div');
-        modal.id = 'columnModal';
-        modal.className = 'modal-overlay';
-        modal.innerHTML = `
-            <style>
-                #columnModal {
-                    position: fixed !important;
-                    top: 0 !important;
-                    left: 0 !important;
-                    width: 100% !important;
-                    height: 100% !important;
-                    background: rgba(0,0,0,0.5) !important;
-                    display: flex !important;
-                    align-items: center !important;
-                    justify-content: center !important;
-                    z-index: 10002 !important;
-                }
-                #columnModal .modal-content {
-                    background: white;
-                    border-radius: 8px;
-                    width: 90%;
-                    max-width: 500px;
-                    max-height: 90vh;
-                    overflow-y: auto;
-                    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-                }
-                #columnModal .modal-header {
-                    padding: 20px;
-                    border-bottom: 1px solid #eee;
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    background-color: #f8f9fa;
-                }
-                #columnModal .modal-header h3 {
-                    margin: 0;
-                    color: #333;
-                }
-                #columnModal .modal-close {
-                    background: none;
-                    border: none;
-                    font-size: 24px;
-                    cursor: pointer;
-                    color: #999;
-                    padding: 0;
-                    width: 30px;
-                    height: 30px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    border-radius: 50%;
-                }
-                #columnModal .modal-close:hover {
-                    background: #f5f5f5;
-                    color: #333;
-                }
-                #columnModal .modal-body {
-                    padding: 20px;
-                }
-                #columnModal .modal-footer {
-                    padding: 20px;
-                    border-top: 1px solid #eee;
-                    display: flex;
-                    justify-content: flex-end;
-                    gap: 10px;
-                    background-color: #f8f9fa;
-                }
-                #columnModal .form-group {
-                    margin-bottom: 20px;
-                }
-                #columnModal .form-group label {
-                    display: block;
-                    margin-bottom: 5px;
-                    font-weight: 600;
-                    color: #333;
-                }
-                #columnModal .form-control {
-                    width: 100%;
-                    padding: 10px;
-                    border: 1px solid #ddd;
-                    border-radius: 4px;
-                    font-size: 14px;
-                    box-sizing: border-box;
-                }
-                #columnModal .form-control:focus {
-                    outline: none;
-                    border-color: #0066cc;
-                    box-shadow: 0 0 0 2px rgba(0,102,204,.2);
-                }
-                #columnModal .btn-primary {
-                    background: #0066cc;
-                    color: white;
-                    border: none;
-                    padding: 10px 20px;
-                    border-radius: 4px;
-                    cursor: pointer;
-                    font-size: 14px;
-                }
-                #columnModal .btn-primary:hover {
-                    background: #0052a3;
-                }
-                #columnModal .btn-secondary {
-                    background: #6c757d;
-                    color: white;
-                    border: none;
-                    padding: 10px 20px;
-                    border-radius: 4px;
-                    cursor: pointer;
-                    font-size: 14px;
-                }
-                #columnModal .btn-secondary:hover {
-                    background: #545b62;
-                }
-            </style>
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>Editar Coluna</h3>
-                    <button type="button" class="modal-close" onclick="document.getElementById('columnModal').remove()">×</button>
-                </div>
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label for="columnName">Nome *</label>
-                        <input type="text" id="columnName" class="form-control" value="${name}">
-                    </div>
-                    <div class="form-group">
-                        <label for="columnType">Tipo *</label>
-                        <select id="columnType" class="form-control">
-                            <option value="INT" ${type==='INT'?'selected':''}>INT</option>
-                            <option value="BIGINT" ${type==='BIGINT'?'selected':''}>BIGINT</option>
-                            <option value="VARCHAR(50)" ${type==='VARCHAR(50)'?'selected':''}>VARCHAR(50)</option>
-                            <option value="VARCHAR(200)" ${type==='VARCHAR(200)'?'selected':''}>VARCHAR(200)</option>
-                            <option value="VARCHAR(MAX)" ${type==='VARCHAR(MAX)'?'selected':''}>VARCHAR(MAX)</option>
-                            <option value="NVARCHAR(200)" ${type==='NVARCHAR(200)'?'selected':''}>NVARCHAR(200)</option>
-                            <option value="DATE" ${type==='DATE'?'selected':''}>DATE</option>
-                            <option value="DATETIME" ${type==='DATETIME'?'selected':''}>DATETIME</option>
-                            <option value="DECIMAL(18,2)" ${type==='DECIMAL(18,2)'?'selected':''}>DECIMAL(18,2)</option>
-                            <option value="BIT" ${type==='BIT'?'selected':''}>BIT</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="columnDescription">Descrição</label>
-                        <textarea id="columnDescription" class="form-control" rows="2">${description}</textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn-secondary" onclick="document.getElementById('columnModal').remove()">Cancelar</button>
-                    <button type="button" class="btn-primary" onclick="window.PortalAdmin.saveColumn(${dictionaryId}, ${tableId}, ${columnId})">Atualizar</button>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-        setTimeout(() => document.getElementById('columnName')?.focus(), 100);
+        this._openColumnModal({ dictionaryId, tableId, columnId, name, type, description });
     },
 
     async saveColumn(dictionaryId, tableId, columnId) {
         const name = document.getElementById('columnName')?.value?.trim();
         const type = document.getElementById('columnType')?.value;
         const description = document.getElementById('columnDescription')?.value?.trim();
-        if (!name || !type) { alert('Nome e Tipo obrigatórios'); return; }
+        if (!name || !type) {
+            await window.adminConfirm({ title: 'Campos obrigatórios', message: 'Nome e tipo são obrigatórios.', confirmText: 'OK', cancelText: ' ' });
+            return;
+        }
         try {
-            const url = columnId 
+            const url = columnId
                 ? `${window.PortalApp.API_URL}/data-dictionaries/${dictionaryId}/tables/${tableId}/columns/${columnId}`
                 : `${window.PortalApp.API_URL}/data-dictionaries/${dictionaryId}/tables/${tableId}/columns`;
             const response = await fetch(url, {
@@ -3217,38 +2519,41 @@ window.PortalAdmin = {
                 body: JSON.stringify({ name, type, description })
             });
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Erro ao salvar');
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || errorData.error || 'Erro ao salvar');
             }
-            const modal = document.getElementById('columnModal');
-            if (modal) modal.remove();
-            alert(columnId ? 'Coluna atualizada!' : 'Coluna criada!');
+            document.getElementById('columnModal')?.remove();
             await this.manageDictionaryStructure(dictionaryId);
         } catch (error) {
-            console.error('Erro:', error);
-            alert(error.message || 'Erro');
+            console.error('[Coluna] saveColumn falhou:', error);
+            await window.adminConfirm({ title: 'Erro ao salvar coluna', message: error.message || 'Erro desconhecido', confirmText: 'OK', cancelText: ' ' });
         }
     },
 
     async deleteColumn(dictionaryId, tableId, columnId, columnName) {
-        if (!confirm(`Excluir coluna "${columnName}"?`)) return;
+        const ok = await window.adminConfirm({
+            title: 'Excluir coluna',
+            message: `Excluir a coluna "${columnName}"?`,
+            confirmText: 'Excluir',
+            destructive: true
+        });
+        if (!ok) return;
         try {
             const response = await fetch(`${window.PortalApp.API_URL}/data-dictionaries/${dictionaryId}/tables/${tableId}/columns/${columnId}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${window.PortalApp.authToken}` }
             });
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Erro ao excluir');
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || errorData.error || 'Erro ao excluir');
             }
-            alert('Coluna excluída!');
             await this.manageDictionaryStructure(dictionaryId);
         } catch (error) {
-            console.error('Erro:', error);
-            alert(error.message || 'Erro');
+            console.error('[Coluna] deleteColumn falhou:', error);
+            await window.adminConfirm({ title: 'Erro ao excluir coluna', message: error.message || 'Erro desconhecido', confirmText: 'OK', cancelText: ' ' });
         }
     }
-    
+
 };
 
 // Expor funções globais para compatibilidade com HTML
@@ -3269,17 +2574,13 @@ window.cancelMenuEdit = () => window.PortalAdmin.cancelMenuEdit();
 window.openPageModal = (id) => window.PortalAdmin.openPageModal(id);
 window.openMenuItemModal = (id) => window.PortalAdmin.openMenuItemModal(id);
 window.closeAdminModal = () => window.PortalAdmin._closeAdminModal();
-window.movePageUp = (id) => window.PortalAdmin.movePageUp(id);
-window.movePageDown = (id) => window.PortalAdmin.movePageDown(id);
-window.moveMenuItemUp = (id) => window.PortalAdmin.moveMenuItemUp(id);
-window.moveMenuItemDown = (id) => window.PortalAdmin.moveMenuItemDown(id);
 window.expandAllMenuCategories = () => window.PortalAdmin.expandAllMenuCategories();
 window.collapseAllMenuCategories = () => window.PortalAdmin.collapseAllMenuCategories();
 window.loadUsersList = () => window.PortalAdmin.loadUsersList();
+window.openUserModal = (id) => window.PortalAdmin.openUserModal(id);
 window.saveUser = () => window.PortalAdmin.saveUser();
 window.editUser = (id) => window.PortalAdmin.editUser(id);
 window.deleteUser = (id, username) => window.PortalAdmin.deleteUser(id, username);
-window.cancelUserEdit = () => window.PortalAdmin.cancelUserEdit();
 window.loadDataDictionaries = () => window.PortalAdmin.loadDataDictionaries();
 window.manageDictionaryStructure = (id) => window.PortalAdmin.manageDictionaryStructure(id);
 window.closeDictionaryStructureManager = () => window.PortalAdmin.closeDictionaryStructureManager();

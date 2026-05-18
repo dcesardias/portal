@@ -831,6 +831,13 @@ body {
 
 /* Admin Panel */
 .admin-panel {
+    /* Cor institucional AACD escopada apenas ao painel admin. */
+    /* Não afeta o portal público (que continua azul). */
+    --admin-accent: #c8102e;
+    --admin-accent-dark: #a30d25;
+    --admin-accent-soft: rgba(200, 16, 46, 0.08);
+    --admin-accent-ring: rgba(200, 16, 46, 0.18);
+
     position: fixed;
     top: 0;
     right: -100%;
@@ -870,13 +877,13 @@ body {
 }
 
 .admin-header {
-    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-color-dark) 100%);
+    background: linear-gradient(135deg, var(--admin-accent, #c8102e) 0%, var(--admin-accent-dark, #a30d25) 100%);
     color: white;
     padding: 20px 24px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 8px 24px rgba(0, 102, 204, 0.22);
+    box-shadow: 0 8px 24px rgba(200, 16, 46, 0.22);
 }
 
 .admin-header h2 {
@@ -907,15 +914,24 @@ body {
     align-items: center;
     justify-content: center;
     background: rgba(255, 255, 255, 0.15);
+    border: none;
+    color: #fff;
     border-radius: 8px;
     font-size: 24px;
+    line-height: 1;
     cursor: pointer;
     transition: all 0.2s ease;
+    font-family: inherit;
 }
 
 .admin-header .close-btn:hover {
     background: rgba(255, 255, 255, 0.25);
-    transform: scale(1.1);
+    transform: scale(1.05);
+}
+
+.admin-header .close-btn:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
 }
 
 .admin-content {
@@ -1031,66 +1047,53 @@ body {
     white-space: nowrap;
 }
 
-.btn-edit {
-    background: #1976d2;
-    color: white;
+/* Botões de ação na admin: 2 categorias semânticas apenas. */
+/* NEUTRAL: editar / logout — fundo neutro, hover preenchido cinza. */
+.btn-edit,
+.btn-logout {
+    background: #ffffff;
+    color: #495057;
+    border: 1px solid #dee2e6;
     box-shadow: var(--shadow-sm);
 }
 
-.btn-edit:hover {
+.btn-edit:hover,
+.btn-logout:hover {
+    background: #f1f3f5;
+    border-color: #adb5bd;
+    color: #212529;
     transform: translateY(-1px);
-    filter: brightness(0.96);
-    box-shadow: var(--shadow-md);
-}
-
-.btn-delete {
-    background: #d32f2f;
-    color: white;
-    box-shadow: var(--shadow-sm);
-}
-
-.btn-delete:hover {
-    transform: translateY(-1px);
-    filter: brightness(0.96);
     box-shadow: var(--shadow-md);
 }
 
 .btn-logout {
-    background: #f57c00;
-    color: white;
     padding: 10px 20px;
     font-size: 14px;
     font-weight: 600;
     border-radius: var(--radius-md);
-    border: none;
     cursor: pointer;
     transition: all 0.25s ease;
-    box-shadow: var(--shadow-sm);
 }
 
-.btn-logout:hover {
-    transform: translateY(-1px);
-    filter: brightness(0.96);
-    box-shadow: var(--shadow-md);
-}
-
-.btn-move {
-    background: #7b1fa2;
+/* DESTRUCTIVE: excluir/remover — única cor saturada permitida. */
+.btn-delete {
+    background: #c82333;
     color: white;
+    border: 1px solid #c82333;
     box-shadow: var(--shadow-sm);
 }
 
-.btn-move:hover {
+.btn-delete:hover {
+    background: #a01c2a;
+    border-color: #a01c2a;
     transform: translateY(-1px);
-    filter: brightness(0.96);
     box-shadow: var(--shadow-md);
 }
 
 .btn-small:active,
 .btn-edit:active,
 .btn-delete:active,
-.btn-logout:active,
-.btn-move:active {
+.btn-logout:active {
     transform: translateY(0);
 }
 
@@ -1360,11 +1363,15 @@ body {
     white-space: nowrap;
     vertical-align: middle;
 }
-.badge-blue   { background: #0066cc; color: #fff; }
-.badge-purple { background: #7c3aed; color: #fff; }
-.badge-green  { background: #2e7d32; color: #fff; }
-.badge-teal   { background: #00796b; color: #fff; }
-.badge-gray   { background: #757575; color: #fff; }
+/* Badges: 3 categorias semânticas. Aliases mantidos para retrocompatibilidade. */
+.badge-blue,
+.badge-info     { background: #e3f1fb; color: #0b5fa3; border: 1px solid #c3def0; }
+.badge-purple,
+.badge-green,
+.badge-teal,
+.badge-success  { background: #e8f5e9; color: #1b5e20; border: 1px solid #c8e6c9; }
+.badge-gray,
+.badge-neutral  { background: #f1f3f5; color: #495057; border: 1px solid #dee2e6; }
 
 /* === Menu Item Wrapper (drag & drop + hierarchy) === */
 .menu-item-wrapper {
@@ -1702,32 +1709,39 @@ body {
     left: -9999px;
 }
 
+/* Upload é ação NEUTRA. */
 .btn-upload {
-    background: #28a745;
-    color: white;
+    background: #ffffff;
+    color: #495057;
     padding: 8px 16px;
-    border: none;
+    border: 1px solid #dee2e6;
     border-radius: 4px;
     cursor: pointer;
     font-size: 14px;
+    transition: all 0.2s ease;
 }
 
 .btn-upload:hover {
-    background: #218838;
+    background: #f1f3f5;
+    border-color: #adb5bd;
+    color: #212529;
 }
 
+/* Remover logo é DESTRUTIVA. */
 .btn-remove-logo {
-    background: #dc3545;
+    background: #c82333;
     color: white;
     padding: 8px 16px;
-    border: none;
+    border: 1px solid #c82333;
     border-radius: 4px;
     cursor: pointer;
     font-size: 14px;
+    transition: all 0.2s ease;
 }
 
 .btn-remove-logo:hover {
-    background: #c82333;
+    background: #a01c2a;
+    border-color: #a01c2a;
 }
 
 /* Search bar */
@@ -2659,6 +2673,61 @@ body {
 
 .btn-refresh-iframe i {
     font-size: 18px;
+}
+
+/* Wrapper de ações no header global, agrupa botão "Trocar conta" + barra de pesquisa */
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* Indicador read-only da conta Microsoft conectada, no header global */
+.account-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 38px;
+    padding: 0 12px;
+    background: var(--content-bg, #fff);
+    color: var(--text-color, #333);
+    border: 1px solid var(--border-color, rgba(0, 0, 0, 0.1));
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    max-width: 380px;
+    opacity: 0.85;
+    white-space: nowrap;
+    cursor: default;
+    user-select: text;
+}
+
+.account-indicator i {
+    font-size: 15px;
+    color: #0066cc;
+}
+
+.account-indicator-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 340px;
+}
+
+[data-theme="dark"] .account-indicator {
+    background: var(--content-bg);
+    color: var(--text-color);
+    border-color: var(--border-color);
+}
+
+@media (max-width: 768px) {
+    .account-indicator-label {
+        display: none;
+    }
+    .account-indicator {
+        padding: 0 10px;
+        height: 36px;
+    }
 }
 
 @keyframes spin {
@@ -4437,4 +4506,153 @@ input[type="range"]#highlightOpacity::-moz-range-thumb:hover {
     .info-card:hover {
         transform: none !important;
     }
+}
+
+/* ============================================================
+   ADMIN — PILLS DE STATUS (badges semânticas em listas)
+   ============================================================ */
+.admin-pill {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    vertical-align: middle;
+}
+.admin-pill--admin {
+    background: var(--admin-accent-soft, rgba(200, 16, 46, 0.08));
+    color: var(--admin-accent, #c8102e);
+    border: 1px solid var(--admin-accent-ring, rgba(200, 16, 46, 0.18));
+}
+.admin-pill--inactive {
+    background: #f1f3f5;
+    color: #6c757d;
+    border: 1px solid #dee2e6;
+}
+
+/* ============================================================
+   ADMIN — FIELDSETS, GRID E AGRUPAMENTO DE FORM
+   ============================================================ */
+.admin-panel .admin-fieldset {
+    border: 1px solid #e9ecef;
+    border-radius: 10px;
+    padding: 18px 20px 4px;
+    margin: 0 0 20px 0;
+    background: #fcfcfd;
+}
+
+.admin-panel .admin-legend {
+    padding: 0 8px;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--admin-accent, #c8102e);
+}
+
+.admin-panel .admin-fieldset-hint {
+    margin: -2px 0 14px;
+    font-size: 12px;
+    color: #6c757d;
+    line-height: 1.45;
+}
+
+.admin-panel .admin-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 16px;
+}
+
+.admin-panel .admin-grid-2 .form-group {
+    margin: 0;
+}
+
+@media (max-width: 600px) {
+    .admin-panel .admin-grid-2 {
+        grid-template-columns: 1fr;
+    }
+}
+
+.admin-panel .admin-fieldset-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin: 6px 0 22px;
+}
+
+/* Hint/help text com contraste WCAG-AA. */
+.admin-panel .admin-help,
+.admin-panel small.admin-help,
+.admin-panel .form-group small {
+    color: #5a6268;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+/* ============================================================
+   ADMIN PANEL — OVERRIDE DE COR ESCOPADO (paleta institucional AACD).
+   Mantém o portal público em azul; pinta apenas o painel admin de vermelho.
+   ============================================================ */
+.admin-panel .menu-list-item:hover {
+    border-color: var(--admin-accent) !important;
+    box-shadow: 0 4px 12px rgba(200, 16, 46, 0.14) !important;
+}
+
+.admin-panel .form-group input:focus,
+.admin-panel .form-group select:focus,
+.admin-panel .form-group textarea:focus,
+.admin-panel input[type="text"]:focus,
+.admin-panel input[type="email"]:focus,
+.admin-panel input[type="password"]:focus,
+.admin-panel input[type="number"]:focus,
+.admin-panel input[type="url"]:focus,
+.admin-panel select:focus,
+.admin-panel textarea:focus {
+    border-color: var(--admin-accent) !important;
+    box-shadow: 0 0 0 3px var(--admin-accent-ring) !important;
+    outline: none;
+}
+
+.admin-panel .tab.active {
+    color: var(--admin-accent) !important;
+    box-shadow: 0 -3px 0 0 var(--admin-accent) !important;
+}
+
+.admin-panel h3,
+.admin-panel h4 {
+    color: var(--admin-accent) !important;
+}
+
+.admin-panel .admin-callout--info {
+    border-left-color: var(--admin-accent) !important;
+    background: var(--admin-accent-soft) !important;
+}
+
+.admin-panel .icon-dd-tab.active {
+    background: var(--admin-accent) !important;
+    color: #fff !important;
+}
+
+.admin-panel .icon-dd-cell:hover {
+    border-color: var(--admin-accent) !important;
+    background: var(--admin-accent-soft) !important;
+}
+
+.admin-modal-overlay .admin-modal {
+    border-top: 4px solid var(--admin-accent, #c8102e);
+}
+
+/* Botão "Salvar" interno (.btn-admin dentro do painel) usa accent. */
+.admin-panel .btn-admin,
+.admin-modal-overlay .btn-admin {
+    background: linear-gradient(135deg, var(--admin-accent, #c8102e) 0%, var(--admin-accent-dark, #a30d25) 100%) !important;
+    box-shadow: 0 4px 14px rgba(200, 16, 46, 0.22) !important;
+}
+
+.admin-panel .btn-admin:hover,
+.admin-modal-overlay .btn-admin:hover {
+    box-shadow: 0 6px 20px rgba(200, 16, 46, 0.32) !important;
 }

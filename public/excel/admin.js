@@ -8,10 +8,19 @@ let currentEditingTable = null;
 document.addEventListener('DOMContentLoaded', async () => {
     setupNavigation();
     setupForms();
+    setupSearchInputs();
     await loadGroups();
     await loadTables();
     await loadGroupsDropdown(); // Carregar grupos no dropdown inicialmente
 });
+
+// Busca client-side: filtra grupos e tabelas em memória.
+function setupSearchInputs() {
+    const groupsInput = document.getElementById('groupsSearchInput');
+    if (groupsInput) groupsInput.addEventListener('input', renderGroups);
+    const tablesInput = document.getElementById('tablesSearchInput');
+    if (tablesInput) tablesInput.addEventListener('input', renderTables);
+}
 
 // Configurar navegação
 function setupNavigation() {
@@ -78,20 +87,31 @@ async function loadGroups() {
 // Renderizar grupos
 function renderGroups() {
     const tbody = document.getElementById('groupsTableBody');
-    
-    if (groups.length === 0) {
+    const filter = (document.getElementById('groupsSearchInput')?.value || '').toLowerCase().trim();
+    const all = groups;
+    const filtered = filter
+        ? all.filter(g =>
+            (g.Code || '').toLowerCase().includes(filter) ||
+            (g.Name || '').toLowerCase().includes(filter) ||
+            (g.Description || '').toLowerCase().includes(filter))
+        : all;
+
+    const countEl = document.getElementById('groupsSearchCount');
+    if (countEl) countEl.textContent = filter ? `${filtered.length} de ${all.length}` : `${all.length} grupo(s)`;
+
+    if (filtered.length === 0) {
         tbody.innerHTML = `
             <tr>
                 <td colspan="6" class="empty-state">
                     <i class="fas fa-folder-open"></i>
-                    <p>Nenhum grupo cadastrado</p>
+                    <p>${filter ? 'Nenhum grupo corresponde ao filtro.' : 'Nenhum grupo cadastrado'}</p>
                 </td>
             </tr>
         `;
         return;
     }
-    
-    tbody.innerHTML = groups.map(group => `
+
+    tbody.innerHTML = filtered.map(group => `
         <tr>
             <td><code>${group.Code}</code></td>
             <td>${group.Name}</td>
@@ -127,29 +147,41 @@ async function loadTables() {
 // Renderizar tabelas
 function renderTables() {
     const tbody = document.getElementById('tablesTableBody');
-    
-    if (tables.length === 0) {
+    const filter = (document.getElementById('tablesSearchInput')?.value || '').toLowerCase().trim();
+    const all = tables;
+    const filtered = filter
+        ? all.filter(t =>
+            (t.TableName || '').toLowerCase().includes(filter) ||
+            (t.DisplayName || '').toLowerCase().includes(filter) ||
+            (t.Description || '').toLowerCase().includes(filter) ||
+            (t.GroupName || '').toLowerCase().includes(filter))
+        : all;
+
+    const countEl = document.getElementById('tablesSearchCount');
+    if (countEl) countEl.textContent = filter ? `${filtered.length} de ${all.length}` : `${all.length} tabela(s)`;
+
+    if (filtered.length === 0) {
         tbody.innerHTML = `
             <tr>
                 <td colspan="6" class="empty-state">
                     <i class="fas fa-table"></i>
-                    <p>Nenhuma tabela cadastrada</p>
+                    <p>${filter ? 'Nenhuma tabela corresponde ao filtro.' : 'Nenhuma tabela cadastrada'}</p>
                 </td>
             </tr>
         `;
         return;
     }
-    
-    tbody.innerHTML = tables.map(table => `
+
+    tbody.innerHTML = filtered.map(table => `
         <tr>
             <td><code>${table.TableName}</code></td>
             <td>${table.DisplayName}</td>
             <td>${table.Description || '-'}</td>
             <td>${table.GroupName || '-'}</td>
             <td>
-                ${table.ModelFilePath 
-                    ? '<i class="fas fa-check-circle" style="color: #28a745;"></i> Sim' 
-                    : '<i class="fas fa-times-circle" style="color: #dc3545;"></i> Não'}
+                ${table.ModelFilePath
+                    ? '<i class="fas fa-check-circle u-success"></i> Sim'
+                    : '<i class="fas fa-times-circle u-danger"></i> Não'}
             </td>
             <td>
                 <button class="btn btn-primary" onclick="editTable(${table.Id})">
@@ -257,9 +289,13 @@ function editGroup(groupId) {
 
 // Excluir grupo
 async function deleteGroup(groupId, groupName) {
-    if (!confirm(`Tem certeza que deseja excluir o grupo "${groupName}"?`)) {
-        return;
-    }
+    const ok = await window.adminConfirm({
+        title: 'Excluir grupo',
+        message: `Tem certeza que deseja excluir o grupo "${groupName}"? As tabelas associadas ficarão sem grupo.`,
+        confirmText: 'Excluir',
+        destructive: true
+    });
+    if (!ok) return;
     
     const token = sessionStorage.getItem('authToken');
     if (!token) {
@@ -525,9 +561,13 @@ function editTable(tableId) {
 
 // Excluir tabela
 async function deleteTable(tableId, tableName) {
-    if (!confirm(`Tem certeza que deseja excluir a tabela "${tableName}"?`)) {
-        return;
-    }
+    const ok = await window.adminConfirm({
+        title: 'Excluir tabela',
+        message: `Tem certeza que deseja excluir a tabela "${tableName}"? Os dados carregados serão removidos.`,
+        confirmText: 'Excluir',
+        destructive: true
+    });
+    if (!ok) return;
     
     const token = sessionStorage.getItem('authToken');
     if (!token) {

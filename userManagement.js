@@ -9,8 +9,24 @@ function sanitizeUser(user) {
         isAdmin: !!user.IsAdmin,
         isActive: !!user.IsActive,
         createdAt: user.CreatedAt,
-        lastLogin: user.LastLogin
+        lastLogin: user.LastLogin,
+        apps: Array.isArray(user.apps) ? user.apps : []
     };
+}
+
+// Carrega as app keys (UserAppPermissions.AppKey) liberadas para o usuario.
+// Retorna array de strings; em erro/sem pool, retorna [] (admin nao precisa).
+async function loadAppsByUserId(pool, sql, userId) {
+    if (!pool || !pool.connected || !userId) return [];
+    try {
+        const result = await pool.request()
+            .input('userId', sql.Int, userId)
+            .query('SELECT AppKey FROM dbo.UserAppPermissions WHERE UserId = @userId');
+        return result.recordset.map(r => r.AppKey);
+    } catch (e) {
+        console.warn('[Users] loadAppsByUserId falhou:', e.message || e);
+        return [];
+    }
 }
 
 function normalizeNullableString(value, maxLength) {
@@ -294,5 +310,7 @@ function createUserManagementRouter({ getPool, authenticateToken, sql, bcrypt })
 }
 
 module.exports = {
-    createUserManagementRouter
+    createUserManagementRouter,
+    loadAppsByUserId,
+    sanitizeUser
 };

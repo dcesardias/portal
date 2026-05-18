@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fatura — OCR via IA | Portal AACD</title>
+<link rel="icon" href="/assets/img/favicon.ico">
+<style>
+    :root {
+        --bg: #f4f6fb;
+        --panel: #ffffff;
+        --border: #e1e6f0;
+        --text: #1f2a44;
+        --muted: #6b7494;
+        --primary: #2b5fcc;
+        --primary-dark: #1f4ba8;
+        --danger: #c0392b;
+        --success: #2e7d32;
+        --shadow: 0 8px 24px rgba(31, 42, 68, .08);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+        font-family: 'Segoe UI', Roboto, -apple-system, BlinkMacSystemFont, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+    }
+    .topbar {
+        background: var(--panel);
+        border-bottom: 1px solid var(--border);
+        padding: 14px 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .topbar h1 { margin: 0; font-size: 18px; font-weight: 600; }
+    .topbar .user { font-size: 13px; color: var(--muted); }
+    .topbar .user button {
+        margin-left: 12px;
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 4px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 12px;
+    }
+    .topbar .user button:hover { background: var(--bg); }
+
+    .container { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
+    /* Layout: Upload (full) > Fornecedores | Categorias (2 col) > Historico (full).
+       Em telas estreitas (<1100px) tudo empilha em coluna unica.
+       minmax(0, …) impede que tabelas com overflow-x estourem o grid. */
+    .grid-2col {
+        display: grid;
+        grid-template-columns: 1fr;
+        column-gap: 22px;
+        row-gap: 0;
+    }
+    .grid-2col > .card { margin-bottom: 22px; }
+    @media (min-width: 1100px) {
+        .container { max-width: min(1700px, 96vw); padding: 0 24px; }
+        .grid-2col {
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            align-items: start;
+        }
+        /* Upload e Historico ocupam a linha inteira no desktop. */
+        .card-upload, .card-historico { grid-column: 1 / -1; }
+    }
+    .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        box-shadow: var(--shadow);
+        padding: 24px;
+        margin-bottom: 20px;
+    }
+    .card h2 { margin: 0 0 12px; font-size: 16px; font-weight: 600; }
+    .card .muted { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
+
+    /* Login */
+    .login-wrapper {
+        min-height: calc(100vh - 60px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+    }
+    .login-card { width: 100%; max-width: 380px; }
+    .login-card h2 { font-size: 18px; }
+    .form-group { margin-bottom: 14px; }
+    .form-group label {
+        display: block;
+        font-size: 13px;
+        font-weight: 500;
+        margin-bottom: 6px;
+        color: var(--text);
+    }
+    .form-group input[type="text"],
+    .form-group input[type="password"],
+    .form-group input[type="email"] {
+        width: 100%;
+        padding: 9px 12px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 14px;
+        font-family: inherit;
+    }
+    .form-group input:focus { outline: 2px solid var(--primary); outline-offset: -1px; border-color: transparent; }
+
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 9px 18px;
+        border: 1px solid var(--border);
+        background: var(--panel);
+        color: var(--text);
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        font-family: inherit;
+    }
+    .btn:hover { background: var(--bg); }
+    .btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .btn-primary:hover { background: var(--primary-dark); border-color: var(--primary-dark); }
+    .btn-primary:disabled { opacity: .6; cursor: not-allowed; }
+
+    .alert { padding: 10px 14px; border-radius: 6px; font-size: 13px; margin-bottom: 12px; display: none; }
+    .alert-error { background: #fdecea; color: var(--danger); border: 1px solid #f5c6c0; }
+    .alert-success { background: #e7f5e9; color: var(--success); border: 1px solid #b9dcbd; }
+    .alert.show { display: block; }
+
+    /* Upload */
+    .drop-zone {
+        display: block;
+        width: 100%;
+        border: 2px dashed var(--border);
+        border-radius: 8px;
+        padding: 36px 20px;
+        text-align: center;
+        background: #fbfcfe;
+        cursor: pointer;
+        transition: all .15s ease;
+    }
+    .drop-zone.dragover { border-color: var(--primary); background: #eef3fc; }
+    .drop-zone p { margin: 6px 0; color: var(--muted); font-size: 13px; }
+    .drop-zone .filename { font-weight: 600; color: var(--text); margin-top: 10px; }
+    .drop-zone input[type="file"] {
+        position: absolute;
+        width: 1px; height: 1px;
+        opacity: 0;
+        pointer-events: none;
+        clip: rect(0 0 0 0);
+        overflow: hidden;
+    }
+
+    .upload-actions { margin-top: 14px; display: flex; gap: 10px; }
+    .progress { margin-top: 14px; font-size: 13px; color: var(--muted); display: none; }
+    .progress.show { display: flex; align-items: center; gap: 10px; }
+    .spinner {
+        width: 14px; height: 14px;
+        border: 2px solid var(--border);
+        border-top-color: var(--primary);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Resultado */
+    .result-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 14px;
+        margin-top: 12px;
+    }
+    .result-grid .field {
+        background: #f8faff;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 10px 12px;
+    }
+    .result-grid .field label {
+        display: block;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: .5px;
+        color: var(--muted);
+        margin-bottom: 4px;
+    }
+    .result-grid .field .value { font-size: 14px; font-weight: 500; word-break: break-word; }
+    .result-grid .field .value.empty { color: var(--muted); font-style: italic; font-weight: 400; }
+
+    /* Tabela */
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    table th, table td {
+        padding: 9px 10px;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+        vertical-align: top;
+    }
+    table th {
+        background: #f8faff;
+        font-weight: 600;
+        color: var(--text);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: .5px;
+    }
+    table tbody tr:hover { background: #fbfcfe; }
+    table .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+    .empty-state { text-align: center; padding: 30px; color: var(--muted); font-size: 13px; }
+    .table-scroll { overflow-x: auto; }
+
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; background: #eef3fc; color: var(--primary-dark); }
+    .block-title {
+        margin: 22px 0 8px;
+        font-size: 13px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: .5px;
+        color: var(--muted);
+    }
+    .tipo-pill {
+        display: inline-block;
+        padding: 1px 7px;
+        border-radius: 8px;
+        font-size: 11px;
+        background: #eef3fc;
+        color: var(--primary-dark);
+        white-space: nowrap;
+    }
+    .tipo-pill.tipo-pagamento { background: #e7f5e9; color: var(--success); }
+    .tipo-pill.tipo-internacional { background: #fff4e6; color: #b56500; }
+    .tipo-pill.tipo-saque { background: #fdecea; color: var(--danger); }
+    .tipo-pill.tipo-encargo { background: #fdecea; color: var(--danger); }
+    .fornecedor-cell { line-height: 1.25; }
+    .fornecedor-cell .fornecedor-nome { font-weight: 600; color: var(--text); }
+    .fornecedor-cell .fornecedor-cat { display: block; font-size: 11px; color: var(--muted); margin-top: 1px; }
+    .fornecedor-cell .fornecedor-prod { display: block; font-size: 11px; color: var(--primary-dark); margin-top: 1px; }
+    .fornecedor-cell.empty { color: var(--muted); font-style: italic; font-weight: 400; }
+
+    /* Modal de detalhes */
+    .modal-overlay {
+        position: fixed; inset: 0;
+        background: rgba(15, 23, 42, .55);
+        z-index: 1000;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        overflow-y: auto;
+        padding: 24px;
+    }
+    .modal-box {
+        background: var(--panel);
+        border-radius: 10px;
+        box-shadow: 0 20px 60px rgba(0,0,0,.25);
+        width: 100%;
+        max-width: 1200px;
+        margin: 24px auto;
+        padding: 24px;
+        position: relative;
+    }
+    .modal-close {
+        position: absolute;
+        top: 12px; right: 14px;
+        background: transparent;
+        border: none;
+        font-size: 22px;
+        cursor: pointer;
+        color: var(--muted);
+        line-height: 1;
+    }
+    .modal-close:hover { color: var(--text); }
+
+    /* Cards de fornecedor / categoria */
+    .switch { position: relative; display: inline-block; width: 36px; height: 20px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .switch .slider {
+        position: absolute; cursor: pointer;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background-color: #cbd2de;
+        border-radius: 20px;
+        transition: .15s;
+    }
+    .switch .slider:before {
+        position: absolute; content: "";
+        height: 14px; width: 14px;
+        left: 3px; top: 3px;
+        background-color: white;
+        border-radius: 50%;
+        transition: .15s;
+    }
+    .switch input:checked + .slider { background-color: var(--primary); }
+    .switch input:checked + .slider:before { transform: translateX(16px); }
+
+    table.master-table input[type="text"] {
+        width: 100%;
+        padding: 5px 8px;
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        font-size: 12px;
+        font-family: inherit;
+    }
+    table.master-table tr.row-novo { background: #fff8e1; }
+    table.master-table tr.row-novo:hover { background: #fff3c4; }
+    .badge-novo {
+        display: inline-block; padding: 1px 7px; margin-left: 6px;
+        border-radius: 8px; font-size: 11px; font-weight: 600;
+        background: #fdcd02; color: #4a3500;
+    }
+    .badge-ti {
+        display: inline-block; padding: 1px 7px; margin-left: 6px;
+        border-radius: 8px; font-size: 11px; font-weight: 600;
+        background: #dcebff; color: var(--primary-dark);
+    }
+    .row-action button {
+        font-size: 12px; padding: 4px 10px;
+    }
+    .toast {
+        position: fixed; right: 18px; bottom: 18px;
+        background: var(--text); color: #fff;
+        padding: 10px 16px; border-radius: 6px;
+        font-size: 13px; box-shadow: 0 8px 24px rgba(0,0,0,.2);
+        z-index: 1100;
+        opacity: 0; transform: translateY(8px);
+        transition: opacity .15s, transform .15s;
+        pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.success { background: var(--success); }
+    .toast.error { background: var(--danger); }
+
+    .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen" class="login-wrapper hidden">
+    <div class="card login-card">
+        <h2>Acessar / Fatura</h2>
+        <p class="muted">Use seu usuário do portal. Acesso liberado apenas para quem tiver permissão na aplicação Fatura.</p>
+        <div id="loginAlert" class="alert alert-error"></div>
+        <form id="loginForm" autocomplete="on">
+            <div class="form-group">
+                <label for="loginUsername">Usuário</label>
+                <input type="text" id="loginUsername" autocomplete="username" required>
+            </div>
+            <div class="form-group">
+                <label for="loginPassword">Senha</label>
+                <input type="password" id="loginPassword" autocomplete="current-password" required>
+            </div>
+            <button type="submit" class="btn btn-primary" id="loginButton" style="width: 100%; justify-content: center;">Entrar</button>
+        </form>
+    </div>
+</div>
+
+<!-- APP -->
+<div id="appScreen" class="hidden">
+    <div class="topbar">
+        <h1>Fatura — OCR via IA</h1>
+        <div class="user">
+            <span id="userLabel"></span>
+            <button id="logoutBtn">Sair</button>
+        </div>
+    </div>
+
+    <div class="container">
+      <div class="grid-2col">
+        <!-- Upload (linha 1, esquerda) -->
+        <div class="card card-upload">
+            <h2>Enviar fatura em PDF</h2>
+            <p class="muted">Selecione ou arraste um PDF. A IA extrai os campos e grava em <code>Fonte.dbo.OCR_FATURA_ITAU</code>.</p>
+
+            <div id="uploadAlert" class="alert"></div>
+
+            <label class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="application/pdf,.pdf">
+                <p style="font-size: 14px; color: var(--text);"><strong>Clique para escolher</strong> ou arraste um PDF aqui</p>
+                <p>Tamanho máximo: 50 MB</p>
+                <p class="filename" id="filenameLabel"></p>
+            </label>
+
+            <div class="upload-actions">
+                <button class="btn btn-primary" id="uploadBtn" disabled>Processar fatura</button>
+                <button class="btn" id="clearBtn" type="button">Limpar</button>
+            </div>
+
+            <div class="progress" id="uploadProgress">
+                <div class="spinner"></div>
+                <span id="progressLabel">Enviando PDF para a IA…</span>
+            </div>
+        </div>
+
+        <!-- Fornecedores normalizados (linha 1, direita) -->
+        <div class="card card-fornecedor">
+            <h2>Fornecedores normalizados</h2>
+            <p class="muted">Marque <strong>Despesa de TI</strong> em fornecedores específicos para que essa classificação valha em todas as faturas (passadas e futuras).</p>
+            <div class="table-scroll">
+                <table class="master-table" id="fornecedoresTable">
+                    <thead><tr>
+                        <th>Fornecedor</th>
+                        <th class="num">Lançamentos</th>
+                        <th class="num">Total R$</th>
+                        <th>Despesa de TI</th>
+                        <th>Observação</th>
+                    </tr></thead>
+                    <tbody>
+                        <tr><td colspan="5" class="empty-state">Carregando…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Categorias normalizadas (linha 2, direita) -->
+        <div class="card card-categoria">
+            <h2>Categorias normalizadas</h2>
+            <p class="muted">A flag <strong>Despesa de TI</strong> aplicada a uma categoria abrange todos os fornecedores enquadrados nela.</p>
+            <div class="table-scroll">
+                <table class="master-table" id="categoriasTable">
+                    <thead><tr>
+                        <th>Categoria</th>
+                        <th class="num">Lançamentos</th>
+                        <th class="num">Total R$</th>
+                        <th>Despesa de TI</th>
+                        <th>Observação</th>
+                    </tr></thead>
+                    <tbody>
+                        <tr><td colspan="5" class="empty-state">Carregando…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Histórico (linha 3, full width) -->
+        <div class="card card-historico">
+            <h2>Histórico</h2>
+            <p class="muted">Últimas faturas processadas (mais recentes primeiro). Clique em <strong>Detalhes</strong> para ver os dados completos.</p>
+            <div class="table-scroll">
+                <table id="historyTable">
+                    <thead><tr>
+                        <th>#</th>
+                        <th>Enviado em</th>
+                        <th>Empresa / Pagador</th>
+                        <th>Emissor</th>
+                        <th>Nº fatura</th>
+                        <th>Vencimento</th>
+                        <th class="num">Total</th>
+                        <th class="num">Repasse IOF</th>
+                        <th class="num">Itens</th>
+                        <th></th>
+                    </tr></thead>
+                    <tbody>
+                        <tr><td colspan="10" class="empty-state">Carregando…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+      </div><!-- /grid-2col -->
+    </div>
+</div>
+
+<!-- Modal de detalhes da fatura -->
+<div id="detalhesModal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <div class="modal-box">
+        <button class="modal-close" id="detalhesClose" aria-label="Fechar">×</button>
+        <h2>Detalhes da fatura <span class="badge" id="detalhesModel"></span></h2>
+
+        <h3 class="block-title">Identificação</h3>
+        <div class="result-grid" id="detIdent"></div>
+
+        <h3 class="block-title">Resumo</h3>
+        <div class="result-grid" id="detResumo"></div>
+
+        <h3 class="block-title">Limites</h3>
+        <div class="result-grid" id="detLimites"></div>
+
+        <h3 class="block-title">Encargos cobrados</h3>
+        <div class="result-grid" id="detEncargos"></div>
+
+        <h3 class="block-title">Próximo período</h3>
+        <div class="result-grid" id="detProximo"></div>
+
+        <h3 class="block-title">Totalizadores</h3>
+        <div class="result-grid" id="detTotais"></div>
+
+        <h3 class="block-title">Lançamentos</h3>
+        <div class="table-scroll">
+            <table id="detItens">
+                <thead><tr>
+                    <th>Data</th>
+                    <th>Tipo</th>
+                    <th>Portador</th>
+                    <th>Cartão</th>
+                    <th>Estabelecimento</th>
+                    <th>Fornecedor / Categoria</th>
+                    <th>Cidade</th>
+                    <th>CCS</th>
+                    <th>Moeda orig.</th>
+                    <th class="num">Vlr orig.</th>
+                    <th class="num">Câmbio</th>
+                    <th class="num">Valor R$</th>
+                </tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<script src="/assets/js/modules/fatura.js?v=__APP_VERSION__"></script>
+</body>
+</html>

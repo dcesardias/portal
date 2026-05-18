@@ -7,6 +7,7 @@ window.PortalMicrosoftAuth = {
     pendingPageKey: 'portal.microsoft.pendingPageId',
     skipPromptKey: 'portal.microsoft.skipPromptOnce',
     activeAccountKey: 'portal.microsoft.activeAccount',
+    startupRedirectInFlightKey: 'portal.microsoft.startupRedirectInFlight',
 
     async init() {
         if (this.initialized) return;
@@ -52,16 +53,14 @@ window.PortalMicrosoftAuth = {
                 await this.msalInstance.initialize();
             }
 
+            // IMPORTANTE: Só pegamos a conta quando o usuário realmente acabou
+            // de voltar de um redirect de login. NUNCA puxamos getAllAccounts()
+            // automaticamente — isso é o que disparava o "auto-login" indesejado.
             const redirectResult = await this.msalInstance.handleRedirectPromise();
             if (redirectResult && redirectResult.account) {
                 this.msalInstance.setActiveAccount(redirectResult.account);
                 sessionStorage.setItem(this.activeAccountKey, redirectResult.account.username || redirectResult.account.homeAccountId || '');
-            } else {
-                const cachedAccount = this.msalInstance.getActiveAccount() || this.msalInstance.getAllAccounts()[0] || null;
-                if (cachedAccount) {
-                    this.msalInstance.setActiveAccount(cachedAccount);
-                    sessionStorage.setItem(this.activeAccountKey, cachedAccount.username || cachedAccount.homeAccountId || '');
-                }
+                sessionStorage.removeItem(this.startupRedirectInFlightKey);
             }
         } catch (error) {
             console.error('[MSAUTH] Falha na inicializacao:', error);
@@ -79,32 +78,33 @@ window.PortalMicrosoftAuth = {
     getSignedInEmail() {
         if (!this.msalInstance) return '';
 
-        const account = this.msalInstance.getActiveAccount() || this.msalInstance.getAllAccounts()[0] || null;
+        // Só consideramos a conta ATIVA. Não usamos getAllAccounts() como
+        // fallback porque ele pode trazer contas residuais do cache MSAL
+        // que o usuário não escolheu nesta sessão.
+        const account = this.msalInstance.getActiveAccount();
         if (!account) return '';
 
         const claims = account.idTokenClaims || {};
         return claims.preferred_username || claims.email || account.username || '';
     },
 
-    getBaseRequest() {
-        return {
-            scopes: Array.isArray(this.config?.loginScopes) ? this.config.loginScopes : ['openid', 'profile', 'offline_access', 'User.Read'],
-            prompt: this.config?.forceAccountSelection === false ? undefined : 'select_account'
-        };
+    getSignedInName() {
+        if (!this.msalInstance) return '';
+        const account = this.msalInstance.getActiveAccount();
+        if (!account) return '';
+
+        const claims = account.idTokenClaims || {};
+        // claims.name é o nome de exibição; account.name idem na maioria dos
+        // tenants. Pode ou não estar presente — caller deve tratar string vazia.
+        return claims.name || account.name || '';
     },
 
-    getPopupRequest() {
-        const popupWidth = 520;
-        const popupHeight = 720;
-        const left = Math.max(0, Math.round(window.screenX + ((window.outerWidth - popupWidth) / 2)));
-        const top = Math.max(0, Math.round(window.screenY + ((window.outerHeight - popupHeight) / 2)));
-
+    getBaseRequest() {
+        // Sempre forçamos prompt: 'select_account'. O portal exige login
+        // explícito a cada sessão — nada de SSO automático.
         return {
-            ...this.getBaseRequest(),
-            popupWindowAttributes: {
-                popupSize: { width: popupWidth, height: popupHeight },
-                popupPosition: { top, left }
-            }
+            scopes: Array.isArray(this.config?.loginScopes) ? this.config.loginScopes : ['openid', 'profile', 'offline_access', 'User.Read'],
+            prompt: 'select_account'
         };
     },
 
@@ -112,7 +112,21 @@ window.PortalMicrosoftAuth = {
         return this.getBaseRequest();
     },
 
-    async ensurePowerBIAccount(page) {
+    getActiveAccount() {
+        if (!this.msalInstance) return null;
+        return this.msalInstance.getActiveAccount();
+    },
+
+    // Garante que existe uma conta MSAL ativa antes de prosseguir com a UI.
+    // Chamada no startup do portal, depois do checkAuth e antes de qualquer
+    // render. Se não houver conta, dispara loginRedirect; a janela inteira
+    // navega para AAD e ao retornar handleRedirectPromise() popula a conta.
+    //
+    // Retorna:
+    //   true  → tem conta, pode renderizar a UI normalmente
+    //   false → disparou redirect (caller deve PARAR — a página vai recarregar)
+    //   true  → MS auth desabilitado / falhou init (caller segue sem MS)
+    async requireAccountAtStartup() {
         await this.init();
 
         if (!this.isEnabled()) {
@@ -120,47 +134,86 @@ window.PortalMicrosoftAuth = {
         }
 
         if (this.initializationFailed || !this.msalInstance) {
-            alert(`A autenticacao Microsoft nao foi inicializada corretamente neste portal. Detalhes: ${this.lastInitErrorMessage || 'erro desconhecido'}`);
-            return false;
-        }
-
-        const pageId = String(page.id);
-        const pendingPageId = sessionStorage.getItem(this.pendingPageKey);
-        const skipPrompt = sessionStorage.getItem(this.skipPromptKey) === '1';
-
-        if (skipPrompt && pendingPageId === pageId) {
-            sessionStorage.removeItem(this.skipPromptKey);
-            sessionStorage.removeItem(this.pendingPageKey);
+            console.warn('[MSAUTH] requireAccountAtStartup: init falhou, seguindo sem MS auth.');
             return true;
         }
 
-        sessionStorage.setItem(this.pendingPageKey, pageId);
-        sessionStorage.setItem(this.skipPromptKey, '1');
+        if (this.getActiveAccount()) {
+            return true;
+        }
+
+        // Sem conta ativa. Antes de disparar o redirect, verificamos se já
+        // estamos no meio de um redirect (proteção contra loop infinito caso
+        // o IdP rejeite e devolva sem conta).
+        const inFlight = sessionStorage.getItem(this.startupRedirectInFlightKey) === '1';
+        if (inFlight) {
+            // O redirect voltou mas handleRedirectPromise() não populou conta.
+            // Limpa o marcador e desiste — o usuário pode clicar de novo se
+            // quiser. Não entramos em loop.
+            sessionStorage.removeItem(this.startupRedirectInFlightKey);
+            console.warn('[MSAUTH] startup redirect retornou sem conta; desistindo.');
+            return true;
+        }
+
+        sessionStorage.setItem(this.startupRedirectInFlightKey, '1');
 
         try {
-            const popupResult = await this.msalInstance.loginPopup(this.getPopupRequest());
-            if (popupResult && popupResult.account) {
-                this.msalInstance.setActiveAccount(popupResult.account);
-                sessionStorage.setItem(this.activeAccountKey, popupResult.account.username || popupResult.account.homeAccountId || '');
-            }
-
-            sessionStorage.removeItem(this.skipPromptKey);
-            sessionStorage.removeItem(this.pendingPageKey);
-            return true;
+            await this.msalInstance.loginRedirect(this.getRedirectRequest());
         } catch (error) {
-            console.warn('[MSAUTH] loginPopup falhou; tentando fallback via redirect:', error);
-
-            try {
-                await this.msalInstance.loginRedirect(this.getRedirectRequest());
-            } catch (redirectError) {
-                console.error('[MSAUTH] Falha ao iniciar loginRedirect:', redirectError);
-                sessionStorage.removeItem(this.skipPromptKey);
-                sessionStorage.removeItem(this.pendingPageKey);
-                alert('Nao foi possivel iniciar o login Microsoft para abrir o painel.');
-            }
-
-            return false;
+            console.error('[MSAUTH] loginRedirect no startup falhou:', error);
+            sessionStorage.removeItem(this.startupRedirectInFlightKey);
+            alert('Não foi possível iniciar o login Microsoft. Recarregue a página para tentar novamente.');
+            return true;
         }
+
+        // loginRedirect navega a janela. Se chegamos aqui, o redirect foi
+        // disparado mas a página ainda não foi descartada — sinalizamos
+        // ao caller para não renderizar nada.
+        return false;
+    },
+
+    // Verificação defensiva chamada antes de renderizar um iframe Power BI.
+    // Como o startup já garantiu a conta, normalmente passa direto. Se por
+    // algum motivo não houver conta (race / sessionStorage corrompido), nós
+    // NÃO tentamos logar silenciosamente — pedimos pro usuário usar "Trocar
+    // conta" ou recarregar.
+    async ensurePowerBIAccount() {
+        await this.init();
+
+        if (!this.isEnabled()) {
+            return true;
+        }
+
+        if (this.initializationFailed || !this.msalInstance) {
+            return true;
+        }
+
+        if (this.getActiveAccount()) {
+            return true;
+        }
+
+        return false;
+    },
+
+    clearLocalAccounts() {
+        if (!this.msalInstance) return;
+        try {
+            this.msalInstance.setActiveAccount(null);
+        } catch (e) { /* noop */ }
+
+        try {
+            const cache = typeof this.msalInstance.getTokenCache === 'function' ? this.msalInstance.getTokenCache() : null;
+            const accounts = this.msalInstance.getAllAccounts() || [];
+            for (const acc of accounts) {
+                if (cache && typeof cache.removeAccount === 'function') {
+                    try { cache.removeAccount(acc); } catch (e) { /* noop */ }
+                }
+            }
+        } catch (e) {
+            console.debug('[MSAUTH] clearLocalAccounts: nao foi possivel limpar todas as contas em cache:', e);
+        }
+
+        try { sessionStorage.removeItem(this.activeAccountKey); } catch (e) { /* noop */ }
     },
 
     async finishStartup() {

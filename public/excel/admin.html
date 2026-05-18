@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gerenciamento de Tabelas - Excel</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/assets/css/portal.css">
-    <link rel="stylesheet" href="/assets/css/admin-shared.css">
+    <link rel="stylesheet" href="/assets/css/portal.css?v=__APP_VERSION__">
+    <link rel="stylesheet" href="/assets/css/admin-shared.css?v=__APP_VERSION__">
+    <link rel="stylesheet" href="/assets/css/admin-confirm.css?v=__APP_VERSION__">
     <style>
         /* Excel Admin Page - Custom Styles */
         .admin-container {
@@ -520,6 +521,9 @@
                 color: var(--admin-primary);
             }
         }
+
+        .u-success { color: var(--admin-success); }
+        .u-danger  { color: var(--admin-danger); }
     </style>
 </head>
 <body>
@@ -577,6 +581,12 @@
                         </div>
                     </div>
 
+                    <div class="excel-search-bar">
+                        <i class="fas fa-search excel-search-icon" aria-hidden="true"></i>
+                        <input type="text" id="groupsSearchInput" placeholder="Filtrar por código, nome ou descrição..." autocomplete="off" aria-label="Filtrar grupos">
+                        <span id="groupsSearchCount" class="excel-search-count"></span>
+                    </div>
+
                     <table class="data-table" id="groupsTable">
                         <thead>
                             <tr>
@@ -611,6 +621,12 @@
                                 <i class="fas fa-plus"></i> Nova Tabela
                             </button>
                         </div>
+                    </div>
+
+                    <div class="excel-search-bar">
+                        <i class="fas fa-search excel-search-icon" aria-hidden="true"></i>
+                        <input type="text" id="tablesSearchInput" placeholder="Filtrar por nome ou grupo..." autocomplete="off" aria-label="Filtrar tabelas">
+                        <span id="tablesSearchCount" class="excel-search-count"></span>
                     </div>
 
                     <table class="data-table" id="tablesTable">
@@ -648,9 +664,13 @@
                 <input type="hidden" id="groupId">
                 
                 <div class="form-group">
-                    <label for="groupCode">Código *</label>
-                    <input type="text" id="groupCode" required pattern="[A-Z0-9_]+" 
-                           placeholder="Ex: RH, FINANCEIRO" maxlength="50">
+                    <label for="groupCode">Código <span aria-hidden="true">*</span></label>
+                    <input type="text" id="groupCode" required pattern="[A-Z0-9_]+"
+                           placeholder="Ex: RH, FINANCEIRO" maxlength="50"
+                           aria-describedby="groupCodeHint"
+                           oninvalid="this.setCustomValidity('Use apenas letras maiúsculas, números e underline. Ex: RH_2025')"
+                           oninput="this.setCustomValidity('')">
+                    <small id="groupCodeHint" class="admin-field-hint">Apenas letras MAIÚSCULAS, números e underline (_).</small>
                 </div>
 
                 <div class="form-group">
@@ -690,10 +710,13 @@
                 <input type="hidden" id="tableId">
                 
                 <div class="form-group">
-                    <label for="tableName">Nome da Tabela (SQL) *</label>
-                    <input type="text" id="tableName" required pattern="[A-Z0-9_]+" 
-                           placeholder="Ex: FUNCIONARIOS" maxlength="100">
-                    <small>Apenas letras maiúsculas, números e underline</small>
+                    <label for="tableName">Nome da Tabela (SQL) <span aria-hidden="true">*</span></label>
+                    <input type="text" id="tableName" required pattern="[A-Z0-9_]+"
+                           placeholder="Ex: FUNCIONARIOS" maxlength="100"
+                           aria-describedby="tableNameHint"
+                           oninvalid="this.setCustomValidity('Use apenas letras maiúsculas, números e underline. Ex: FUNCIONARIOS_2025')"
+                           oninput="this.setCustomValidity('')">
+                    <small id="tableNameHint" class="admin-field-hint">Apenas letras MAIÚSCULAS, números e underline (_).</small>
                 </div>
 
                 <div class="form-group">
@@ -728,15 +751,15 @@
                 </div>
 
                 <div class="form-group">
-                    <label>Arquivo Modelo Excel</label>
-                    <div class="file-upload" onclick="document.getElementById('tableModelFile').click()">
-                        <i class="fas fa-cloud-upload-alt u-primary"></i>
+                    <label for="tableModelFile">Arquivo Modelo Excel</label>
+                    <label class="file-upload" for="tableModelFile">
+                        <i class="fas fa-cloud-upload-alt u-primary" aria-hidden="true"></i>
                         <p>Clique para selecionar arquivo</p>
                         <small>Formato: .xlsx ou .xls</small>
-                    </div>
+                    </label>
                     <input type="file" id="tableModelFile" accept=".xlsx,.xls">
-                    <div class="file-info" id="fileInfo">
-                        <i class="fas fa-file-excel"></i>
+                    <div class="file-info" id="fileInfo" aria-live="polite">
+                        <i class="fas fa-file-excel" aria-hidden="true"></i>
                         <span id="fileName"></span>
                     </div>
                 </div>
@@ -756,34 +779,56 @@
     <script>
         // Verificar se usuário está logado como admin
         (function() {
-            const token = sessionStorage.getItem('authToken');
+            let token = sessionStorage.getItem('authToken');
+            if (!token) {
+                token = localStorage.getItem('authToken');
+                if (token) {
+                    sessionStorage.setItem('authToken', token);
+                    const cachedUser = localStorage.getItem('currentUser');
+                    if (cachedUser) sessionStorage.setItem('currentUser', cachedUser);
+                }
+            }
             if (!token) {
                 alert('Acesso negado. Faça login como administrador.');
                 window.location.href = '/';
                 return;
             }
-            
-            // Verificar se token é válido
+
+            // Verificar se token e' valido.
+            // CRITICO: so apaga o token se o servidor responder 401/403 (token
+            // realmente invalido). Em qualquer outro erro (5xx, timeout, rede),
+            // mantem o token intacto — outras abas dependem do localStorage e
+            // nao podem ser deslogadas por uma falha transitoria nesta aba.
             fetch('/api/verify-token', {
                 headers: { 'Authorization': 'Bearer ' + token }
             })
-            .then(res => {
-                if (!res.ok) throw new Error('Token inválido');
-                return res.json();
-            })
-            .then(data => {
-                if (!data.user || !data.user.isAdmin) {
+            .then(async res => {
+                if (res.status === 401 || res.status === 403) {
+                    sessionStorage.removeItem('authToken');
+                    localStorage.removeItem('authToken');
+                    alert('Sessão expirada. Faça login novamente.');
+                    window.location.href = '/';
+                    return;
+                }
+                if (!res.ok) {
+                    console.error('[verify-token] resposta inesperada:', res.status);
+                    alert('Erro ao validar sessão (HTTP ' + res.status + '). Tente novamente.');
+                    return;
+                }
+                const data = await res.json();
+                const apps = (data.user && data.user.apps) || [];
+                if (!data.user || (!data.user.isAdmin && !apps.includes('excel'))) {
                     alert('Acesso negado. Apenas administradores podem acessar.');
                     window.location.href = '/';
                 }
             })
-            .catch(() => {
-                alert('Sessão expirada. Faça login novamente.');
-                sessionStorage.removeItem('authToken');
-                window.location.href = '/';
+            .catch((err) => {
+                console.error('[verify-token] falha de rede:', err);
+                alert('Não foi possível validar a sessão (erro de rede). Tente recarregar.');
             });
         })();
     </script>
-    <script src="admin.js"></script>
+    <script src="/assets/js/admin-confirm.js?v=__APP_VERSION__"></script>
+    <script src="admin.js?v=__APP_VERSION__"></script>
 </body>
 </html>

@@ -52,6 +52,7 @@ async function loadModules() {
 
 // Inicialização da aplicação
 document.addEventListener('DOMContentLoaded', async function() {
+    let redirectingForLogin = false;
     try {
         await loadModules();
         
@@ -69,7 +70,25 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (window.PortalUI) {
             window.PortalUI.initializeTheme();
         }
-        
+
+        // Gate de login Microsoft ANTES de qualquer renderização.
+        // Se MS auth estiver habilitado e não houver conta ativa, dispara
+        // loginRedirect (a janela inteira navega pra AAD). Ao retornar,
+        // handleRedirectPromise() em init() popula a conta e essa chamada
+        // passa direto. Mantemos o app travado em "app-hydrating" enquanto
+        // o redirect estiver em andamento — sem flash de UI sem login.
+        if (window.PortalMicrosoftAuth && typeof window.PortalMicrosoftAuth.requireAccountAtStartup === 'function') {
+            const canRender = await window.PortalMicrosoftAuth.requireAccountAtStartup();
+            if (!canRender) {
+                // Redirect disparado — a página vai navegar em instantes.
+                // Não removemos app-hydrating, não chamamos checkAuth, não
+                // renderizamos nada. O flag impede o finally de derrubar
+                // o overlay de carregamento e gerar flash de UI sem login.
+                redirectingForLogin = true;
+                return;
+            }
+        }
+
         // Verificar autenticação e carregar dados
         if (window.PortalAuth) {
             await window.PortalAuth.checkAuth();
@@ -91,12 +110,30 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (window.PortalMicrosoftAuth && typeof window.PortalMicrosoftAuth.finishStartup === 'function') {
             await window.PortalMicrosoftAuth.finishStartup();
         }
-        
+
+        // Fallback do switchAccount: se a troca de conta no painel teve que
+        // recarregar a pagina (porque o iframe travou), restauramos a pagina
+        // que o usuario estava vendo, em vez de cair na home.
+        try {
+            const pendingSwitchPageRaw = sessionStorage.getItem('portal.pendingPageAfterSwitch');
+            if (pendingSwitchPageRaw) {
+                sessionStorage.removeItem('portal.pendingPageAfterSwitch');
+                const pendingSwitchPageId = Number(pendingSwitchPageRaw);
+                if (Number.isFinite(pendingSwitchPageId) && window.PortalPages && typeof window.PortalPages.loadPage === 'function') {
+                    await window.PortalPages.loadPage(pendingSwitchPageId);
+                }
+            }
+        } catch (e) {
+            console.warn('[SWITCH] Falha ao restaurar pagina apos reload:', e);
+        }
+
         console.log('Portal ready!');
     } catch (error) {
         console.error('Failed to initialize portal:', error);
     } finally {
-        document.body.classList.remove('app-hydrating');
+        if (!redirectingForLogin) {
+            document.body.classList.remove('app-hydrating');
+        }
     }
 });
 

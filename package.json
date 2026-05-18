@@ -1,6 +1,6 @@
 {
   "name": "menu",
-  "version": "1.0.1",
+  "version": "1.0.6",
   "description": "Portal para dashboards Power BI",
   "main": "server.js",
   "scripts": {

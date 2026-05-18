@@ -1,0 +1,134 @@
+/* ============================================
+   ADMIN CONFIRM DIALOG
+   Modal de confirmação estilizado, drop-in para confirm() nativo.
+   Carregado em ambas as admins (portal e excel).
+   ============================================ */
+.admin-confirm-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 11000;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(3px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    opacity: 0;
+    transition: opacity 0.18s ease;
+}
+
+.admin-confirm-overlay.is-open { opacity: 1; }
+.admin-confirm-overlay.is-closing { opacity: 0; }
+
+.admin-confirm-dialog {
+    background: #ffffff;
+    border-radius: 14px;
+    width: 100%;
+    max-width: 440px;
+    padding: 28px 28px 22px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
+    transform: translateY(8px) scale(0.98);
+    transition: transform 0.18s ease;
+    text-align: center;
+    border-top: 4px solid #c8102e;
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.admin-confirm-dialog.is-destructive {
+    border-top-color: #c82333;
+}
+
+.admin-confirm-overlay.is-open .admin-confirm-dialog {
+    transform: translateY(0) scale(1);
+}
+
+.admin-confirm-icon {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 14px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    background: rgba(200, 16, 46, 0.08);
+    color: #c8102e;
+}
+
+.admin-confirm-dialog.is-destructive .admin-confirm-icon {
+    background: rgba(200, 35, 51, 0.10);
+    color: #c82333;
+}
+
+.admin-confirm-title {
+    margin: 0 0 8px;
+    font-size: 18px;
+    font-weight: 700;
+    color: #212529;
+}
+
+.admin-confirm-message {
+    margin: 0 0 22px;
+    font-size: 14px;
+    line-height: 1.55;
+    color: #495057;
+    white-space: pre-line;
+}
+
+.admin-confirm-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.admin-confirm-btn {
+    flex: 1;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: inherit;
+}
+
+.admin-confirm-btn--secondary {
+    background: #ffffff;
+    color: #495057;
+    border-color: #dee2e6;
+}
+.admin-confirm-btn--secondary:hover {
+    background: #f1f3f5;
+    border-color: #adb5bd;
+}
+
+.admin-confirm-btn--primary {
+    background: #c8102e;
+    color: #ffffff;
+    border-color: #c8102e;
+}
+.admin-confirm-btn--primary:hover {
+    background: #a30d25;
+    border-color: #a30d25;
+}
+
+.admin-confirm-btn--destructive {
+    background: #c82333;
+    color: #ffffff;
+    border-color: #c82333;
+}
+.admin-confirm-btn--destructive:hover {
+    background: #a01c2a;
+    border-color: #a01c2a;
+}
+
+.admin-confirm-btn:focus-visible {
+    outline: 2px solid #c8102e;
+    outline-offset: 2px;
+}
+
+@media (max-width: 480px) {
+    .admin-confirm-actions { flex-direction: column-reverse; }
+    .admin-confirm-btn { width: 100%; }
+}

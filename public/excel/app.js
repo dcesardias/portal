@@ -11,10 +11,91 @@ const tablesList = document.getElementById('tablesList');
 const uploadArea = document.getElementById('uploadArea');
 
 // Inicializar aplicação
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     loadTables();
     setupSearch();
+    setupJobsGlobalUI();
+    if (window.jobsManager) {
+        await window.jobsManager.init();
+        // Sincroniza badges com jobs ativos depois que a lista carregar
+        // (loadTables e' assincrono, entao usamos um pequeno delay seguro
+        // via observador do tablesList em vez de race com loadTables).
+    }
 });
+
+// Listener global de jobs: atualiza badges na sidebar, dispara toasts no
+// termino e re-renderiza a barra de progresso se a tabela do job estiver
+// selecionada. Tudo em um lugar so.
+function setupJobsGlobalUI() {
+    if (!window.jobsManager) return;
+
+    window.jobsManager.on('*', (state) => {
+        // 1) Badge na sidebar
+        updateSidebarBadge(state.tableName, !window.jobsManager.TERMINAL.has(state.status));
+
+        // 2) Atualiza barra se a tabela do job esta atualmente aberta
+        if (currentTable && state.tableName === currentTable) {
+            renderJobProgress(state);
+        }
+
+        // 3) Toast quando termina (success ou error) e o usuario esta em
+        // outra tabela ou nem ve a tela do upload.
+        if (window.jobsManager.TERMINAL.has(state.status)) {
+            const onSameTable = currentTable === state.tableName;
+            if (state.status === 'success') {
+                if (!onSameTable) {
+                    showGlobalToast(`Carga concluída: ${state.tableName} (${state.insertedRows ?? '?'} registros)`, 'success');
+                }
+                // Refresca contador/lastLoad da tabela na sidebar
+                updateTableCount(state.tableName);
+            } else if (state.status === 'error') {
+                showGlobalToast(`Falha na carga de ${state.tableName}: ${state.errorMessage || state.message || 'erro desconhecido'}`, 'error');
+            }
+        }
+    });
+}
+
+// Toast flutuante (canto superior direito) para notificar termino de jobs
+// quando o usuario esta em outra tela.
+function showGlobalToast(message, type) {
+    let stack = document.getElementById('jobsToastStack');
+    if (!stack) {
+        stack = document.createElement('div');
+        stack.id = 'jobsToastStack';
+        stack.style.cssText = 'position:fixed;top:16px;right:16px;display:flex;flex-direction:column;gap:8px;z-index:10000;max-width:360px;';
+        document.body.appendChild(stack);
+    }
+    const toast = document.createElement('div');
+    const bg = type === 'success' ? 'linear-gradient(135deg,#28a745,#20c997)' : 'linear-gradient(135deg,#dc3545,#c82333)';
+    toast.style.cssText = `background:${bg};color:#fff;padding:12px 16px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.2);font-size:14px;font-weight:600;animation:adminFadeIn .3s ease-out;cursor:pointer;`;
+    toast.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-triangle'}" style="margin-right:8px;"></i>${escapeHtml(message)}`;
+    toast.addEventListener('click', () => toast.remove());
+    stack.appendChild(toast);
+    setTimeout(() => { try { toast.remove(); } catch (_) {} }, 8000);
+}
+
+function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// Atualiza badge na sidebar para tabelas com job ativo.
+function updateSidebarBadge(tableName, isActive) {
+    if (!tableName) return;
+    const item = document.querySelector(`[data-table="${tableName}"]`);
+    if (!item) return;
+    let badge = item.querySelector('.table-job-badge');
+    if (isActive) {
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'table-job-badge';
+            badge.title = 'Carga em andamento';
+            badge.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i>';
+            item.appendChild(badge);
+        }
+    } else if (badge) {
+        badge.remove();
+    }
+}
 
 // Configurar pesquisa
 function setupSearch() {
@@ -114,26 +195,62 @@ async function loadTables() {
     }
 }
 
-// Carregar contagem de registros de uma tabela
+// Carregar contagem de registros + ultima carga de uma tabela
 async function loadTableCount(tableKey) {
     try {
         const response = await fetch(`/api/excel/tabelas/${tableKey}/info`);
         if (response.ok) {
             const data = await response.json();
-            const countElement = document.querySelector(`[data-table="${tableKey}"] .table-count`);
+            const item = document.querySelector(`[data-table="${tableKey}"]`);
+            if (!item) return;
+            const countElement = item.querySelector('.table-count');
             if (countElement && data.total_registros !== undefined) {
                 countElement.textContent = formatNumber(data.total_registros) + ' registros';
                 countElement.style.opacity = '1';
             }
+            const lastLoadElement = item.querySelector('.table-last-load');
+            if (lastLoadElement) {
+                if (data.last_load_at) {
+                    lastLoadElement.textContent = 'Última carga: ' + formatRelativeDate(data.last_load_at);
+                    lastLoadElement.title = new Date(data.last_load_at).toLocaleString('pt-BR');
+                    lastLoadElement.style.opacity = '1';
+                } else {
+                    lastLoadElement.textContent = 'Sem cargas anteriores';
+                    lastLoadElement.style.opacity = '0.5';
+                }
+            }
         }
     } catch (error) {
-        console.error(`Erro ao carregar contagem da tabela ${tableKey}:`, error);
+        console.error(`Erro ao carregar info da tabela ${tableKey}:`, error);
     }
 }
 
 // Formatar número com separador de milhares
 function formatNumber(num) {
     return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+// Formata data relativa: "ha 3 min", "ha 2h", "ontem", senao dd/MM/yyyy HH:mm
+function formatRelativeDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    const now = new Date();
+    const diffMs = now - d;
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 1)   return 'agora mesmo';
+    if (diffMin < 60)  return `há ${diffMin} min`;
+    const diffH = Math.floor(diffMin / 60);
+    if (diffH < 24) return `há ${diffH}h`;
+    const diffD = Math.floor(diffH / 24);
+    if (diffD === 1) return 'ontem';
+    if (diffD < 7)   return `há ${diffD} dias`;
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yy = d.getFullYear();
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mi = String(d.getMinutes()).padStart(2, '0');
+    return `${dd}/${mm}/${yy} ${hh}:${mi}`;
 }
 
 // Renderizar lista de tabelas
@@ -174,6 +291,11 @@ function renderTablesList() {
             const item = createTableItem(tableKey, tableInfo);
             tablesList.appendChild(item);
         });
+    }
+
+    // Sincroniza badges com jobs ativos (caso re-hidratacao tenha terminado antes do render)
+    if (window.jobsManager) {
+        window.jobsManager.listActive().forEach(j => updateSidebarBadge(j.tableName, true));
     }
 }
 
@@ -246,6 +368,7 @@ function createTableItem(key, info) {
             <div class="table-name">${info.nome}</div>
             <div class="table-desc">${info.descricao}</div>
             ${showCount ? '<div class="table-count" style="opacity: 0.5;">Carregando...</div>' : ''}
+            ${showCount ? '<div class="table-last-load" style="opacity: 0.5;">&nbsp;</div>' : ''}
         </div>
     `;
     
@@ -286,6 +409,102 @@ function selectTable(key, info) {
     } else {
         renderStandardUpload(key, info);
     }
+
+    // Se ja existe um job ativo para essa tabela, re-injeta a UI de progresso
+    if (window.jobsManager) {
+        const job = window.jobsManager.getJobByTable(key);
+        if (job && !window.jobsManager.TERMINAL.has(job.status)) {
+            renderJobProgress(job);
+        }
+    }
+}
+
+// Renderiza estado do job na barra de progresso da tela atual.
+// Usa os elementos #progressBar / #progressFill / #progressText que ja
+// existem nos templates renderizados por renderStandardUpload e
+// renderTempTableUpload.
+function renderJobProgress(state) {
+    const progressBar = document.getElementById('progressBar');
+    const progressFill = document.getElementById('progressFill');
+    const progressText = document.getElementById('progressText');
+    const uploadBtn = document.getElementById('uploadBtn');
+    if (!progressBar || !progressFill || !progressText) return;
+
+    const isTerminal = window.jobsManager && window.jobsManager.TERMINAL.has(state.status);
+    if (!isTerminal) {
+        progressBar.classList.add('active');
+        progressText.style.display = 'block';
+        if (uploadBtn) uploadBtn.disabled = true;
+    }
+
+    const pct = typeof state.progress === 'number' ? state.progress : 0;
+    progressFill.style.width = `${pct}%`;
+
+    // Mensagem com fase + ETA + throughput quando aplicavel
+    const stageLabel = labelStage(state.stage || state.status);
+    const baseMsg = state.message || stageLabel || '';
+    const parts = [];
+    if (stageLabel) parts.push(stageLabel);
+    if (typeof state.insertedRows === 'number' && typeof state.totalRows === 'number') {
+        parts.push(`${formatNumber(state.insertedRows)}/${formatNumber(state.totalRows)} linhas`);
+    }
+    if (typeof state.throughput === 'number' && state.throughput > 0 && !isTerminal) {
+        parts.push(`${Math.round(state.throughput)} linhas/s`);
+    }
+    if (typeof state.etaSeconds === 'number' && state.etaSeconds > 0 && !isTerminal) {
+        parts.push(`ETA ${formatDuration(state.etaSeconds)}`);
+    }
+    progressText.textContent = parts.length > 1 ? `${parts.join(' • ')} (${pct}%)` : `${baseMsg} (${pct}%)`;
+    progressText.style.color = state.status === 'error' ? '#dc3545' : (state.status === 'success' ? '#28a745' : '#0066cc');
+
+    if (state.status === 'success') {
+        // Reset suave 3s depois
+        setTimeout(() => {
+            if (currentTable !== state.tableName) return;
+            selectedFile = null;
+            const fileInfoEl = document.getElementById('fileInfo');
+            if (fileInfoEl) fileInfoEl.innerHTML = '';
+            progressBar.classList.remove('active');
+            progressFill.style.width = '0%';
+            if (progressText) progressText.style.display = 'none';
+            if (uploadBtn) uploadBtn.disabled = false;
+            const tn = document.getElementById('tableName');
+            if (tn) tn.value = '';
+        }, 3000);
+    } else if (state.status === 'error') {
+        if (uploadBtn) uploadBtn.disabled = false;
+        showAlert('Erro no upload: ' + (state.errorMessage || state.message || 'erro desconhecido'), 'error');
+    }
+}
+
+function labelStage(stage) {
+    if (!stage) return '';
+    switch (stage) {
+        case 'queued':     return 'Na fila';
+        case 'reading':    return 'Lendo arquivo';
+        case 'read':       return 'Arquivo lido';
+        case 'cleaning':   return 'Limpando tabela';
+        case 'cleaned':    return 'Tabela limpa';
+        case 'altering':   return 'Ajustando schema';
+        case 'creating':   return 'Criando tabela';
+        case 'inserting':  return 'Inserindo dados';
+        case 'completed':
+        case 'success':    return 'Concluído';
+        case 'error':      return 'Erro';
+        case 'running':    return 'Processando';
+        default:           return stage;
+    }
+}
+
+function formatDuration(sec) {
+    if (!Number.isFinite(sec) || sec < 0) return '';
+    if (sec < 60) return `${sec}s`;
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    if (m < 60) return s ? `${m}m${s}s` : `${m}m`;
+    const h = Math.floor(m / 60);
+    const mm = m % 60;
+    return mm ? `${h}h${mm}m` : `${h}h`;
 }
 
 // Renderizar upload para tabela padrão
@@ -502,43 +721,43 @@ function setupUploadButton() {
     uploadBtn.addEventListener('click', handleUpload);
 }
 
-// Realizar upload
+// Realizar upload (fluxo async com jobsManager).
+// O backend responde 202+jobId; quem cuida do progresso/SSE/UI e' o
+// jobsManager via listener global. Isso permite o usuario trocar de
+// tabela enquanto o upload roda e voltar para ver progresso.
 async function handleUpload() {
     if (!selectedFile) return;
-    
+
     const uploadBtn = document.getElementById('uploadBtn');
     const progressBar = document.getElementById('progressBar');
-    const progressFill = document.getElementById('progressFill');
     const progressText = document.getElementById('progressText');
-    
+
+    const tableAtStart = currentTable;
+    const isTempTable = (tableAtStart === 'TABELA_TEMPORARIA');
+
     uploadBtn.disabled = true;
     progressBar.classList.add('active');
     if (progressText) {
         progressText.style.display = 'block';
         progressText.style.color = '#0066cc';
+        progressText.textContent = 'Enviando arquivo...';
     }
-    
-    let eventSource = null;
-    
+
     try {
         const formData = new FormData();
         formData.append('file', selectedFile);
-        
-        const sessionId = Date.now().toString();
-        formData.append('sessionId', sessionId);
-        
-        let url, successMessage;
-        
-        if (currentTable === 'TABELA_TEMPORARIA') {
+
+        let url, effectiveTableName;
+        if (isTempTable) {
             const tableName = document.getElementById('tableName').value.trim();
             formData.append('table_name', tableName);
             url = '/api/excel/upload-temp';
-            successMessage = `Tabela TEMP_${tableName} criada com sucesso!`;
+            effectiveTableName = tableName.startsWith('TEMP_') ? tableName : `TEMP_${tableName}`;
         } else {
             const tipoCarga = getTipoCargaSelecionado();
             formData.append('tipo_carga', tipoCarga);
 
-            if (currentTable === ORCAMENTO_FLUXO_CAIXA_TABLE) {
+            if (tableAtStart === ORCAMENTO_FLUXO_CAIXA_TABLE) {
                 const anoBaseInput = document.getElementById('anoBase');
                 const anoBase = anoBaseInput ? anoBaseInput.value.trim() : '';
                 if (!/^[0-9]{4}$/.test(anoBase)) {
@@ -551,111 +770,88 @@ async function handleUpload() {
                 formData.append('ano_base', anoBase);
             }
 
-            url = `/api/excel/upload/${currentTable}`;
-            successMessage = `Upload concluído com sucesso!`;
-            
-            // Conectar ao SSE para progresso em tempo real
-            eventSource = new EventSource(`/api/excel/upload/progress/${sessionId}`);
-            
-            eventSource.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                progressFill.style.width = `${data.progress}%`;
-                
-                if (progressText) {
-                    if (data.current && data.total) {
-                        progressText.textContent = `${data.message} (${data.progress}%)`;
-                    } else {
-                        progressText.textContent = data.message;
-                    }
-                }
-            };
-            
-            eventSource.onerror = (error) => {
-                console.error('[SSE] Erro na conexão:', error);
-            };
+            url = `/api/excel/upload/${tableAtStart}`;
+            effectiveTableName = tableAtStart;
         }
-        
-        const response = await fetch(url, {
-            method: 'POST',
-            body: formData
-        });
-        
-        if (eventSource) {
-            eventSource.close();
+
+        const response = await fetch(url, { method: 'POST', body: formData });
+        const result = await response.json().catch(() => ({}));
+
+        if (response.status === 409) {
+            throw new Error(result.error || 'Já existe uma carga em andamento para esta tabela.');
         }
-        
-        const result = await response.json();
-        
-        if (response.ok) {
-            if (progressText) {
-                progressText.textContent = 'Concluído!';
-                progressText.style.color = '#28a745';
-            }
-            
-            showAlert(successMessage + ` (${result.total_inserido || result.rows_inserted} registros)`, 'success');
-            
-            // Atualizar contagem de registros se não for tabela temporária
-            if (currentTable !== 'TABELA_TEMPORARIA') {
-                await updateTableCount(currentTable);
-            }
-            
-            // Reset
-            setTimeout(() => {
-                selectedFile = null;
-                document.getElementById('fileInfo').innerHTML = '';
-                progressBar.classList.remove('active');
-                progressFill.style.width = '0%';
-                uploadBtn.disabled = false;
-                if (progressText) progressText.style.display = 'none';
-                
-                if (currentTable === 'TABELA_TEMPORARIA') {
-                    document.getElementById('tableName').value = '';
-                }
-            }, 3000);
-        } else {
-            throw new Error(result.error || 'Erro desconhecido');
+        if (!response.ok) {
+            throw new Error(result.error || 'Falha ao iniciar upload');
         }
-        
+
+        const jobId = result.jobId || result.sessionId;
+        if (!jobId) {
+            throw new Error('Servidor não retornou jobId');
+        }
+
+        // Registra no jobsManager — ele abre SSE e atualiza UI via listener global
+        if (window.jobsManager) {
+            window.jobsManager.start({
+                jobId,
+                tableName: effectiveTableName,
+                fileName: selectedFile.name
+            });
+        }
+
+        // Limpa selecao do arquivo na tela atual (a barra continua sendo
+        // controlada pelo listener global enquanto o usuario estiver na
+        // mesma tabela)
+        selectedFile = null;
+        const fileInfoEl = document.getElementById('fileInfo');
+        if (fileInfoEl) fileInfoEl.innerHTML = '';
+
     } catch (error) {
         console.error('Erro no upload:', error);
-        
-        if (eventSource) {
-            eventSource.close();
-        }
-        
         showAlert('Erro no upload: ' + error.message, 'error');
-        progressBar.classList.remove('active');
-        if (progressText) progressText.style.display = 'none';
-        uploadBtn.disabled = false;
+        if (currentTable === tableAtStart) {
+            progressBar.classList.remove('active');
+            if (progressText) progressText.style.display = 'none';
+            uploadBtn.disabled = false;
+        }
     }
 }
 
-// Atualizar contagem de registros de uma tabela
+// Atualizar contagem + data da ultima carga de uma tabela na sidebar
 async function updateTableCount(tableName) {
     try {
         const response = await fetch(`/api/excel/tabelas/${tableName}/info`);
         if (!response.ok) return;
-        
+
         const data = await response.json();
-        
-        // Atualizar o contador na lista de tabelas
-        const countElement = document.querySelector(`[data-table="${tableName}"] .table-count`);
+        const item = document.querySelector(`[data-table="${tableName}"]`);
+        if (!item) return;
+
+        const countElement = item.querySelector('.table-count');
         if (countElement && data.total_registros !== undefined) {
             countElement.textContent = formatNumber(data.total_registros) + ' registros';
             countElement.style.opacity = '1';
-            
-            // Adicionar animação de destaque
             countElement.style.transition = 'all 0.3s';
             countElement.style.color = '#28a745';
             countElement.style.fontWeight = '700';
-            
             setTimeout(() => {
                 countElement.style.color = '';
                 countElement.style.fontWeight = '';
             }, 2000);
         }
+
+        const lastLoadElement = item.querySelector('.table-last-load');
+        if (lastLoadElement) {
+            if (data.last_load_at) {
+                lastLoadElement.textContent = 'Última carga: ' + formatRelativeDate(data.last_load_at);
+                lastLoadElement.title = new Date(data.last_load_at).toLocaleString('pt-BR');
+                lastLoadElement.style.opacity = '1';
+            } else {
+                lastLoadElement.textContent = 'Sem cargas anteriores';
+                lastLoadElement.style.opacity = '0.5';
+            }
+        }
     } catch (error) {
-        console.error('Erro ao atualizar contagem:', error);
+        console.error('Erro ao atualizar info:', error);
     }
 }
 

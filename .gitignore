@@ -1,8 +1,16 @@
 /iisnode
 /logs
 /__pycache__
+/uploads
 *.log
 *.pyc
+
+# scripts de debug locais
+.scan_*.cjs
+read_excel_debug.log
+
+# config local do Claude Code
+.claude/
 
 # secrets — NUNCA commitar
 .env

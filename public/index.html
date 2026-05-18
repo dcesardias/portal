@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="assets/css/portal.css?v=__APP_VERSION__">
     <link rel="stylesheet" href="assets/css/portal-redesign.css?v=__APP_VERSION__">
+    <link rel="stylesheet" href="assets/css/admin-confirm.css?v=__APP_VERSION__">
     <meta name="app-version" content="__APP_VERSION__">
 </head>
 <body class="app-hydrating">
@@ -34,6 +35,11 @@
                     <div class="page-title" id="pageTitle">Power BI Dashboard</div>
                     <div class="page-subtitle" id="pageSubtitle">Visão geral do portal de relatórios</div>
                 </div>
+                <div class="header-actions">
+                    <div id="accountIndicator" class="account-indicator" style="display:none;" aria-live="polite">
+                        <i class="fas fa-user-circle"></i>
+                        <span class="account-indicator-label" id="accountIndicatorLabel"></span>
+                    </div>
                   <form class="search-container" id="portalSearchForm" role="search" autocomplete="on" action="javascript:void(0)">
                     <input id="searchInput" 
                            name="portal_search" 
@@ -60,6 +66,7 @@
                     </button>
                     <div id="searchResults" class="search-results"></div>
                 </form>
+                </div>
             </div>
             <div class="content" id="mainContent">
                 <div id="homeView">
@@ -163,13 +170,13 @@
         </form>
     </div>
 
-    <div class="admin-panel" id="adminPanel">
+    <div class="admin-panel" id="adminPanel" role="dialog" aria-modal="true" aria-labelledby="adminPanelTitle" aria-hidden="true">
         <div class="resize-handle" id="resizeHandle"></div>
         <div class="admin-header">
-            <h2>Painel Administrativo</h2>
+            <h2 id="adminPanelTitle">Painel Administrativo</h2>
             <div class="admin-header-actions">
                 <button class="btn btn-logout" onclick="logout()">Sair do Admin</button>
-                <span class="close-btn" onclick="closeAdminPanel()">×</span>
+                <button type="button" class="close-btn" onclick="closeAdminPanel()" aria-label="Fechar painel administrativo" title="Fechar (Esc)">×</button>
             </div>
         </div>
         <div class="admin-content">
@@ -180,7 +187,7 @@
                 <button class="btn btn-admin" onclick="window.open('/mapdb/', '_blank')">
                     <i class="fas fa-project-diagram"></i> MapDB
                 </button>
-                <button class="btn btn-system-load" onclick="window.open('/excel/index.html', '_blank')">
+                <button class="btn btn-system-load" onclick="window.location.href='/excel/index.html'">
                     <i class="fas fa-table"></i> Sistema de Carga
                 </button>
             </div>
@@ -225,41 +232,46 @@
                     Os usuários cadastrados aqui podem acessar o MapDB com login e senha. Administradores também podem abrir o painel administrativo do portal.
                 </p>
 
-                <div class="form-group">
-                    <label>Usuário</label>
-                    <input type="text" id="userUsernameInput" placeholder="Ex: joao.silva">
-                </div>
+                <fieldset class="admin-fieldset">
+                    <legend class="admin-legend">Dados de acesso</legend>
+                    <div class="admin-grid-2">
+                        <div class="form-group">
+                            <label for="userUsernameInput">Usuário</label>
+                            <input type="text" id="userUsernameInput" placeholder="Ex: joao.silva" autocomplete="username">
+                        </div>
+                        <div class="form-group">
+                            <label for="userFullNameInput">Nome Completo</label>
+                            <input type="text" id="userFullNameInput" placeholder="Ex: João Silva" autocomplete="name">
+                        </div>
+                        <div class="form-group">
+                            <label for="userEmailInput">E-mail</label>
+                            <input type="email" id="userEmailInput" placeholder="usuario@aacd.org.br" autocomplete="email">
+                        </div>
+                        <div class="form-group">
+                            <label for="userPasswordInput">Senha</label>
+                            <input type="password" id="userPasswordInput" placeholder="Obrigatória ao criar" autocomplete="new-password">
+                            <small class="admin-help">Ao editar, deixe em branco para manter a senha atual.</small>
+                        </div>
+                    </div>
+                </fieldset>
 
-                <div class="form-group">
-                    <label>Nome Completo</label>
-                    <input type="text" id="userFullNameInput" placeholder="Ex: João Silva">
-                </div>
-
-                <div class="form-group">
-                    <label>E-mail</label>
-                    <input type="email" id="userEmailInput" placeholder="usuario@aacd.org.br">
-                </div>
-
-                <div class="form-group">
-                    <label>Senha</label>
-                    <input type="password" id="userPasswordInput" placeholder="Obrigatória ao criar; opcional ao editar">
-                    <small class="admin-help">Ao editar, deixe em branco para manter a senha atual.</small>
-                </div>
-
-                <div class="form-group admin-form-spaced">
-                    <label class="admin-checkbox-row">
-                        <input type="checkbox" id="userIsAdminCheckbox">
-                        <span>Conceder acesso administrativo ao portal</span>
-                    </label>
-                    <label class="admin-checkbox-row">
-                        <input type="checkbox" id="userIsActiveCheckbox" checked>
-                        <span>Usuário ativo</span>
-                    </label>
-                </div>
+                <fieldset class="admin-fieldset">
+                    <legend class="admin-legend">Permissões</legend>
+                    <div class="form-group admin-form-spaced">
+                        <label class="admin-checkbox-row">
+                            <input type="checkbox" id="userIsAdminCheckbox">
+                            <span>Conceder acesso administrativo ao portal</span>
+                        </label>
+                        <label class="admin-checkbox-row">
+                            <input type="checkbox" id="userIsActiveCheckbox" checked>
+                            <span>Usuário ativo</span>
+                        </label>
+                    </div>
+                </fieldset>
 
                 <div class="admin-actions-row">
-                    <button class="btn btn-admin" id="saveUserBtn" onclick="saveUser()">Salvar Usuário</button>
-                    <button class="btn" id="cancelUserEditBtn" style="display:none;" onclick="cancelUserEdit()">Cancelar</button>
+                    <button type="button" class="btn btn-admin" id="saveUserBtn" onclick="saveUser()">Salvar Usuário</button>
+                    <button type="button" class="btn" id="cancelUserEditBtn" style="display:none;" onclick="cancelUserEdit()">Cancelar</button>
                 </div>
 
                 <h4 class="admin-section-title">Usuários Cadastrados</h4>
@@ -272,63 +284,79 @@
 
             <div class="tab-content" id="configTab">
                 <h3>Configurações do Portal</h3>
-                <div class="form-group">
-                    <label>Logo do Portal</label>
-                    <div class="logo-upload-section">
-                        <div class="logo-preview">
-                            <div id="logoPreviewContainer">
-                                <div class="logo-placeholder">Logo</div>
+
+                <fieldset class="admin-fieldset">
+                    <legend class="admin-legend">Identidade Visual</legend>
+                    <p class="admin-fieldset-hint">Logo, nome e identidade do item Home.</p>
+
+                    <div class="form-group">
+                        <label for="logoUpload">Logo do Portal</label>
+                        <div class="logo-upload-section">
+                            <div class="logo-preview">
+                                <div id="logoPreviewContainer">
+                                    <div class="logo-placeholder">Logo</div>
+                                </div>
+                                <div>
+                                    <strong>Logo atual</strong>
+                                    <br>
+                                    <small class="admin-help">Recomendado: PNG transparente, 32×32 a 64×32 px.</small>
+                                </div>
                             </div>
-                            <div>
-                                <strong>Logo atual</strong>
-                                <br>
-                                <small class="admin-help">Recomendado: PNG transparente, 32x32px a 64x32px</small>
-                            </div>
-                        </div>
-                        <div class="upload-controls">
-                            <div class="file-input-wrapper">
-                                <input type="file" id="logoUpload" accept="image/png,image/jpeg,image/jpg,image/gif,image/svg+xml">
-                                <button class="btn-upload" onclick="document.getElementById('logoUpload').click()">
-                                    Selecionar Logo
+                            <div class="upload-controls">
+                                <div class="file-input-wrapper">
+                                    <input type="file" id="logoUpload" accept="image/png,image/jpeg,image/jpg,image/gif,image/svg+xml">
+                                    <button type="button" class="btn-upload" onclick="document.getElementById('logoUpload').click()">
+                                        Selecionar Logo
+                                    </button>
+                                </div>
+                                <button type="button" class="btn-remove-logo" id="removeLogo" onclick="removeLogo()" style="display: none;">
+                                    Remover Logo
                                 </button>
                             </div>
-                            <button class="btn-remove-logo" id="removeLogo" onclick="removeLogo()" style="display: none;">
-                                Remover Logo
-                            </button>
                         </div>
                     </div>
-                </div>
-                <div class="form-group">
-                    <label>Tamanho do Logo (px)</label>
-                    <input type="number" id="logoSizeInput" min="16" max="128" value="48">
-                </div>
-                <div class="form-group">
-                    <label>Nome do Portal</label>
-                    <input type="text" id="portalName" value="Power BI Dashboard">
-                </div>
-                <div class="form-group">
-                    <label>Nome do item "Home" no Menu</label>
-                    <input type="text" id="homeMenuName" placeholder="Ex: Início" value="Home">
-                </div>
-                <div class="form-group">
-                    <label>Ícone do item "Home" (emoji ou classe)</label>
-                    <div class="admin-inline-row">
-                        <input type="text" id="homeIconInput" placeholder="Ex: 🏠 ou fas fa-home" class="admin-flex-1">
-                        <div id="homeIconPreview" class="icon-preview" title="Preview do ícone Home"></div>
-                    </div>
-                    <div id="homeIconDropdown" class="admin-dropdown">
-                        <div id="homeIconDropdownToggle" class="admin-dropdown-toggle">
-                            <span id="homeIconDropdownSelected" class="admin-inline-row">
-                                <span class="admin-muted">Selecione um ícone...</span>
-                            </span>
-                            <span class="admin-dropdown-caret">›</span>
+
+                    <div class="admin-grid-2">
+                        <div class="form-group">
+                            <label for="logoSizeInput">Tamanho do Logo (px)</label>
+                            <input type="number" id="logoSizeInput" min="16" max="128" value="48">
                         </div>
-                        <div id="homeIconDropdownMenu" class="admin-dropdown-menu" style="display:none;">
+                        <div class="form-group">
+                            <label for="portalName">Nome do Portal</label>
+                            <input type="text" id="portalName" value="Power BI Dashboard">
                         </div>
                     </div>
-                </div>
+
+                    <div class="admin-grid-2">
+                        <div class="form-group">
+                            <label for="homeMenuName">Nome do item "Home" no Menu</label>
+                            <input type="text" id="homeMenuName" placeholder="Ex: Início" value="Home">
+                        </div>
+                        <div class="form-group">
+                            <label for="homeIconInput">Ícone do item "Home"</label>
+                            <div class="admin-inline-row">
+                                <input type="text" id="homeIconInput" placeholder="Ex: 🏠 ou fas fa-home" class="admin-flex-1">
+                                <div id="homeIconPreview" class="icon-preview" title="Preview do ícone Home" aria-label="Preview do ícone Home"></div>
+                            </div>
+                            <div id="homeIconDropdown" class="admin-dropdown">
+                                <div id="homeIconDropdownToggle" class="admin-dropdown-toggle" role="button" tabindex="0">
+                                    <span id="homeIconDropdownSelected" class="admin-inline-row">
+                                        <span class="admin-muted">Selecione um ícone...</span>
+                                    </span>
+                                    <span class="admin-dropdown-caret">›</span>
+                                </div>
+                                <div id="homeIconDropdownMenu" class="admin-dropdown-menu" style="display:none;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </fieldset>
+				<fieldset class="admin-fieldset">
+					<legend class="admin-legend">Tipografia</legend>
+					<p class="admin-fieldset-hint">Escolha família, tamanho e peso para cada área do portal.</p>
+
 				<div class="form-group">
-					<label>Fonte - Nome do Portal</label>
+					<label for="portalFontSelect">Fonte — Nome do Portal</label>
 					<select id="portalFontSelect">
 						<option value="'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif">Segoe UI (padrão)</option>
 						<option value="Arial, Helvetica, sans-serif">Arial</option>
@@ -357,7 +385,7 @@
                     </div>
 				</div>
 				<div class="form-group">
-					<label>Fonte - Itens do Menu</label>
+					<label for="menuFontSelect">Fonte — Itens do Menu</label>
 					<select id="menuFontSelect">
 						<option value="'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif">Segoe UI (padrão)</option>
 						<option value="Arial, Helvetica, sans-serif">Arial</option>
@@ -389,7 +417,7 @@
                     </div>
 				</div>
 				<div class="form-group">
-					<label>Fonte - Páginas (título/subtítulo/descrição)</label>
+					<label for="pageFontSelect">Fonte — Páginas (título/subtítulo/descrição)</label>
 					<select id="pageFontSelect">
 						<option value="'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif">Segoe UI (padrão)</option>
 						<option value="Arial, Helvetica, sans-serif">Arial</option>
@@ -431,32 +459,48 @@
                         </label>
                     </div>
 				</div>
-                <div class="form-group">
-                    <label>Cor Primária</label>
-                    <input type="color" id="primaryColor" value="#0066cc">
+                </fieldset>
+
+                <fieldset class="admin-fieldset">
+                    <legend class="admin-legend">Cores</legend>
+                    <p class="admin-fieldset-hint">Paleta do portal. A cor primária afeta links, foco e botões públicos.</p>
+                    <div class="admin-grid-2">
+                        <div class="form-group">
+                            <label for="primaryColor">Cor Primária</label>
+                            <input type="color" id="primaryColor" value="#0066cc">
+                        </div>
+                        <div class="form-group">
+                            <label for="menuBgColor">Cor do Menu</label>
+                            <input type="color" id="menuBgColor" value="#4A4A4A">
+                        </div>
+                        <div class="form-group">
+                            <label for="menuCollapsedBgColor">Cor do Menu Colapsado</label>
+                            <input type="color" id="menuCollapsedBgColor" value="#4A4A4A">
+                        </div>
+                        <div class="form-group">
+                            <label for="menuHoverColor">Realce do Menu (hover)</label>
+                            <input type="color" id="menuHoverColor" value="#2a2d4a">
+                        </div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="admin-fieldset">
+                    <legend class="admin-legend">Recursos</legend>
+                    <p class="admin-fieldset-hint">Funcionalidades opcionais visíveis ao usuário final.</p>
+                    <div class="form-group admin-form-spaced">
+                        <label class="admin-checkbox-row">
+                            <input type="checkbox" id="chatbotEnabledCheckbox" checked>
+                            <span>Ativar Chatbot (ícone no canto inferior direito)</span>
+                        </label>
+                        <small class="admin-help">Desmarque para ocultar o ícone flutuante do assistente de dados. A URL direta <code>/chatbot</code> continuará funcionando mesmo desativado.</small>
+                    </div>
+                </fieldset>
+
+                <div class="admin-fieldset-actions">
+                    <button type="button" class="btn btn-admin" onclick="saveConfig()">Salvar Configurações</button>
                 </div>
-                <div class="form-group">
-                    <label>Cor do Menu</label>
-                    <input type="color" id="menuBgColor" value="#4A4A4A">
-                </div>
-                <div class="form-group">
-                    <label>Cor do Menu Colapsado</label>
-                    <input type="color" id="menuCollapsedBgColor" value="#4A4A4A">
-                </div>
-                <div class="form-group">
-                    <label>Cor de realce do botão do Menu (hover)</label>
-                    <input type="color" id="menuHoverColor" value="#2a2d4a">
-                </div>
-                <div class="form-group admin-form-spaced">
-                    <label class="admin-checkbox-row">
-                        <input type="checkbox" id="chatbotEnabledCheckbox" checked>
-                        <span>Ativar Chatbot (ícone no canto inferior direito)</span>
-                    </label>
-                    <small class="admin-help">Desmarque para ocultar o ícone/flutuante do assistente de dados para todos os usuários. A URL direta <code>/chatbot</code> continuará funcionando mesmo desativado.</small>
-                </div>
-                <button class="btn btn-admin" onclick="saveConfig()">Salvar Configurações</button>
-                
-                <div class="admin-callout admin-callout--warning admin-section-spacer">
+
+                <div class="admin-callout admin-callout--info admin-section-spacer">
                     <h4>Informações do Sistema</h4>
                     <p>
                         ✅ Portal conectado ao SQL Server<br>
@@ -504,6 +548,7 @@
 
     <script defer src="/vendor/msal-browser/msal-browser.min.js"></script>
     <script defer src="assets/js/app.js?v=__APP_VERSION__"></script>
+    <script defer src="assets/js/admin-confirm.js?v=__APP_VERSION__"></script>
     <script defer src="assets/js/modules/admin.js?v=__APP_VERSION__"></script>
     <script defer src="assets/js/modules/tutorial.js?v=__APP_VERSION__"></script>
     <script defer src="assets/js/chatbot.js?v=__APP_VERSION__"></script>

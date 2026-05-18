@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Carga - Excel</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/assets/css/portal.css">
-    <link rel="stylesheet" href="/assets/css/admin-shared.css">
+    <link rel="stylesheet" href="/assets/css/portal.css?v=__APP_VERSION__">
+    <link rel="stylesheet" href="/assets/css/admin-shared.css?v=__APP_VERSION__">
     <style>
         /* Excel Upload Page - Custom Styles */
         .excel-container {
@@ -350,6 +350,46 @@
 
         .table-item.active .table-count {
             color: rgba(255, 255, 255, 0.8);
+        }
+
+        .table-item .table-last-load {
+            font-size: 10px;
+            margin-top: 1px;
+            color: #aaa;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .table-item.active .table-last-load {
+            color: rgba(255, 255, 255, 0.75);
+        }
+
+        .table-item .table-job-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ff8c00, #ffa733);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            box-shadow: 0 2px 8px rgba(255, 140, 0, 0.4);
+            animation: jobBadgePulse 1.5s ease-in-out infinite;
+        }
+
+        .table-item.active .table-job-badge {
+            background: rgba(255, 255, 255, 0.25);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        @keyframes jobBadgePulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
         }
 
         .excel-main {
@@ -934,34 +974,56 @@
     <script>
         // Verificar se usuário está logado como admin
         (function() {
-            const token = sessionStorage.getItem('authToken');
+            let token = sessionStorage.getItem('authToken');
+            if (!token) {
+                token = localStorage.getItem('authToken');
+                if (token) {
+                    sessionStorage.setItem('authToken', token);
+                    const cachedUser = localStorage.getItem('currentUser');
+                    if (cachedUser) sessionStorage.setItem('currentUser', cachedUser);
+                }
+            }
             if (!token) {
                 alert('Acesso negado. Faça login como administrador.');
                 window.location.href = '/';
                 return;
             }
-            
-            // Verificar se token é válido
+
+            // Verificar se token e' valido.
+            // CRITICO: so apaga o token se o servidor responder 401/403 (token
+            // realmente invalido). Em qualquer outro erro (5xx, timeout, rede),
+            // mantem o token intacto — outras abas dependem do localStorage e
+            // nao podem ser deslogadas por uma falha transitoria nesta aba.
             fetch('/api/verify-token', {
                 headers: { 'Authorization': 'Bearer ' + token }
             })
-            .then(res => {
-                if (!res.ok) throw new Error('Token inválido');
-                return res.json();
-            })
-            .then(data => {
-                if (!data.user || !data.user.isAdmin) {
+            .then(async res => {
+                if (res.status === 401 || res.status === 403) {
+                    sessionStorage.removeItem('authToken');
+                    localStorage.removeItem('authToken');
+                    alert('Sessão expirada. Faça login novamente.');
+                    window.location.href = '/';
+                    return;
+                }
+                if (!res.ok) {
+                    console.error('[verify-token] resposta inesperada:', res.status);
+                    alert('Erro ao validar sessão (HTTP ' + res.status + '). Tente novamente.');
+                    return;
+                }
+                const data = await res.json();
+                const apps = (data.user && data.user.apps) || [];
+                if (!data.user || (!data.user.isAdmin && !apps.includes('excel'))) {
                     alert('Acesso negado. Apenas administradores podem acessar.');
                     window.location.href = '/';
                 }
             })
-            .catch(() => {
-                alert('Sessão expirada. Faça login novamente.');
-                sessionStorage.removeItem('authToken');
-                window.location.href = '/';
+            .catch((err) => {
+                console.error('[verify-token] falha de rede:', err);
+                alert('Não foi possível validar a sessão (erro de rede). Tente recarregar.');
             });
         })();
     </script>
-    <script src="app.js"></script>
+    <script src="jobsManager.js?v=__APP_VERSION__"></script>
+    <script src="app.js?v=__APP_VERSION__"></script>
 </body>
 </html>
