@@ -7436,8 +7436,9 @@ async function startServer() {
     });
     // Power BI Embedded — gera embed token e enforça allowlist baseada
     // nas permissoes do Power BI Service (workspace/report users).
-    // /api/embed/token exige JWT do portal + id_token MSAL (header X-MS-Id-Token).
-    mountPbiEmbed({ app, authenticateToken, getPool: () => pool });
+    // /api/embed/token exige id_token MSAL (header X-MS-Id-Token); nao exige
+    // JWT do portal porque o usuario final acessa via MSAL apenas.
+    mountPbiEmbed({ app, getPool: () => pool });
     // Garantir rota /chatbot mesmo se regras de rewrite modificarem a URL
     // Colocada aqui perto do start para evitar qualquer interferência de outras rotas/middlewares.
     // Se o IIS reescrever /chatbot -> /public/chatbot, podemos também atender /public/chatbot.

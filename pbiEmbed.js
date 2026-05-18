@@ -11,7 +11,15 @@
 // Variaveis de ambiente esperadas:
 //   PBI_TENANT_ID, PBI_CLIENT_ID, PBI_CLIENT_SECRET
 //
-// Em producao: proteger /api/embed/token com authenticateToken (JWT) antes do deploy.
+// Auth do endpoint /api/embed/token (decisao 2026-05-18):
+//   - id_token MSAL via header X-MS-Id-Token (validado contra JWKs do tenant,
+//     aud = client_id do portal, iss = tenant correto) — prova quem e o usuario.
+//   - Allowlist via REST do Power BI Service (Manage access do workspace/report)
+//     — controla quais emails podem gerar embed token para a page.
+//   - NAO exige JWT do portal: usuario final do portal acessa via MSAL apenas;
+//     JWT eh do fluxo admin (username/password) e nao se aplica aqui.
+//   - Roadmap: migrar para access_token MSAL contra scope proprio (api://.../
+//     access_as_user) — padrao oficial do Entra para proteger Web APIs.
 
 'use strict';
 
@@ -138,12 +146,7 @@ async function loadPage(getPool, pageId, workspaceId, reportId) {
     return result.recordset[0] || null;
 }
 
-function mountPbiEmbed({ app, authenticateToken, getPool }) {
-    const protect = (req, res, next) => {
-        if (typeof authenticateToken === 'function') return authenticateToken(req, res, next);
-        return next();
-    };
-
+function mountPbiEmbed({ app, getPool }) {
     // Diagnostico — confirma se as env vars estao setadas (sem expor secret)
     app.get('/api/embed/status', (req, res) => {
         res.json({
@@ -158,7 +161,7 @@ function mountPbiEmbed({ app, authenticateToken, getPool }) {
         });
     });
 
-    app.post('/api/embed/token', protect, async (req, res) => {
+    app.post('/api/embed/token', async (req, res) => {
         try {
             if (!envOk()) {
                 return res.status(503).json({
