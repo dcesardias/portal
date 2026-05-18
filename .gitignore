@@ -3,3 +3,8 @@
 /__pycache__
 *.log
 *.pyc
+
+# secrets — NUNCA commitar
+.env
+.env.*
+!.env.example
