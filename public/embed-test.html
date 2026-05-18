@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <title>Embed Test — AACD</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        :root { color-scheme: light; }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f3f4f6;
+            color: #111827;
+        }
+        header {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #111827;
+        }
+        header h1 { font-size: 15px; margin: 0; font-weight: 600; }
+        header .badge {
+            font-size: 11px; padding: 3px 8px; border-radius: 999px;
+            background: #374151; color: #d1d5db; font-family: ui-monospace, monospace;
+        }
+        .controls {
+            background: #fff; padding: 12px 20px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+        }
+        .controls label { font-size: 12px; color: #6b7280; }
+        .controls input {
+            font-family: ui-monospace, monospace; font-size: 12px;
+            padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 6px;
+            min-width: 320px;
+        }
+        .controls button {
+            font-size: 13px; padding: 7px 14px; border: 0; border-radius: 6px;
+            background: #2563eb; color: #fff; cursor: pointer; font-weight: 500;
+        }
+        .controls button:hover { background: #1d4ed8; }
+        .controls button:disabled { background: #9ca3af; cursor: not-allowed; }
+        #status {
+            font-family: ui-monospace, monospace; font-size: 12px;
+            padding: 10px 20px; background: #fff; border-bottom: 1px solid #e5e7eb;
+            white-space: pre-wrap; max-height: 220px; overflow: auto;
+        }
+        #status .ok { color: #047857; }
+        #status .err { color: #b91c1c; }
+        #status .dim { color: #6b7280; }
+        #reportContainer {
+            position: absolute; top: 170px; bottom: 0; left: 0; right: 0;
+            background: #fff;
+        }
+        #reportContainer iframe { border: 0; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Power BI Embedded — Pagina de validacao</h1>
+        <span class="badge">workspace: 8e6bf764 · report: 11461ff8 (Gestao a Vista - UTI)</span>
+    </header>
+
+    <div class="controls">
+        <label>workspaceId</label>
+        <input id="workspaceId" value="8e6bf764-addc-43c5-a417-020d57dd49f0" />
+        <label>reportId</label>
+        <input id="reportId" value="11461ff8-877f-4fd8-8549-fad020a3fbc6" />
+        <button id="btnLoad">Carregar report</button>
+        <button id="btnRefreshToken">Renovar token</button>
+    </div>
+
+    <div id="status"><span class="dim">aguardando acao…</span></div>
+
+    <div id="reportContainer"></div>
+
+    <!-- powerbi-client da Microsoft via jsDelivr CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/powerbi-client@2.23.1/dist/powerbi.min.js"></script>
+    <script>
+        const statusEl = document.getElementById('status');
+        const containerEl = document.getElementById('reportContainer');
+        const btnLoad = document.getElementById('btnLoad');
+        const btnRefresh = document.getElementById('btnRefreshToken');
+
+        let currentReport = null;
+
+        function log(html, cls) {
+            const span = document.createElement('div');
+            if (cls) span.className = cls;
+            span.innerHTML = html;
+            statusEl.appendChild(span);
+            statusEl.scrollTop = statusEl.scrollHeight;
+        }
+        function clearLog() { statusEl.innerHTML = ''; }
+        function mask(s) {
+            if (!s) return '(vazio)';
+            return s.length <= 6 ? '***' : s.slice(0, 4) + '***' + s.slice(-2);
+        }
+
+        async function fetchEmbedConfig() {
+            const workspaceId = document.getElementById('workspaceId').value.trim();
+            const reportId = document.getElementById('reportId').value.trim();
+            log(`> POST /api/embed/token { workspaceId: ${workspaceId.slice(0,8)}…, reportId: ${reportId.slice(0,8)}… }`, 'dim');
+            const res = await fetch('/api/embed/token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ workspaceId, reportId }),
+            });
+            const json = await res.json();
+            if (!res.ok) {
+                log(`HTTP ${res.status}: ${json.error || ''} - ${json.message || ''}`, 'err');
+                if (json.body) log(JSON.stringify(json.body, null, 2), 'err');
+                throw new Error(json.message || 'erro');
+            }
+            log(`OK report="${json.reportName}"  token=${mask(json.accessToken)}  exp=${json.expiration}`, 'ok');
+            return json;
+        }
+
+        async function loadReport() {
+            clearLog();
+            btnLoad.disabled = true;
+            try {
+                const cfg = await fetchEmbedConfig();
+                const models = window['powerbi-client'].models;
+                const embedConfig = {
+                    type: 'report',
+                    id: cfg.reportId,
+                    embedUrl: cfg.embedUrl,
+                    accessToken: cfg.accessToken,
+                    tokenType: models.TokenType.Embed,
+                    permissions: models.Permissions.Read,
+                    settings: {
+                        panes: {
+                            filters: { expanded: false, visible: true },
+                            pageNavigation: { visible: true },
+                        },
+                        background: models.BackgroundType.Default,
+                    },
+                };
+                // Reset container
+                window.powerbi.reset(containerEl);
+                currentReport = window.powerbi.embed(containerEl, embedConfig);
+
+                currentReport.on('loaded', () => log('evento: loaded', 'ok'));
+                currentReport.on('rendered', () => log('evento: rendered', 'ok'));
+                currentReport.on('error', (ev) => log('evento: error - ' + JSON.stringify(ev.detail), 'err'));
+            } catch (e) {
+                log('Falha: ' + e.message, 'err');
+            } finally {
+                btnLoad.disabled = false;
+            }
+        }
+
+        async function refreshToken() {
+            if (!currentReport) { log('Nenhum report carregado ainda.', 'err'); return; }
+            try {
+                const cfg = await fetchEmbedConfig();
+                await currentReport.setAccessToken(cfg.accessToken);
+                log('Token renovado no client.', 'ok');
+            } catch (e) {
+                log('Falha ao renovar token: ' + e.message, 'err');
+            }
+        }
+
+        btnLoad.addEventListener('click', loadReport);
+        btnRefresh.addEventListener('click', refreshToken);
+
+        // Auto-checa o status do backend ao carregar a pagina
+        (async () => {
+            try {
+                const r = await fetch('/api/embed/status');
+                const j = await r.json();
+                if (!j.configured) {
+                    log('Backend NAO configurado. Faltam vars: PBI_TENANT_ID / PBI_CLIENT_ID / PBI_CLIENT_SECRET', 'err');
+                } else {
+                    log(`Backend configurado. tenant=${j.tenantId} client=${j.clientId} secret=ok`, 'ok');
+                }
+            } catch (e) {
+                log('Nao foi possivel consultar /api/embed/status: ' + e.message, 'err');
+            }
+        })();
+    </script>
+</body>
+</html>

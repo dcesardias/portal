@@ -9,6 +9,7 @@ const path = require('path');
 const fs = require('fs');
 const { ensureMapDbTables, mountMapDb } = require('./mapdbIntegration');
 const { createUserManagementRouter } = require('./userManagement');
+const { mountPbiEmbed } = require('./pbiEmbed');
 
 try { require('dotenv').config(); } catch (e) { console.warn('dotenv não encontrado (opcional)'); }
 
@@ -32,6 +33,7 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use('/vendor/msal-browser', express.static(path.join(__dirname, 'node_modules', '@azure', 'msal-browser', 'lib')));
+app.use('/vendor/powerbi-client', express.static(path.join(__dirname, 'node_modules', 'powerbi-client', 'dist')));
 
 // Versão da aplicação — usada para cache-busting de assets estáticos.
 // Lida do package.json + mtime do app.js para invalidar em hot-reload de dev.
@@ -3030,6 +3032,30 @@ async function ensurePagesOrderColumn() {
     }
 }
 
+async function ensurePagesEmbedColumns() {
+    if (!pool || !pool.connected) return;
+    const adds = [
+        { col: 'UseEmbed', sql: 'ALTER TABLE dbo.Pages ADD UseEmbed BIT NOT NULL CONSTRAINT DF_Pages_UseEmbed DEFAULT(0);' },
+        { col: 'EmbedWorkspaceId', sql: 'ALTER TABLE dbo.Pages ADD EmbedWorkspaceId UNIQUEIDENTIFIER NULL;' },
+        { col: 'EmbedReportId', sql: 'ALTER TABLE dbo.Pages ADD EmbedReportId UNIQUEIDENTIFIER NULL;' },
+        { col: 'AllowedAADGroups', sql: 'ALTER TABLE dbo.Pages ADD AllowedAADGroups NVARCHAR(MAX) NULL;' },
+    ];
+    for (const { col, sql: ddl } of adds) {
+        try {
+            const check = await pool.request().query(`
+                SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA='dbo' AND TABLE_NAME='Pages' AND COLUMN_NAME='${col}'
+            `);
+            if (check.recordset.length === 0) {
+                console.log(`[MIGRATION] Adicionando coluna ${col} em Pages...`);
+                await pool.request().query(ddl);
+            }
+        } catch (e) {
+            console.warn(`[MIGRATION] Falha ao garantir coluna ${col} em Pages:`, e.message || e);
+        }
+    }
+}
+
 async function ensurePagesRedirectColumns() {
     if (!pool || !pool.connected) return;
     try {
@@ -3207,7 +3233,12 @@ app.post('/api/pages', authenticateToken, async (req, res) => {
         return res.status(403).json({ error: 'Acesso negado' });
     }
     try {
-        const { title, subtitle, description, powerBIUrl, redirectPowerBIUrl, redirectEmails, showInHome, icon, order } = req.body;
+        const { title, subtitle, description, powerBIUrl, redirectPowerBIUrl, redirectEmails, showInHome, icon, order,
+                useEmbed, embedWorkspaceId, embedReportId, allowedAADGroups } = req.body;
+
+        const allowedAADGroupsJson = Array.isArray(allowedAADGroups)
+            ? JSON.stringify(allowedAADGroups)
+            : (typeof allowedAADGroups === 'string' && allowedAADGroups.trim() ? allowedAADGroups : null);
 
         const result = await pool.request()
             .input('title', sql.NVarChar, title)
@@ -3219,12 +3250,18 @@ app.post('/api/pages', authenticateToken, async (req, res) => {
             .input('showInHome', sql.Bit, showInHome !== false ? 1 : 0)
             .input('icon', sql.NVarChar, icon || null)
             .input('order', sql.Int, Number.isInteger(order) ? order : null)
+            .input('useEmbed', sql.Bit, useEmbed ? 1 : 0)
+            .input('embedWorkspaceId', sql.UniqueIdentifier, embedWorkspaceId || null)
+            .input('embedReportId', sql.UniqueIdentifier, embedReportId || null)
+            .input('allowedAADGroups', sql.NVarChar(sql.MAX), allowedAADGroupsJson)
             .query(`
-                INSERT INTO Pages (Title, Subtitle, Description, PowerBIUrl, RedirectPowerBIUrl, RedirectEmails, ShowInHome, Icon, [Order])
+                INSERT INTO Pages (Title, Subtitle, Description, PowerBIUrl, RedirectPowerBIUrl, RedirectEmails, ShowInHome, Icon, [Order],
+                                   UseEmbed, EmbedWorkspaceId, EmbedReportId, AllowedAADGroups)
                 OUTPUT INSERTED.*
-                SELECT 
+                SELECT
                     @title, @subtitle, @description, @powerBIUrl, @redirectPowerBIUrl, @redirectEmails, @showInHome, @icon,
-                    COALESCE(@order, (SELECT ISNULL(MAX([Order]), 0) + 10 FROM Pages))
+                    COALESCE(@order, (SELECT ISNULL(MAX([Order]), 0) + 10 FROM Pages)),
+                    @useEmbed, @embedWorkspaceId, @embedReportId, @allowedAADGroups
             `);
 
         return res.status(201).json(result.recordset[0]);
@@ -3239,7 +3276,12 @@ app.put('/api/pages/:id', authenticateToken, async (req, res) => {
         return res.status(403).json({ error: 'Acesso negado' });
     }
     try {
-        const { title, subtitle, description, powerBIUrl, redirectPowerBIUrl, redirectEmails, showInHome, icon, order } = req.body;
+        const { title, subtitle, description, powerBIUrl, redirectPowerBIUrl, redirectEmails, showInHome, icon, order,
+                useEmbed, embedWorkspaceId, embedReportId, allowedAADGroups } = req.body;
+
+        const allowedAADGroupsJson = Array.isArray(allowedAADGroups)
+            ? JSON.stringify(allowedAADGroups)
+            : (typeof allowedAADGroups === 'string' && allowedAADGroups.trim() ? allowedAADGroups : null);
 
         const result = await pool.request()
             .input('id', sql.Int, req.params.id)
@@ -3252,6 +3294,10 @@ app.put('/api/pages/:id', authenticateToken, async (req, res) => {
             .input('showInHome', sql.Bit, showInHome !== false ? 1 : 0)
             .input('icon', sql.NVarChar, icon || null)
             .input('order', sql.Int, Number.isInteger(order) ? order : null)
+            .input('useEmbed', sql.Bit, useEmbed ? 1 : 0)
+            .input('embedWorkspaceId', sql.UniqueIdentifier, embedWorkspaceId || null)
+            .input('embedReportId', sql.UniqueIdentifier, embedReportId || null)
+            .input('allowedAADGroups', sql.NVarChar(sql.MAX), allowedAADGroupsJson)
             .query(`
                 UPDATE Pages
                 SET Title = @title,
@@ -3263,6 +3309,10 @@ app.put('/api/pages/:id', authenticateToken, async (req, res) => {
                     ShowInHome = @showInHome,
                     Icon = @icon,
                     [Order] = COALESCE(@order, [Order]),
+                    UseEmbed = @useEmbed,
+                    EmbedWorkspaceId = @embedWorkspaceId,
+                    EmbedReportId = @embedReportId,
+                    AllowedAADGroups = @allowedAADGroups,
                     UpdatedAt = GETDATE()
                 OUTPUT INSERTED.*
                 WHERE Id = @id
@@ -5724,6 +5774,7 @@ async function startServer() {
     await initDB();
     await ensurePagesOrderColumn();
     await ensurePagesRedirectColumns();
+    await ensurePagesEmbedColumns();
     await ensureMapDbTables(pool);
     await mountMapDb({
         app,
@@ -5732,6 +5783,10 @@ async function startServer() {
         getPool: () => pool,
         authenticateToken
     });
+    // Power BI Embedded — gera embed token e enforça allowlist baseada
+    // nas permissoes do Power BI Service (workspace/report users).
+    // /api/embed/token exige JWT do portal + id_token MSAL (header X-MS-Id-Token).
+    mountPbiEmbed({ app, authenticateToken, getPool: () => pool });
     // Garantir rota /chatbot mesmo se regras de rewrite modificarem a URL
     // Colocada aqui perto do start para evitar qualquer interferência de outras rotas/middlewares.
     // Se o IIS reescrever /chatbot -> /public/chatbot, podemos também atender /public/chatbot.

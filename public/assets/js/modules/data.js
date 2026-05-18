@@ -110,7 +110,11 @@ window.PortalData = {
             redirectEmails: p.RedirectEmails || p.redirectEmails || '',
             showInHome: p.ShowInHome !== undefined ? p.ShowInHome : (p.showInHome !== false),
             icon: p.Icon || p.icon || null,
-            order: p.Order !== undefined ? p.Order : (p.order || 0)
+            order: p.Order !== undefined ? p.Order : (p.order || 0),
+            useEmbed: !!(p.UseEmbed !== undefined ? p.UseEmbed : p.useEmbed),
+            embedWorkspaceId: p.EmbedWorkspaceId || p.embedWorkspaceId || '',
+            embedReportId: p.EmbedReportId || p.embedReportId || '',
+            allowedAADGroups: p.AllowedAADGroups || p.allowedAADGroups || null
         }));
     }
 };

@@ -219,6 +219,7 @@ window.PortalAdmin = {
             if (page.showInHome !== false) badges += '<span class="page-list-badge badge-blue">HOME</span>';
             if (page.icon) badges += '<span class="page-list-badge badge-blue" title="Tem ícone personalizado">🎨</span>';
             if (page.redirectPowerBIUrl && page.redirectEmails) badges += '<span class="page-list-badge badge-purple">REDIRECT</span>';
+            if (page.useEmbed && page.embedWorkspaceId && page.embedReportId) badges += '<span class="page-list-badge badge-green" title="Renderizado via Power BI Embedded">EMBED</span>';
             const menuLinks = this._countMenuLinksToPage(page.id);
             if (menuLinks > 0) badges += `<span class="page-list-badge badge-green" title="${menuLinks} item(ns) do menu apontam para esta página">${menuLinks}× menu</span>`;
 
@@ -340,6 +341,26 @@ window.PortalAdmin = {
                 <textarea id="redirectEmailsInput" placeholder="usuario1@aacd.org.br&#10;usuario2@aacd.org.br" rows="3"></textarea>
                 <small class="admin-help">Um e-mail por linha. Aceita vírgula ou ponto e vírgula.</small>
             </div>
+            <div class="form-group" style="border-top:1px solid #e5e7eb; padding-top:14px; margin-top:14px;">
+                <label class="admin-inline-row">
+                    <input type="checkbox" id="useEmbedCheckbox">
+                    <span><strong>Usar Power BI Embedded</strong> (gera token via Service Principal)</span>
+                </label>
+                <small class="admin-help">Quando ligado, o portal ignora a URL iframe acima e renderiza via embed token. Requer Workspace ID e Report ID abaixo.</small>
+            </div>
+            <div class="form-group">
+                <label>Cole uma URL do Power BI Service para extrair IDs (opcional)</label>
+                <input type="text" id="embedUrlPasteInput" placeholder="https://app.fabric.microsoft.com/groups/{workspaceId}/reports/{reportId}?..." />
+                <small class="admin-help">Cole a URL e os campos abaixo serão preenchidos automaticamente.</small>
+            </div>
+            <div class="form-group">
+                <label>Workspace ID (GUID)</label>
+                <input type="text" id="embedWorkspaceIdInput" placeholder="00000000-0000-0000-0000-000000000000" />
+            </div>
+            <div class="form-group">
+                <label>Report ID (GUID)</label>
+                <input type="text" id="embedReportIdInput" placeholder="00000000-0000-0000-0000-000000000000" />
+            </div>
             <div class="form-group">
                 <label class="admin-inline-row">
                     <input type="checkbox" id="showInHomeCheckbox">
@@ -380,6 +401,21 @@ window.PortalAdmin = {
             document.getElementById('redirectEmailsInput').value = page.redirectEmails || '';
             document.getElementById('showInHomeCheckbox').checked = page.showInHome !== false;
             document.getElementById('pageIconInput').value = (window.PortalIcons ? window.PortalIcons.svgToKey(page.icon) : page.icon) || '';
+            document.getElementById('useEmbedCheckbox').checked = !!page.useEmbed;
+            document.getElementById('embedWorkspaceIdInput').value = page.embedWorkspaceId || '';
+            document.getElementById('embedReportIdInput').value = page.embedReportId || '';
+        }
+
+        // Auto-extrair IDs ao colar URL do Power BI Service
+        const pasteInput = document.getElementById('embedUrlPasteInput');
+        if (pasteInput) {
+            pasteInput.addEventListener('input', () => {
+                const m = pasteInput.value.match(/groups\/([0-9a-fA-F-]{36})\/reports\/([0-9a-fA-F-]{36})/);
+                if (m) {
+                    document.getElementById('embedWorkspaceIdInput').value = m[1];
+                    document.getElementById('embedReportIdInput').value = m[2];
+                }
+            });
         }
 
         // Inicializar icon input handler e paletas
@@ -1247,16 +1283,19 @@ window.PortalAdmin = {
                     'Authorization': `Bearer ${window.PortalApp.authToken}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ 
-                    title: prepared.title.value, 
-                    subtitle: prepared.subtitle.value, 
-                    description: prepared.description.value, 
+                body: JSON.stringify({
+                    title: prepared.title.value,
+                    subtitle: prepared.subtitle.value,
+                    description: prepared.description.value,
                     powerBIUrl: prepared.powerBIUrl.value,
                     redirectPowerBIUrl: prepared.redirectPowerBIUrl.value || null,
                     redirectEmails: prepared.redirectEmails.value || null,
                     showInHome: showInHome,
                     icon: prepared.icon.value || null,
-                    order: pageOrder
+                    order: pageOrder,
+                    useEmbed: document.getElementById('useEmbedCheckbox').checked,
+                    embedWorkspaceId: document.getElementById('embedWorkspaceIdInput').value.trim() || null,
+                    embedReportId: document.getElementById('embedReportIdInput').value.trim() || null
                 })
             });
             
