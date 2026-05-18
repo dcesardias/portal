@@ -300,6 +300,7 @@ window.PortalAdmin = {
         let badges = '';
         if (page.icon) badges += '<span class="page-list-badge badge-blue" title="Tem ícone personalizado">🎨</span>';
         if (page.redirectPowerBIUrl && page.redirectEmails) badges += '<span class="page-list-badge badge-purple">REDIRECT</span>';
+        if (page.useEmbed && page.embedWorkspaceId && page.embedReportId) badges += '<span class="page-list-badge badge-green" title="Renderizado via Power BI Embedded">EMBED</span>';
         const menuLinks = this._countMenuLinksToPage(page.id);
         if (menuLinks > 0) badges += `<span class="page-list-badge badge-green" title="${menuLinks} item(ns) do menu apontam para esta página">${menuLinks}× menu</span>`;
 
@@ -403,10 +404,33 @@ window.PortalAdmin = {
 
                 <fieldset class="admin-fieldset">
                     <legend class="admin-legend">Power BI</legend>
-                    <p class="admin-fieldset-hint">URL principal do dashboard embed.</p>
+                    <p class="admin-fieldset-hint">URL principal do dashboard embed (modo iframe legado).</p>
                     <div class="form-group">
                         <label for="powerbiUrlInput">URL do Power BI Embed</label>
                         <input type="text" id="powerbiUrlInput" placeholder="https://app.powerbi.com/view?r=…">
+                    </div>
+                </fieldset>
+
+                <fieldset class="admin-fieldset">
+                    <legend class="admin-legend">Power BI Embedded <span class="admin-legend-tag">(App Owns Data)</span></legend>
+                    <p class="admin-fieldset-hint">Quando ligado, o portal gera embed token via Service Principal em vez de usar a URL iframe acima. Permissoes refletem o "Manage access" do workspace/report.</p>
+                    <div class="form-group">
+                        <label class="admin-checkbox-row">
+                            <input type="checkbox" id="useEmbedCheckbox">
+                            <span><strong>Usar Power BI Embedded</strong></span>
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label for="embedUrlPasteInput">Cole URL do Power BI Service (auto-extrai IDs)</label>
+                        <input type="text" id="embedUrlPasteInput" placeholder="https://app.fabric.microsoft.com/groups/{workspaceId}/reports/{reportId}?…">
+                    </div>
+                    <div class="form-group">
+                        <label for="embedWorkspaceIdInput">Workspace ID (GUID)</label>
+                        <input type="text" id="embedWorkspaceIdInput" placeholder="00000000-0000-0000-0000-000000000000">
+                    </div>
+                    <div class="form-group">
+                        <label for="embedReportIdInput">Report ID (GUID)</label>
+                        <input type="text" id="embedReportIdInput" placeholder="00000000-0000-0000-0000-000000000000">
                     </div>
                 </fieldset>
 
@@ -468,6 +492,21 @@ window.PortalAdmin = {
             document.getElementById('redirectEmailsInput').value = page.redirectEmails || '';
             document.getElementById('showInHomeCheckbox').checked = page.showInHome !== false;
             document.getElementById('pageIconInput').value = (window.PortalIcons ? window.PortalIcons.svgToKey(page.icon) : page.icon) || '';
+            document.getElementById('useEmbedCheckbox').checked = !!page.useEmbed;
+            document.getElementById('embedWorkspaceIdInput').value = page.embedWorkspaceId || '';
+            document.getElementById('embedReportIdInput').value = page.embedReportId || '';
+        }
+
+        // Auto-extrair IDs ao colar URL do Power BI Service
+        const pasteInput = document.getElementById('embedUrlPasteInput');
+        if (pasteInput) {
+            pasteInput.addEventListener('input', () => {
+                const m = pasteInput.value.match(/groups\/([0-9a-fA-F-]{36})\/reports\/([0-9a-fA-F-]{36})/);
+                if (m) {
+                    document.getElementById('embedWorkspaceIdInput').value = m[1];
+                    document.getElementById('embedReportIdInput').value = m[2];
+                }
+            });
         }
 
         // Inicializar icon input handler e paletas
@@ -1531,16 +1570,19 @@ window.PortalAdmin = {
                     'Authorization': `Bearer ${window.PortalApp.authToken}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ 
-                    title: prepared.title.value, 
-                    subtitle: prepared.subtitle.value, 
-                    description: prepared.description.value, 
+                body: JSON.stringify({
+                    title: prepared.title.value,
+                    subtitle: prepared.subtitle.value,
+                    description: prepared.description.value,
                     powerBIUrl: prepared.powerBIUrl.value,
                     redirectPowerBIUrl: prepared.redirectPowerBIUrl.value || null,
                     redirectEmails: prepared.redirectEmails.value || null,
                     showInHome: showInHome,
                     icon: prepared.icon.value || null,
-                    order: pageOrder
+                    order: pageOrder,
+                    useEmbed: document.getElementById('useEmbedCheckbox').checked,
+                    embedWorkspaceId: document.getElementById('embedWorkspaceIdInput').value.trim() || null,
+                    embedReportId: document.getElementById('embedReportIdInput').value.trim() || null
                 })
             });
             

@@ -10,7 +10,11 @@ window.PortalPages = {
             redirectEmails: p.RedirectEmails || p.redirectEmails || '',
             showInHome: p.ShowInHome !== undefined ? p.ShowInHome : (p.showInHome !== false),
             icon: p.Icon || p.icon || null,
-            order: p.Order !== undefined ? p.Order : (p.order || 0)
+            order: p.Order !== undefined ? p.Order : (p.order || 0),
+            useEmbed: !!(p.UseEmbed !== undefined ? p.UseEmbed : p.useEmbed),
+            embedWorkspaceId: p.EmbedWorkspaceId || p.embedWorkspaceId || '',
+            embedReportId: p.EmbedReportId || p.embedReportId || '',
+            allowedAADGroups: p.AllowedAADGroups || p.allowedAADGroups || null
         }));
     },
 
@@ -226,7 +230,10 @@ window.PortalPages = {
         const refreshBtn = document.getElementById('refreshIframeBtn');
         
         if (container) {
-            if (page.powerbiUrl) {
+            // NOVO: modo embed (App Owns Data) — usado quando UseEmbed=1 e GUIDs preenchidos
+            if (page.useEmbed && page.embedWorkspaceId && page.embedReportId) {
+                await this.renderEmbedded(container, page, refreshBtn);
+            } else if (page.powerbiUrl) {
                 if (window.PortalMicrosoftAuth && typeof window.PortalMicrosoftAuth.ensurePowerBIAccount === 'function') {
                     const canRenderReport = await window.PortalMicrosoftAuth.ensurePowerBIAccount(page);
                     if (!canRenderReport) {
@@ -246,20 +253,20 @@ window.PortalPages = {
                 const escapeHtml = window.PortalUtils ? window.PortalUtils.escapeHtml : (text => text);
                 const effectivePowerBIUrl = this.resolvePowerBIUrl(page);
                 container.innerHTML = `<iframe src="${escapeHtml(effectivePowerBIUrl)}" frameborder="0" allowFullScreen="true"></iframe>`;
-                
+
                 if (refreshBtn) {
                     refreshBtn.style.display = 'flex';
-                    
+
                     // Remover listeners antigos e adicionar novo
                     const newBtn = refreshBtn.cloneNode(true);
                     refreshBtn.parentNode.replaceChild(newBtn, refreshBtn);
-                    
+
                     newBtn.addEventListener('click', () => {
                         const iframe = document.querySelector('#powerbiContainer iframe');
                         if (iframe) {
                             const icon = newBtn.querySelector('i');
                             if (icon) icon.style.animation = 'spin 0.5s linear';
-                            
+
                             const currentSrc = iframe.src;
                             iframe.src = '';
                             setTimeout(() => {
@@ -271,7 +278,7 @@ window.PortalPages = {
                 }
             } else {
                 container.innerHTML = `<div class="placeholder"><div class="powerbi-icon">📊</div><h3 style="color:#666; margin-bottom:10px;">Power BI</h3><p style="color:#999; margin-bottom:20px;">Relatório sem link embed</p></div>`;
-                
+
                 if (refreshBtn) refreshBtn.style.display = 'none';
             }
         }
@@ -413,6 +420,138 @@ window.PortalPages = {
             
             container.appendChild(card);
         });
+    },
+
+    // -------- Power BI Embedded (App Owns Data) --------
+    _powerbiLoading: null,
+    loadPowerBIClient() {
+        if (window['powerbi-client']) return Promise.resolve();
+        if (this._powerbiLoading) return this._powerbiLoading;
+        this._powerbiLoading = new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = '/vendor/powerbi-client/powerbi.min.js';
+            s.onload = () => resolve();
+            s.onerror = () => reject(new Error('Falha ao carregar powerbi-client'));
+            document.head.appendChild(s);
+        });
+        return this._powerbiLoading;
+    },
+
+    async renderEmbedded(container, page, refreshBtn) {
+        const escapeHtml = window.PortalUtils ? window.PortalUtils.escapeHtml : (text => text);
+        try {
+            await this.loadPowerBIClient();
+        } catch (e) {
+            container.innerHTML = `<div class="placeholder"><div class="powerbi-icon">!</div><p>Nao foi possivel carregar o powerbi-client: ${escapeHtml(e.message)}</p></div>`;
+            if (refreshBtn) refreshBtn.style.display = 'none';
+            return;
+        }
+
+        const token = window.PortalApp && window.PortalApp.authToken;
+        let idToken = '';
+        if (window.PortalMicrosoftAuth && typeof window.PortalMicrosoftAuth.getIdToken === 'function') {
+            try { idToken = await window.PortalMicrosoftAuth.getIdToken({ promptIfMissing: true }); } catch (_) {}
+        }
+        const res = await fetch(`${window.PortalApp.API_URL}/embed/token`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+                ...(idToken ? { 'X-MS-Id-Token': idToken } : {})
+            },
+            body: JSON.stringify({
+                pageId: page.id,
+                workspaceId: page.embedWorkspaceId,
+                reportId: page.embedReportId
+            })
+        });
+
+        if (!res.ok) {
+            let parsed = null;
+            try { parsed = await res.json(); } catch (_) {}
+            const pbiCode = parsed && parsed.body && (parsed.body.error?.code || parsed.body.error || parsed.body.errorCode);
+            const portalError = parsed && parsed.error;
+
+            // Caso 1: permissao do AAD/PBI nega o usuario
+            if (portalError === 'forbidden') {
+                container.innerHTML = `
+                    <div class="placeholder">
+                        <div class="powerbi-icon">🔒</div>
+                        <h3 style="color:#b91c1c; margin-bottom:8px;">Sem permissao para este painel</h3>
+                        <p style="color:#374151;">${escapeHtml(parsed?.message || '')}</p>
+                        <p style="color:#6b7280; font-size:13px; margin-top:8px;">${escapeHtml(parsed?.hint || '')}</p>
+                    </div>`;
+            } else if (portalError === 'msal_required' || portalError === 'invalid_msal_token') {
+                container.innerHTML = `
+                    <div class="placeholder placeholder--microsoft-auth">
+                        <div class="powerbi-icon">🔐</div>
+                        <h3 class="powerbi-placeholder-title">Login Microsoft obrigatorio</h3>
+                        <p class="powerbi-placeholder-desc">Este painel exige autenticacao Microsoft. Saia e entre novamente para confirmar sua conta.</p>
+                    </div>`;
+            }
+            // JWT do portal expirou/faltou
+            else if ((res.status === 401 || res.status === 403) && !pbiCode && !portalError) {
+                container.innerHTML = `
+                    <div class="placeholder placeholder--microsoft-auth">
+                        <div class="powerbi-icon">🔐</div>
+                        <h3 class="powerbi-placeholder-title">Acesso restrito</h3>
+                        <p class="powerbi-placeholder-desc">Faça login no portal para visualizar este painel.</p>
+                    </div>`;
+            } else if (pbiCode === 'PowerBINotAuthorizedException' || (portalError === 'pbi-get' && res.status === 401)) {
+                container.innerHTML = `
+                    <div class="placeholder">
+                        <div class="powerbi-icon">!</div>
+                        <h3 style="color:#b91c1c; margin-bottom:8px;">Service Principal sem acesso a este workspace</h3>
+                        <p style="color:#374151; max-width:560px; margin:0 auto 8px;">
+                            O SP <code>Microsof-Fabric-PowerBI</code> nao e Member do workspace
+                            <code>${escapeHtml(page.embedWorkspaceId)}</code>.
+                        </p>
+                        <p style="color:#6b7280; font-size:13px; max-width:560px; margin:0 auto;">
+                            Em Power BI Service: abra o workspace - Manage access - Add people or groups - adicione o SP com role Member.
+                        </p>
+                    </div>`;
+            } else if (portalError === 'generate-token' || (pbiCode && /license|capacity/i.test(pbiCode))) {
+                container.innerHTML = `<div class="placeholder"><div class="powerbi-icon">!</div><h3 style="color:#b91c1c;">Capacity nao habilitada</h3><p>O workspace precisa estar em Fabric/Premium. Detalhe: ${escapeHtml(pbiCode || '')}</p></div>`;
+            } else {
+                const detail = parsed?.message || parsed?.error || `HTTP ${res.status}`;
+                container.innerHTML = `<div class="placeholder"><div class="powerbi-icon">!</div><p>Erro ao obter embed token: ${escapeHtml(detail)}</p></div>`;
+            }
+            if (refreshBtn) refreshBtn.style.display = 'none';
+            return;
+        }
+
+        const cfg = await res.json();
+        container.innerHTML = '';
+        const models = window['powerbi-client'].models;
+        const embedConfig = {
+            type: 'report',
+            id: cfg.reportId,
+            embedUrl: cfg.embedUrl,
+            accessToken: cfg.accessToken,
+            tokenType: models.TokenType.Embed,
+            permissions: models.Permissions.Read,
+            settings: {
+                panes: {
+                    filters: { expanded: false, visible: true },
+                    pageNavigation: { visible: true }
+                },
+                background: models.BackgroundType.Default
+            }
+        };
+        window.powerbi.reset(container);
+        const report = window.powerbi.embed(container, embedConfig);
+
+        if (refreshBtn) {
+            refreshBtn.style.display = 'flex';
+            const newBtn = refreshBtn.cloneNode(true);
+            refreshBtn.parentNode.replaceChild(newBtn, refreshBtn);
+            newBtn.addEventListener('click', async () => {
+                const icon = newBtn.querySelector('i');
+                if (icon) icon.style.animation = 'spin 0.5s linear';
+                try { await report.refresh(); } catch (_) {}
+                if (icon) setTimeout(() => { icon.style.animation = ''; }, 500);
+            });
+        }
     },
 
     renderCardIcon(icon) {

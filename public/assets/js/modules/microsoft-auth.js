@@ -216,6 +216,52 @@ window.PortalMicrosoftAuth = {
         try { sessionStorage.removeItem(this.activeAccountKey); } catch (e) { /* noop */ }
     },
 
+    // Retorna o id_token MSAL do usuario logado, fazendo silent acquire ou
+    // login popup se preciso. Devolve string vazia se MSAL desabilitado/falhou.
+    async getIdToken({ promptIfMissing = true } = {}) {
+        await this.init();
+        if (!this.isEnabled() || this.initializationFailed || !this.msalInstance) return '';
+
+        let account = this.msalInstance.getActiveAccount() || this.msalInstance.getAllAccounts()[0] || null;
+
+        if (!account) {
+            if (!promptIfMissing) return '';
+            try {
+                const popupResult = await this.msalInstance.loginPopup(this.getPopupRequest());
+                if (popupResult && popupResult.account) {
+                    this.msalInstance.setActiveAccount(popupResult.account);
+                    account = popupResult.account;
+                    if (popupResult.idToken) return popupResult.idToken;
+                }
+            } catch (e) {
+                console.warn('[MSAUTH] loginPopup para id_token falhou:', e);
+                return '';
+            }
+        }
+
+        if (!account) return '';
+
+        try {
+            const result = await this.msalInstance.acquireTokenSilent({
+                account,
+                scopes: ['openid', 'profile'],
+            });
+            return result?.idToken || '';
+        } catch (e) {
+            console.warn('[MSAUTH] acquireTokenSilent falhou; tentando popup:', e);
+            try {
+                const result = await this.msalInstance.acquireTokenPopup({
+                    account,
+                    scopes: ['openid', 'profile'],
+                });
+                return result?.idToken || '';
+            } catch (e2) {
+                console.warn('[MSAUTH] acquireTokenPopup falhou:', e2);
+                return '';
+            }
+        }
+    },
+
     async finishStartup() {
         await this.init();
 
