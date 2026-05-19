@@ -2675,6 +2675,38 @@ body {
     font-size: 18px;
 }
 
+/* Botao fullscreen do embed (so aparece no modo PBI Embedded; iframe legacy
+   ja tem botao fullscreen nativo na toolbar do PBI Service). Posicionado
+   abaixo do botao refresh, no canto superior direito do painel. */
+.btn-fullscreen-iframe {
+    position: absolute;
+    top: 60px;
+    right: 10px;
+    z-index: 10;
+    background: rgba(0, 102, 204, 0.92);
+    border: none;
+    color: white;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+    box-shadow: var(--shadow-sm);
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.btn-fullscreen-iframe:hover {
+    background: rgba(0, 102, 204, 1);
+    transform: translateY(-1px);
+    filter: brightness(0.98);
+    box-shadow: var(--shadow-md);
+}
+
+.btn-fullscreen-iframe i {
+    font-size: 16px;
+}
+
 /* Wrapper de ações no header global, agrupa botão "Trocar conta" + barra de pesquisa */
 .header-actions {
     display: flex;

@@ -114,7 +114,10 @@ window.PortalData = {
             useEmbed: !!(p.UseEmbed !== undefined ? p.UseEmbed : p.useEmbed),
             embedWorkspaceId: p.EmbedWorkspaceId || p.embedWorkspaceId || '',
             embedReportId: p.EmbedReportId || p.embedReportId || '',
-            allowedAADGroups: p.AllowedAADGroups || p.allowedAADGroups || null
+            allowedAADGroups: p.AllowedAADGroups || p.allowedAADGroups || null,
+            embedRoles: p.EmbedRoles || p.embedRoles || '',
+            redirectEmbedWorkspaceId: p.RedirectEmbedWorkspaceId || p.redirectEmbedWorkspaceId || '',
+            redirectEmbedReportId: p.RedirectEmbedReportId || p.redirectEmbedReportId || ''
         }));
     }
 };

@@ -432,19 +432,40 @@ window.PortalAdmin = {
                         <label for="embedReportIdInput">Report ID (GUID)</label>
                         <input type="text" id="embedReportIdInput" placeholder="00000000-0000-0000-0000-000000000000">
                     </div>
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="embedRlsCheckbox">
+                            <span><strong>Ativar Row-Level Security (RLS)</strong></span>
+                        </label>
+                        <small class="admin-help">Marque se o dataset usa RLS. O portal vai enviar o email do usuário (MSAL) com o role <code>AcessoAvancado</code> ao Power BI ao gerar o embed token.</small>
+                    </div>
                 </fieldset>
 
                 <fieldset class="admin-fieldset">
                     <legend class="admin-legend">Redirecionamento condicional <span class="admin-legend-tag">(opcional)</span></legend>
-                    <p class="admin-fieldset-hint">URL alternativa usada quando o usuário Microsoft logado estiver na lista de e-mails abaixo.</p>
+                    <p class="admin-fieldset-hint">Painel alternativo (iframe ou embed) usado quando o usuário Microsoft logado estiver na lista de e-mails abaixo.</p>
                     <div class="form-group">
-                        <label for="redirectPowerbiUrlInput">URL alternativa</label>
+                        <label for="redirectPowerbiUrlInput">URL alternativa (iframe)</label>
                         <input type="text" id="redirectPowerbiUrlInput" placeholder="https://app.powerbi.com/view?r=…">
+                        <small class="admin-help">Usada quando o painel está em modo iframe.</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="redirectEmbedUrlPasteInput">URL alternativa (Power BI Embedded)</label>
+                        <input type="text" id="redirectEmbedUrlPasteInput" placeholder="https://app.fabric.microsoft.com/groups/{workspaceId}/reports/{reportId}?…">
+                        <small class="admin-help">Cole a URL do report alternativo. Os IDs são extraídos automaticamente.</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="redirectEmbedWorkspaceIdInput">Workspace ID alternativo (GUID)</label>
+                        <input type="text" id="redirectEmbedWorkspaceIdInput" placeholder="00000000-0000-0000-0000-000000000000">
+                    </div>
+                    <div class="form-group">
+                        <label for="redirectEmbedReportIdInput">Report ID alternativo (GUID)</label>
+                        <input type="text" id="redirectEmbedReportIdInput" placeholder="00000000-0000-0000-0000-000000000000">
                     </div>
                     <div class="form-group">
                         <label for="redirectEmailsInput">E-mails Microsoft</label>
                         <textarea id="redirectEmailsInput" rows="3" placeholder="usuario1@aacd.org.br&#10;usuario2@aacd.org.br"></textarea>
-                        <small class="admin-help">Um e-mail por linha. Aceita vírgula ou ponto e vírgula.</small>
+                        <small class="admin-help">Um e-mail por linha. Aceita vírgula ou ponto e vírgula. Os mesmos e-mails valem para iframe e embed.</small>
                     </div>
                 </fieldset>
 
@@ -495,6 +516,11 @@ window.PortalAdmin = {
             document.getElementById('useEmbedCheckbox').checked = !!page.useEmbed;
             document.getElementById('embedWorkspaceIdInput').value = page.embedWorkspaceId || '';
             document.getElementById('embedReportIdInput').value = page.embedReportId || '';
+            // Convencao AACD: todo dataset com RLS usa o role "AcessoAvancado".
+            // Checkbox liga se a page tem qualquer valor em EmbedRoles.
+            document.getElementById('embedRlsCheckbox').checked = !!(page.embedRoles && String(page.embedRoles).trim());
+            document.getElementById('redirectEmbedWorkspaceIdInput').value = page.redirectEmbedWorkspaceId || '';
+            document.getElementById('redirectEmbedReportIdInput').value = page.redirectEmbedReportId || '';
         }
 
         // Auto-extrair IDs ao colar URL do Power BI Service
@@ -505,6 +531,18 @@ window.PortalAdmin = {
                 if (m) {
                     document.getElementById('embedWorkspaceIdInput').value = m[1];
                     document.getElementById('embedReportIdInput').value = m[2];
+                }
+            });
+        }
+
+        // Auto-extrair IDs do redirect (URL alternativa embed)
+        const redirectPasteInput = document.getElementById('redirectEmbedUrlPasteInput');
+        if (redirectPasteInput) {
+            redirectPasteInput.addEventListener('input', () => {
+                const m = redirectPasteInput.value.match(/groups\/([0-9a-fA-F-]{36})\/reports\/([0-9a-fA-F-]{36})/);
+                if (m) {
+                    document.getElementById('redirectEmbedWorkspaceIdInput').value = m[1];
+                    document.getElementById('redirectEmbedReportIdInput').value = m[2];
                 }
             });
         }
@@ -1582,7 +1620,10 @@ window.PortalAdmin = {
                     order: pageOrder,
                     useEmbed: document.getElementById('useEmbedCheckbox').checked,
                     embedWorkspaceId: document.getElementById('embedWorkspaceIdInput').value.trim() || null,
-                    embedReportId: document.getElementById('embedReportIdInput').value.trim() || null
+                    embedReportId: document.getElementById('embedReportIdInput').value.trim() || null,
+                    embedRoles: document.getElementById('embedRlsCheckbox').checked ? 'AcessoAvancado' : null,
+                    redirectEmbedWorkspaceId: document.getElementById('redirectEmbedWorkspaceIdInput').value.trim() || null,
+                    redirectEmbedReportId: document.getElementById('redirectEmbedReportIdInput').value.trim() || null
                 })
             });
             

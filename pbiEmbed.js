@@ -95,12 +95,15 @@ async function pbiGet(path, aadToken) {
     return json;
 }
 
-async function generateEmbedToken(aadToken, workspaceId, reportId, datasetId) {
+async function generateEmbedToken(aadToken, workspaceId, reportId, datasetId, identities) {
     const payload = {
         datasets: [{ id: datasetId }],
         reports: [{ id: reportId }],
         targetWorkspaces: [{ id: workspaceId }],
     };
+    if (Array.isArray(identities) && identities.length > 0) {
+        payload.identities = identities;
+    }
     const res = await fetch(`${PBI_BASE}/GenerateToken`, {
         method: 'POST',
         headers: {
@@ -202,10 +205,39 @@ function mountPbiEmbed({ app, getPool }) {
                 });
             }
 
-            // 3) Resolve allowlist efetiva (override ou PBI service)
+            // 2.5) Redirect condicional: se a page tem RedirectEmbed* + emails
+            //      configurados E o usuario logado bate com a lista, troca os
+            //      IDs efetivos. A allowlist e a chamada GenerateToken passam a
+            //      usar o workspace/report de redirect — incluindo a verificacao
+            //      de quem pode acessar (Manage access do workspace alvo).
+            const redirectWs = page.RedirectEmbedWorkspaceId || page.redirectEmbedWorkspaceId;
+            const redirectRid = page.RedirectEmbedReportId || page.redirectEmbedReportId;
+            const redirectEmailsRaw = page.RedirectEmails || page.redirectEmails || '';
+            let effectiveWorkspaceId = workspaceId;
+            let effectiveReportId = reportId;
+            if (redirectWs && redirectRid && redirectEmailsRaw && userEmail) {
+                const redirectEmails = String(redirectEmailsRaw)
+                    .split(/[;,\n\r]+/)
+                    .map(s => s.trim().toLowerCase())
+                    .filter(Boolean);
+                if (redirectEmails.includes(String(userEmail).toLowerCase())) {
+                    effectiveWorkspaceId = redirectWs;
+                    effectiveReportId = redirectRid;
+                    console.log(`[PBI EMBED] redirect aplicado pro user ${userEmail} -> ws=${redirectWs} r=${redirectRid}`);
+                }
+            }
+            const effectivePage = Object.assign({}, page, {
+                embedWorkspaceId: effectiveWorkspaceId,
+                EmbedWorkspaceId: effectiveWorkspaceId,
+                embedReportId: effectiveReportId,
+                EmbedReportId: effectiveReportId,
+            });
+
+            // 3) Resolve allowlist efetiva (override ou PBI service) — usa os
+            //    IDs efetivos pra que a verificacao bata com o workspace alvo.
             let allowlist = { emails: new Set(), groupIds: [], source: null };
             try {
-                allowlist = await getEffectiveAllowlist(page, getAadToken);
+                allowlist = await getEffectiveAllowlist(effectivePage, getAadToken);
             } catch (e) {
                 console.warn('[PBI EMBED] falha ao resolver allowlist:', e.message);
             }
@@ -236,7 +268,7 @@ function mountPbiEmbed({ app, getPool }) {
 
             const aadToken = await getAadToken();
             const report = await pbiGet(
-                `/groups/${workspaceId}/reports/${reportId}`,
+                `/groups/${effectiveWorkspaceId}/reports/${effectiveReportId}`,
                 aadToken,
             );
             if (!report?.datasetId || !report?.embedUrl) {
@@ -246,16 +278,42 @@ function mountPbiEmbed({ app, getPool }) {
                     report,
                 });
             }
+            // RLS: se a Page tem EmbedRoles preenchido, monta identities com
+            // o email do usuario MSAL como username + roles configurados +
+            // datasetId. Sem MSAL e RLS exigido pelo dataset, PBI rejeita.
+            let identities = null;
+            const rawRoles = page.EmbedRoles || page.embedRoles || '';
+            if (rawRoles) {
+                const roles = String(rawRoles)
+                    .split(/[;,\n\r]+/)
+                    .map(s => s.trim())
+                    .filter(Boolean);
+                if (roles.length > 0) {
+                    if (!userEmail) {
+                        return res.status(401).json({
+                            error: 'msal_required',
+                            message: 'Este painel usa Row-Level Security e exige login Microsoft para identificar o usuario.',
+                        });
+                    }
+                    identities = [{
+                        username: userEmail,
+                        roles,
+                        datasets: [report.datasetId],
+                    }];
+                }
+            }
+
             const embed = await generateEmbedToken(
                 aadToken,
-                workspaceId,
-                reportId,
+                effectiveWorkspaceId,
+                effectiveReportId,
                 report.datasetId,
+                identities,
             );
             return res.json({
                 embedUrl: report.embedUrl,
-                reportId,
-                workspaceId,
+                reportId: effectiveReportId,
+                workspaceId: effectiveWorkspaceId,
                 datasetId: report.datasetId,
                 reportName: report.name,
                 accessToken: embed.token,

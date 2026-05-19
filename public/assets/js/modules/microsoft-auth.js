@@ -68,7 +68,34 @@ window.PortalMicrosoftAuth = {
             this.lastInitErrorMessage = error && error.message ? error.message : 'Falha ao inicializar autenticacao Microsoft.';
         } finally {
             this.initialized = true;
+            this.updateAccountIndicator();
         }
+    },
+
+    // Popula o indicador #accountIndicator do header com nome (ou email,
+    // como fallback) do usuario logado via MSAL. Se nao houver conta ativa,
+    // mantem o indicador oculto. Idempotente — pode ser chamado a qualquer
+    // momento apos init().
+    updateAccountIndicator() {
+        const container = document.getElementById('accountIndicator');
+        const label = document.getElementById('accountIndicatorLabel');
+        if (!container || !label) return;
+
+        const name = this.getSignedInName();
+        const email = this.getSignedInEmail();
+        const display = name || email;
+
+        if (!display) {
+            container.style.display = 'none';
+            label.textContent = '';
+            container.removeAttribute('title');
+            return;
+        }
+
+        label.textContent = display;
+        // Email no tooltip ajuda a desambiguar usuarios com mesmo nome.
+        container.title = email && email !== display ? `${display} (${email})` : display;
+        container.style.display = 'inline-flex';
     },
 
     isEnabled() {

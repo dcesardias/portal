@@ -3612,6 +3612,9 @@ async function ensurePagesEmbedColumns() {
         { col: 'EmbedWorkspaceId', sql: 'ALTER TABLE dbo.Pages ADD EmbedWorkspaceId UNIQUEIDENTIFIER NULL;' },
         { col: 'EmbedReportId', sql: 'ALTER TABLE dbo.Pages ADD EmbedReportId UNIQUEIDENTIFIER NULL;' },
         { col: 'AllowedAADGroups', sql: 'ALTER TABLE dbo.Pages ADD AllowedAADGroups NVARCHAR(MAX) NULL;' },
+        { col: 'EmbedRoles', sql: 'ALTER TABLE dbo.Pages ADD EmbedRoles NVARCHAR(MAX) NULL;' },
+        { col: 'RedirectEmbedWorkspaceId', sql: 'ALTER TABLE dbo.Pages ADD RedirectEmbedWorkspaceId UNIQUEIDENTIFIER NULL;' },
+        { col: 'RedirectEmbedReportId', sql: 'ALTER TABLE dbo.Pages ADD RedirectEmbedReportId UNIQUEIDENTIFIER NULL;' },
     ];
     for (const { col, sql: ddl } of adds) {
         try {
@@ -4148,11 +4151,16 @@ app.post('/api/pages', authenticateToken, async (req, res) => {
     }
     try {
         const { title, subtitle, description, powerBIUrl, redirectPowerBIUrl, redirectEmails, showInHome, icon, order,
-                useEmbed, embedWorkspaceId, embedReportId, allowedAADGroups } = req.body;
+                useEmbed, embedWorkspaceId, embedReportId, allowedAADGroups, embedRoles,
+                redirectEmbedWorkspaceId, redirectEmbedReportId } = req.body;
 
         const allowedAADGroupsJson = Array.isArray(allowedAADGroups)
             ? JSON.stringify(allowedAADGroups)
             : (typeof allowedAADGroups === 'string' && allowedAADGroups.trim() ? allowedAADGroups : null);
+
+        const embedRolesValue = Array.isArray(embedRoles)
+            ? embedRoles.join(',')
+            : (typeof embedRoles === 'string' && embedRoles.trim() ? embedRoles.trim() : null);
 
         const result = await pool.request()
             .input('title', sql.NVarChar, title)
@@ -4168,14 +4176,19 @@ app.post('/api/pages', authenticateToken, async (req, res) => {
             .input('embedWorkspaceId', sql.UniqueIdentifier, embedWorkspaceId || null)
             .input('embedReportId', sql.UniqueIdentifier, embedReportId || null)
             .input('allowedAADGroups', sql.NVarChar(sql.MAX), allowedAADGroupsJson)
+            .input('embedRoles', sql.NVarChar(sql.MAX), embedRolesValue)
+            .input('redirectEmbedWorkspaceId', sql.UniqueIdentifier, redirectEmbedWorkspaceId || null)
+            .input('redirectEmbedReportId', sql.UniqueIdentifier, redirectEmbedReportId || null)
             .query(`
                 INSERT INTO Pages (Title, Subtitle, Description, PowerBIUrl, RedirectPowerBIUrl, RedirectEmails, ShowInHome, Icon, [Order],
-                                   UseEmbed, EmbedWorkspaceId, EmbedReportId, AllowedAADGroups)
+                                   UseEmbed, EmbedWorkspaceId, EmbedReportId, AllowedAADGroups, EmbedRoles,
+                                   RedirectEmbedWorkspaceId, RedirectEmbedReportId)
                 OUTPUT INSERTED.*
                 SELECT
                     @title, @subtitle, @description, @powerBIUrl, @redirectPowerBIUrl, @redirectEmails, @showInHome, @icon,
                     COALESCE(@order, (SELECT ISNULL(MAX([Order]), 0) + 10 FROM Pages)),
-                    @useEmbed, @embedWorkspaceId, @embedReportId, @allowedAADGroups
+                    @useEmbed, @embedWorkspaceId, @embedReportId, @allowedAADGroups, @embedRoles,
+                    @redirectEmbedWorkspaceId, @redirectEmbedReportId
             `);
 
         return res.status(201).json(result.recordset[0]);
@@ -4191,11 +4204,16 @@ app.put('/api/pages/:id', authenticateToken, async (req, res) => {
     }
     try {
         const { title, subtitle, description, powerBIUrl, redirectPowerBIUrl, redirectEmails, showInHome, icon, order,
-                useEmbed, embedWorkspaceId, embedReportId, allowedAADGroups } = req.body;
+                useEmbed, embedWorkspaceId, embedReportId, allowedAADGroups, embedRoles,
+                redirectEmbedWorkspaceId, redirectEmbedReportId } = req.body;
 
         const allowedAADGroupsJson = Array.isArray(allowedAADGroups)
             ? JSON.stringify(allowedAADGroups)
             : (typeof allowedAADGroups === 'string' && allowedAADGroups.trim() ? allowedAADGroups : null);
+
+        const embedRolesValue = Array.isArray(embedRoles)
+            ? embedRoles.join(',')
+            : (typeof embedRoles === 'string' && embedRoles.trim() ? embedRoles.trim() : null);
 
         const result = await pool.request()
             .input('id', sql.Int, req.params.id)
@@ -4212,6 +4230,9 @@ app.put('/api/pages/:id', authenticateToken, async (req, res) => {
             .input('embedWorkspaceId', sql.UniqueIdentifier, embedWorkspaceId || null)
             .input('embedReportId', sql.UniqueIdentifier, embedReportId || null)
             .input('allowedAADGroups', sql.NVarChar(sql.MAX), allowedAADGroupsJson)
+            .input('embedRoles', sql.NVarChar(sql.MAX), embedRolesValue)
+            .input('redirectEmbedWorkspaceId', sql.UniqueIdentifier, redirectEmbedWorkspaceId || null)
+            .input('redirectEmbedReportId', sql.UniqueIdentifier, redirectEmbedReportId || null)
             .query(`
                 UPDATE Pages
                 SET Title = @title,
@@ -4227,6 +4248,9 @@ app.put('/api/pages/:id', authenticateToken, async (req, res) => {
                     EmbedWorkspaceId = @embedWorkspaceId,
                     EmbedReportId = @embedReportId,
                     AllowedAADGroups = @allowedAADGroups,
+                    EmbedRoles = @embedRoles,
+                    RedirectEmbedWorkspaceId = @redirectEmbedWorkspaceId,
+                    RedirectEmbedReportId = @redirectEmbedReportId,
                     UpdatedAt = GETDATE()
                 OUTPUT INSERTED.*
                 WHERE Id = @id

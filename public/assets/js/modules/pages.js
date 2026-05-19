@@ -14,7 +14,10 @@ window.PortalPages = {
             useEmbed: !!(p.UseEmbed !== undefined ? p.UseEmbed : p.useEmbed),
             embedWorkspaceId: p.EmbedWorkspaceId || p.embedWorkspaceId || '',
             embedReportId: p.EmbedReportId || p.embedReportId || '',
-            allowedAADGroups: p.AllowedAADGroups || p.allowedAADGroups || null
+            allowedAADGroups: p.AllowedAADGroups || p.allowedAADGroups || null,
+            embedRoles: p.EmbedRoles || p.embedRoles || '',
+            redirectEmbedWorkspaceId: p.RedirectEmbedWorkspaceId || p.redirectEmbedWorkspaceId || '',
+            redirectEmbedReportId: p.RedirectEmbedReportId || p.redirectEmbedReportId || ''
         }));
     },
 
@@ -228,11 +231,16 @@ window.PortalPages = {
 
         const container = document.getElementById('powerbiContainer');
         const refreshBtn = document.getElementById('refreshIframeBtn');
-        
+        const fullscreenBtn = document.getElementById('fullscreenIframeBtn');
+        // Fullscreen so e exposto no modo embed; iframe legacy ja tem o botao
+        // nativo do PBI Service. Esconde sempre que troca de page; o branch
+        // embed re-ativa explicitamente.
+        if (fullscreenBtn) fullscreenBtn.style.display = 'none';
+
         if (container) {
             // NOVO: modo embed (App Owns Data) — usado quando UseEmbed=1 e GUIDs preenchidos
             if (page.useEmbed && page.embedWorkspaceId && page.embedReportId) {
-                await this.renderEmbedded(container, page, refreshBtn);
+                await this.renderEmbedded(container, page, refreshBtn, fullscreenBtn);
             } else if (page.powerbiUrl) {
                 if (window.PortalMicrosoftAuth && typeof window.PortalMicrosoftAuth.ensurePowerBIAccount === 'function') {
                     const canRenderReport = await window.PortalMicrosoftAuth.ensurePowerBIAccount(page);
@@ -437,7 +445,7 @@ window.PortalPages = {
         return this._powerbiLoading;
     },
 
-    async renderEmbedded(container, page, refreshBtn) {
+    async renderEmbedded(container, page, refreshBtn, fullscreenBtn) {
         const escapeHtml = window.PortalUtils ? window.PortalUtils.escapeHtml : (text => text);
         try {
             await this.loadPowerBIClient();
@@ -480,6 +488,10 @@ window.PortalPages = {
                         <h3 style="color:#b91c1c; margin-bottom:8px;">Sem permissao para este painel</h3>
                         <p style="color:#374151;">${escapeHtml(parsed?.message || '')}</p>
                         <p style="color:#6b7280; font-size:13px; margin-top:8px;">${escapeHtml(parsed?.hint || '')}</p>
+                        <p style="color:#374151; margin-top:18px; font-size:14px;">
+                            Para solicitar acesso a este painel, envie um email para
+                            <strong style="color:#0066cc;">bi@aacd.org.br</strong>
+                        </p>
                     </div>`;
             } else if (portalError === 'msal_required' || portalError === 'invalid_msal_token') {
                 container.innerHTML = `
@@ -532,7 +544,9 @@ window.PortalPages = {
             permissions: models.Permissions.Read,
             settings: {
                 panes: {
-                    filters: { expanded: false, visible: true },
+                    // Painel de filtros sempre oculto — AACD nao utiliza filtros
+                    // nativos do Power BI em nenhum painel.
+                    filters: { expanded: false, visible: false },
                     pageNavigation: { visible: true }
                 },
                 background: models.BackgroundType.Default
@@ -550,6 +564,17 @@ window.PortalPages = {
                 if (icon) icon.style.animation = 'spin 0.5s linear';
                 try { await report.refresh(); } catch (_) {}
                 if (icon) setTimeout(() => { icon.style.animation = ''; }, 500);
+            });
+        }
+
+        if (fullscreenBtn) {
+            fullscreenBtn.style.display = 'flex';
+            const newFs = fullscreenBtn.cloneNode(true);
+            fullscreenBtn.parentNode.replaceChild(newFs, fullscreenBtn);
+            newFs.addEventListener('click', () => {
+                try { report.fullscreen(); } catch (e) {
+                    console.warn('[EMBED] fullscreen falhou:', e && e.message);
+                }
             });
         }
     },
