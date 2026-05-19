@@ -69,7 +69,44 @@ window.PortalMicrosoftAuth = {
         } finally {
             this.initialized = true;
             this.updateAccountIndicator();
+            this.startPresenceStream();
         }
+    },
+
+    presenceHeartbeatTimer: null,
+
+    // Envia heartbeat HTTP a cada 30s ao /api/presence/heartbeat. Backend
+    // atualiza lastSeen[email]; emails sem heartbeat em 90s viram offline.
+    // Substituiu a abordagem SSE original (incompativel com iisnode).
+    async startPresenceStream() {
+        if (!this.isEnabled() || this.initializationFailed || !this.msalInstance) return;
+        // getActiveAccount() retorna null em loads subsequentes mesmo com conta
+        // cacheada — fallback PASSIVO para getAllAccounts()[0].
+        let account = this.msalInstance.getActiveAccount();
+        if (!account) {
+            const all = this.msalInstance.getAllAccounts();
+            if (all && all.length > 0) account = all[0];
+        }
+        if (!account) return;
+        if (this.presenceHeartbeatTimer) return; // ja iniciado
+
+        const send = async () => {
+            try {
+                const result = await this.msalInstance.acquireTokenSilent({
+                    account,
+                    scopes: ['openid', 'profile'],
+                });
+                if (!result || !result.idToken) return;
+                await fetch(`${window.PortalApp.API_URL}/presence/heartbeat`, {
+                    method: 'POST',
+                    headers: { 'X-MS-Id-Token': result.idToken },
+                });
+            } catch (e) {
+                // Silencioso — heartbeat eh best-effort.
+            }
+        };
+        send(); // primeiro ping imediato
+        this.presenceHeartbeatTimer = setInterval(send, 30 * 1000);
     },
 
     // Popula o indicador #accountIndicator do header com nome (ou email,

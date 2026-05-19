@@ -10,6 +10,7 @@ const fs = require('fs');
 const { ensureMapDbTables, mountMapDb } = require('./mapdbIntegration');
 const { createUserManagementRouter, loadAppsByUserId } = require('./userManagement');
 const { mountPbiEmbed } = require('./pbiEmbed');
+const { mountPresence } = require('./presence');
 
 try { require('dotenv').config(); } catch (e) { console.warn('dotenv não encontrado (opcional)'); }
 
@@ -7463,6 +7464,8 @@ async function startServer() {
     // /api/embed/token exige id_token MSAL (header X-MS-Id-Token); nao exige
     // JWT do portal porque o usuario final acessa via MSAL apenas.
     mountPbiEmbed({ app, getPool: () => pool });
+    // Presence (SSE) — usuarios online em tempo real para o widget do admin.
+    mountPresence({ app, authenticateToken });
     // Garantir rota /chatbot mesmo se regras de rewrite modificarem a URL
     // Colocada aqui perto do start para evitar qualquer interferência de outras rotas/middlewares.
     // Se o IIS reescrever /chatbot -> /public/chatbot, podemos também atender /public/chatbot.

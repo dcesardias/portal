@@ -136,6 +136,45 @@ body.admin-page {
     outline-offset: 2px;
 }
 
+/* Indicador "X online" — SSE atualiza em tempo real. Mesmo visual dos
+   admin-topbar-btn mas read-only, com bolinha verde pulsando. */
+.admin-online-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    user-select: none;
+    cursor: default;
+}
+.admin-online-indicator .admin-online-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #22c55e;
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6);
+    animation: adminOnlinePulse 2s ease-in-out infinite;
+}
+.admin-online-indicator.is-disconnected .admin-online-dot {
+    background: #9ca3af;
+    animation: none;
+    box-shadow: none;
+}
+@keyframes adminOnlinePulse {
+    0%   { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5); }
+    70%  { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+}
+.admin-online-indicator i {
+    font-size: 14px;
+    opacity: 0.9;
+}
+
 /* ---------- Sidenav esquerda ---------- */
 .admin-sidenav {
     grid-area: sidenav;

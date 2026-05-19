@@ -325,7 +325,37 @@
         const app = document.getElementById('adminPanel');
         if (app) app.classList.add('is-ready');
 
+        // 7) Stream do contador de usuarios online (SSE, atualiza em tempo real)
+        startOnlineCountStream();
+
         console.log('[admin-page] pronta. usuário:', window.PortalApp.currentUser);
+    }
+
+    // Polling a cada 5s do /api/admin/online-count — atualiza o badge
+    // #adminOnlineCount. Mais simples e confiavel que SSE em iisnode.
+    function startOnlineCountStream() {
+        const indicator = document.getElementById('adminOnlineIndicator');
+        const countEl = document.getElementById('adminOnlineCount');
+        if (!indicator || !countEl || !window.PortalApp.authToken) return;
+
+        const tick = async () => {
+            try {
+                const r = await fetch(`${window.PortalApp.API_URL}/admin/online-count`, {
+                    headers: { 'Authorization': `Bearer ${window.PortalApp.authToken}` }
+                });
+                if (!r.ok) {
+                    indicator.classList.add('is-disconnected');
+                    return;
+                }
+                const data = await r.json();
+                countEl.textContent = data.count;
+                indicator.classList.remove('is-disconnected');
+            } catch (_) {
+                indicator.classList.add('is-disconnected');
+            }
+        };
+        tick();
+        setInterval(tick, 5000);
     }
 
     if (document.readyState === 'loading') {
