@@ -3,50 +3,37 @@ let currentTable = null;
 let selectedFile = null;
 let tabelas = {};
 
-// Tabela especial: Orçamento Fluxo de Caixa Ajustado
 const ORCAMENTO_FLUXO_CAIXA_TABLE = 'VW_ORCAMENTO_FLUXO_CAIXA_AJUSTADO';
 
-// Elementos DOM
 const tablesList = document.getElementById('tablesList');
 const uploadArea = document.getElementById('uploadArea');
 
-// Inicializar aplicação
 document.addEventListener('DOMContentLoaded', async () => {
     loadTables();
     setupSearch();
     setupJobsGlobalUI();
     if (window.jobsManager) {
         await window.jobsManager.init();
-        // Sincroniza badges com jobs ativos depois que a lista carregar
-        // (loadTables e' assincrono, entao usamos um pequeno delay seguro
-        // via observador do tablesList em vez de race com loadTables).
     }
 });
 
-// Listener global de jobs: atualiza badges na sidebar, dispara toasts no
-// termino e re-renderiza a barra de progresso se a tabela do job estiver
-// selecionada. Tudo em um lugar so.
+// Listener global: atualiza badge na sidebar, progresso e toasts
 function setupJobsGlobalUI() {
     if (!window.jobsManager) return;
 
     window.jobsManager.on('*', (state) => {
-        // 1) Badge na sidebar
         updateSidebarBadge(state.tableName, !window.jobsManager.TERMINAL.has(state.status));
 
-        // 2) Atualiza barra se a tabela do job esta atualmente aberta
         if (currentTable && state.tableName === currentTable) {
             renderJobProgress(state);
         }
 
-        // 3) Toast quando termina (success ou error) e o usuario esta em
-        // outra tabela ou nem ve a tela do upload.
         if (window.jobsManager.TERMINAL.has(state.status)) {
             const onSameTable = currentTable === state.tableName;
             if (state.status === 'success') {
                 if (!onSameTable) {
                     showGlobalToast(`Carga concluída: ${state.tableName} (${state.insertedRows ?? '?'} registros)`, 'success');
                 }
-                // Refresca contador/lastLoad da tabela na sidebar
                 updateTableCount(state.tableName);
             } else if (state.status === 'error') {
                 showGlobalToast(`Falha na carga de ${state.tableName}: ${state.errorMessage || state.message || 'erro desconhecido'}`, 'error');
@@ -55,8 +42,6 @@ function setupJobsGlobalUI() {
     });
 }
 
-// Toast flutuante (canto superior direito) para notificar termino de jobs
-// quando o usuario esta em outra tela.
 function showGlobalToast(message, type) {
     let stack = document.getElementById('jobsToastStack');
     if (!stack) {
@@ -66,9 +51,9 @@ function showGlobalToast(message, type) {
         document.body.appendChild(stack);
     }
     const toast = document.createElement('div');
-    const bg = type === 'success' ? 'linear-gradient(135deg,#28a745,#20c997)' : 'linear-gradient(135deg,#dc3545,#c82333)';
-    toast.style.cssText = `background:${bg};color:#fff;padding:12px 16px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.2);font-size:14px;font-weight:600;animation:adminFadeIn .3s ease-out;cursor:pointer;`;
-    toast.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-triangle'}" style="margin-right:8px;"></i>${escapeHtml(message)}`;
+    const bg = type === 'success' ? '#166534' : '#991b1b';
+    toast.style.cssText = `background:${bg};color:#fff;padding:11px 14px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.22);font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:inherit;`;
+    toast.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i><span>${escapeHtml(message)}</span>`;
     toast.addEventListener('click', () => toast.remove());
     stack.appendChild(toast);
     setTimeout(() => { try { toast.remove(); } catch (_) {} }, 8000);
@@ -78,18 +63,16 @@ function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-// Atualiza badge na sidebar para tabelas com job ativo.
 function updateSidebarBadge(tableName, isActive) {
     if (!tableName) return;
     const item = document.querySelector(`[data-table="${tableName}"]`);
     if (!item) return;
-    let badge = item.querySelector('.table-job-badge');
+    let badge = item.querySelector('.sc-item-dot');
     if (isActive) {
         if (!badge) {
             badge = document.createElement('span');
-            badge.className = 'table-job-badge';
+            badge.className = 'sc-item-dot';
             badge.title = 'Carga em andamento';
-            badge.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i>';
             item.appendChild(badge);
         }
     } else if (badge) {
@@ -97,16 +80,10 @@ function updateSidebarBadge(tableName, isActive) {
     }
 }
 
-// Configurar pesquisa
 function setupSearch() {
     const searchInput = document.getElementById('searchInput');
     const clearSearch = document.getElementById('clearSearch');
-    
-    searchInput.addEventListener('input', (e) => {
-        const searchTerm = e.target.value.toLowerCase();
-        filterTables(searchTerm);
-    });
-    
+    searchInput.addEventListener('input', e => filterTables(e.target.value.toLowerCase()));
     clearSearch.addEventListener('click', () => {
         searchInput.value = '';
         filterTables('');
@@ -114,32 +91,25 @@ function setupSearch() {
     });
 }
 
-// Filtrar tabelas
-function filterTables(searchTerm) {
-    const tableItems = document.querySelectorAll('.table-item');
-    const tableGroups = document.querySelectorAll('.table-group');
-    
-    tableItems.forEach(item => {
-        const tableName = item.querySelector('.table-name')?.textContent.toLowerCase() || '';
-        const tableDesc = item.querySelector('.table-desc')?.textContent.toLowerCase() || '';
-        const matches = tableName.includes(searchTerm) || tableDesc.includes(searchTerm);
-        
-        item.style.display = matches ? 'flex' : 'none';
+function filterTables(term) {
+    document.querySelectorAll('.sc-item').forEach(item => {
+        const nm   = item.querySelector('.sc-item-nm')?.textContent.toLowerCase() || '';
+        const desc = (item.dataset.desc || '').toLowerCase();
+        item.style.display = (!term || nm.includes(term) || desc.includes(term)) ? 'flex' : 'none';
     });
-    
-    // Expandir grupos automaticamente se houver busca
-    tableGroups.forEach(group => {
-        if (searchTerm) {
-            const groupContent = group.querySelector('.table-group-content');
-            const visibleItems = Array.from(groupContent.querySelectorAll('.table-item'))
-                .filter(item => item.style.display !== 'none');
-            
-            if (visibleItems.length > 0) {
+
+    document.querySelectorAll('.sc-group').forEach(group => {
+        if (term) {
+            const items = group.querySelector('.sc-group-items');
+            const vis = items
+                ? Array.from(items.querySelectorAll('.sc-item')).filter(i => i.style.display !== 'none')
+                : [];
+            if (vis.length > 0) {
                 group.style.display = 'block';
-                if (!group.classList.contains('expanded')) {
-                    group.classList.add('expanded');
+                if (!group.classList.contains('open')) {
+                    group.classList.add('open');
                     requestAnimationFrame(() => {
-                        groupContent.style.maxHeight = (groupContent.scrollHeight + 20) + 'px';
+                        if (items) items.style.maxHeight = (items.scrollHeight + 20) + 'px';
                     });
                 }
             } else {
@@ -151,93 +121,70 @@ function filterTables(searchTerm) {
     });
 }
 
-// Carregar lista de tabelas disponíveis
 async function loadTables() {
     try {
         const response = await fetch('/api/excel/tabelas');
         const data = await response.json();
-        
-        // Novo formato: { groups: {...}, tables: {...} }
+
         if (data.groups) {
-            // Processar grupos e suas tabelas
             window.groups = data.groups;
             window.tables = data.tables || {};
-            
-            // Criar lista flat de tabelas para compatibilidade
             tabelas = {};
-            Object.keys(data.groups).forEach(groupKey => {
-                const group = data.groups[groupKey];
-                if (group.tabelas) {
-                    Object.keys(group.tabelas).forEach(tableKey => {
-                        tabelas[tableKey] = group.tabelas[tableKey];
-                    });
-                }
+            Object.keys(data.groups).forEach(gk => {
+                const g = data.groups[gk];
+                if (g.tabelas) Object.keys(g.tabelas).forEach(tk => { tabelas[tk] = g.tabelas[tk]; });
             });
-            
-            // Adicionar tabelas sem grupo
-            Object.keys(data.tables).forEach(tableKey => {
-                tabelas[tableKey] = data.tables[tableKey];
-            });
+            Object.keys(data.tables).forEach(tk => { tabelas[tk] = data.tables[tk]; });
         } else {
-            // Formato antigo (fallback)
             tabelas = data.tabelas || {};
         }
-        
+
         renderTablesList();
-        
-        // Carregar contagem de registros para cada tabela
-        for (const key of Object.keys(tabelas)) {
-            loadTableCount(key);
-        }
+        for (const key of Object.keys(tabelas)) loadTableCount(key);
     } catch (error) {
         console.error('Erro ao carregar tabelas:', error);
-        showAlert('Erro ao carregar lista de tabelas', 'error');
     }
 }
 
-// Carregar contagem de registros + ultima carga de uma tabela
 async function loadTableCount(tableKey) {
+    const item = document.querySelector(`[data-table="${tableKey}"]`);
+    const meta = item?.querySelector('.sc-item-meta');
+    const fallback = item?.dataset.desc || '';
+
     try {
-        const response = await fetch(`/api/excel/tabelas/${tableKey}/info`);
-        if (response.ok) {
-            const data = await response.json();
-            const item = document.querySelector(`[data-table="${tableKey}"]`);
-            if (!item) return;
-            const countElement = item.querySelector('.table-count');
-            if (countElement && data.total_registros !== undefined) {
-                countElement.textContent = formatNumber(data.total_registros) + ' registros';
-                countElement.style.opacity = '1';
-            }
-            const lastLoadElement = item.querySelector('.table-last-load');
-            if (lastLoadElement) {
-                if (data.last_load_at) {
-                    lastLoadElement.textContent = 'Última carga: ' + formatRelativeDate(data.last_load_at);
-                    lastLoadElement.title = new Date(data.last_load_at).toLocaleString('pt-BR');
-                    lastLoadElement.style.opacity = '1';
-                } else {
-                    lastLoadElement.textContent = 'Sem cargas anteriores';
-                    lastLoadElement.style.opacity = '0.5';
-                }
-            }
+        const r = await fetch(`/api/excel/tabelas/${tableKey}/info`);
+        if (!r.ok) {
+            // Banco fonte indisponível (503) ou tabela não encontrada (404)
+            if (meta) meta.textContent = fallback;
+            return;
         }
-    } catch (error) {
-        console.error(`Erro ao carregar info da tabela ${tableKey}:`, error);
+        const data = await r.json();
+        if (!meta) return;
+        if (data.total_registros != null) {
+            const count = formatNumber(data.total_registros);
+            const last  = data.last_load_at ? formatRelativeDate(data.last_load_at) : null;
+            meta.textContent = last ? `${count} registros · ${last}` : `${count} registros`;
+            if (data.last_load_at) meta.title = new Date(data.last_load_at).toLocaleString('pt-BR');
+        } else {
+            meta.textContent = fallback;
+        }
+    } catch (err) {
+        console.error(`loadTableCount(${tableKey}):`, err);
+        if (meta) meta.textContent = fallback;
     }
 }
 
-// Formatar número com separador de milhares
 function formatNumber(num) {
-    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    if (num == null) return '0';
+    return String(num).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 
-// Formata data relativa: "ha 3 min", "ha 2h", "ontem", senao dd/MM/yyyy HH:mm
 function formatRelativeDate(iso) {
     if (!iso) return '';
     const d = new Date(iso);
     if (isNaN(d.getTime())) return '';
     const now = new Date();
-    const diffMs = now - d;
-    const diffMin = Math.floor(diffMs / 60000);
+    const diffMin = Math.floor((now - d) / 60000);
     if (diffMin < 1)   return 'agora mesmo';
     if (diffMin < 60)  return `há ${diffMin} min`;
     const diffH = Math.floor(diffMin / 60);
@@ -247,170 +194,129 @@ function formatRelativeDate(iso) {
     if (diffD < 7)   return `há ${diffD} dias`;
     const dd = String(d.getDate()).padStart(2, '0');
     const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const yy = d.getFullYear();
     const hh = String(d.getHours()).padStart(2, '0');
     const mi = String(d.getMinutes()).padStart(2, '0');
-    return `${dd}/${mm}/${yy} ${hh}:${mi}`;
+    return `${dd}/${mm}/${d.getFullYear()} ${hh}:${mi}`;
 }
 
-// Renderizar lista de tabelas
 function renderTablesList() {
     tablesList.innerHTML = '';
-    
-    // Limpar pesquisa ao renderizar
     const searchInput = document.getElementById('searchInput');
     if (searchInput) searchInput.value = '';
-    
-    // Adicionar opção de tabela temporária primeiro
-    const tempItem = createTableItem('TABELA_TEMPORARIA', {
+
+    // Tabela temporária sempre no topo
+    tablesList.appendChild(createTableItem('TABELA_TEMPORARIA', {
         nome: 'Tabela Temporária',
         descricao: 'Criar nova tabela temporária',
         icone: '🆕'
-    });
-    tablesList.appendChild(tempItem);
-    
-    // Renderizar grupos do banco de dados
+    }));
+
     if (window.groups) {
-        Object.keys(window.groups).forEach(groupKey => {
-            const group = window.groups[groupKey];
-            if (group.tabelas && Object.keys(group.tabelas).length > 0) {
-                const groupElement = createTableGroup(groupKey, {
-                    nome: group.nome,
-                    descricao: group.descricao,
-                    icone: group.icone
-                }, group.tabelas);
-                tablesList.appendChild(groupElement);
+        Object.keys(window.groups).forEach(gk => {
+            const g = window.groups[gk];
+            if (g.tabelas && Object.keys(g.tabelas).length > 0) {
+                tablesList.appendChild(createTableGroup(gk, {
+                    nome: g.nome,
+                    descricao: g.descricao,
+                    icone: g.icone
+                }, g.tabelas));
             }
         });
     }
-    
-    // Renderizar tabelas sem grupo
-    if (window.tables && Object.keys(window.tables).length > 0) {
-        Object.keys(window.tables).forEach(tableKey => {
-            const tableInfo = window.tables[tableKey];
-            const item = createTableItem(tableKey, tableInfo);
-            tablesList.appendChild(item);
+
+    if (window.tables) {
+        Object.keys(window.tables).forEach(tk => {
+            tablesList.appendChild(createTableItem(tk, window.tables[tk]));
         });
     }
 
-    // Sincroniza badges com jobs ativos (caso re-hidratacao tenha terminado antes do render)
     if (window.jobsManager) {
         window.jobsManager.listActive().forEach(j => updateSidebarBadge(j.tableName, true));
     }
 }
 
-// Criar grupo de tabelas
 function createTableGroup(groupKey, groupInfo, groupTables) {
     const groupDiv = document.createElement('div');
-    groupDiv.className = 'table-group';
+    groupDiv.className = 'sc-group';
     groupDiv.dataset.group = groupKey;
-    
-    // Cabeçalho do grupo
-    const groupHeader = document.createElement('div');
-    groupHeader.className = 'table-group-header';
-    groupHeader.innerHTML = `
-        <span class="table-icon">${groupInfo.icone}</span>
-        <div class="table-info">
-            <div class="table-name">${groupInfo.nome}</div>
-            <div class="table-desc">${groupInfo.descricao}</div>
+
+    const hdr = document.createElement('div');
+    hdr.className = 'sc-group-hdr';
+    hdr.innerHTML = `
+        <span class="sc-group-glyph">${groupInfo.icone || '📁'}</span>
+        <div class="sc-group-txt">
+            <div class="sc-group-nm">${groupInfo.nome}</div>
+            <div class="sc-group-dsc">${groupInfo.descricao || ''}</div>
         </div>
-        <i class="fas fa-chevron-down group-arrow"></i>
+        <i class="fas fa-chevron-right sc-group-chv"></i>
     `;
-    
-    // Container das tabelas do grupo
-    const groupContent = document.createElement('div');
-    groupContent.className = 'table-group-content';
-    
-    // Adicionar tabelas ao grupo
+
+    const items = document.createElement('div');
+    items.className = 'sc-group-items';
+
     for (const [key, info] of Object.entries(groupTables)) {
-        const item = createTableItem(key, info);
-        item.classList.add('group-item');
-        groupContent.appendChild(item);
+        items.appendChild(createTableItem(key, info));
     }
-    
-    // Toggle do grupo
-    groupHeader.addEventListener('click', (e) => {
-        // Se clicou em uma tabela dentro do grupo, não fazer toggle
-        if (e.target.closest('.table-item')) return;
-        
-        const isExpanded = groupDiv.classList.contains('expanded');
-        
-        if (isExpanded) {
-            groupContent.style.maxHeight = '0px';
-            groupDiv.classList.remove('expanded');
+
+    hdr.addEventListener('click', e => {
+        if (e.target.closest('.sc-item')) return;
+        const isOpen = groupDiv.classList.contains('open');
+        if (isOpen) {
+            items.style.maxHeight = '0px';
+            groupDiv.classList.remove('open');
         } else {
-            groupDiv.classList.add('expanded');
-            // Aguardar um frame para calcular a altura correta
+            groupDiv.classList.add('open');
             requestAnimationFrame(() => {
-                // Adicionar margem extra para padding
-                groupContent.style.maxHeight = (groupContent.scrollHeight + 20) + 'px';
+                items.style.maxHeight = (items.scrollHeight + 20) + 'px';
             });
         }
     });
-    
-    groupDiv.appendChild(groupHeader);
-    groupDiv.appendChild(groupContent);
-    
+
+    groupDiv.appendChild(hdr);
+    groupDiv.appendChild(items);
     return groupDiv;
 }
 
-// Criar elemento de tabela
 function createTableItem(key, info) {
     const div = document.createElement('div');
-    div.className = 'table-item';
+    div.className = 'sc-item';
     div.dataset.table = key;
-    
-    const showCount = key !== 'TABELA_TEMPORARIA';
-    
+    div.dataset.desc = info.descricao || '';
+
+    const isTempKey = (key === 'TABELA_TEMPORARIA');
     div.innerHTML = `
-        <span class="table-icon">${info.icone}</span>
-        <div class="table-info">
-            <div class="table-name">${info.nome}</div>
-            <div class="table-desc">${info.descricao}</div>
-            ${showCount ? '<div class="table-count" style="opacity: 0.5;">Carregando...</div>' : ''}
-            ${showCount ? '<div class="table-last-load" style="opacity: 0.5;">&nbsp;</div>' : ''}
+        <span class="sc-item-glyph">${info.icone || '📋'}</span>
+        <div class="sc-item-info">
+            <div class="sc-item-nm">${info.nome}</div>
+            <div class="sc-item-meta">${isTempKey ? (info.descricao || '') : 'Carregando...'}</div>
         </div>
     `;
-    
     div.addEventListener('click', () => selectTable(key, info));
-    
     return div;
 }
 
-// Selecionar tabela
 function selectTable(key, info) {
     currentTable = key;
     selectedFile = null;
-    
-    // Atualizar visual da lista
-    document.querySelectorAll('.table-item').forEach(item => {
-        item.classList.remove('active');
-    });
-    const selectedItem = document.querySelector(`[data-table="${key}"]`);
-    if (selectedItem) {
-        selectedItem.classList.add('active');
-        
-        // Expandir grupo se a tabela estiver dentro de um
-        const parentGroup = selectedItem.closest('.table-group');
-        if (parentGroup && !parentGroup.classList.contains('expanded')) {
-            parentGroup.classList.add('expanded');
-            const groupContent = parentGroup.querySelector('.table-group-content');
-            if (groupContent) {
-                requestAnimationFrame(() => {
-                    groupContent.style.maxHeight = (groupContent.scrollHeight + 20) + 'px';
-                });
-            }
+
+    document.querySelectorAll('.sc-item').forEach(i => i.classList.remove('active'));
+    const selected = document.querySelector(`[data-table="${key}"]`);
+    if (selected) {
+        selected.classList.add('active');
+        const parentGroup = selected.closest('.sc-group');
+        if (parentGroup && !parentGroup.classList.contains('open')) {
+            parentGroup.classList.add('open');
+            const items = parentGroup.querySelector('.sc-group-items');
+            if (items) requestAnimationFrame(() => { items.style.maxHeight = (items.scrollHeight + 20) + 'px'; });
         }
     }
-    
-    // Renderizar área de upload
+
     if (key === 'TABELA_TEMPORARIA') {
         renderTempTableUpload(info);
     } else {
         renderStandardUpload(key, info);
     }
 
-    // Se ja existe um job ativo para essa tabela, re-injeta a UI de progresso
     if (window.jobsManager) {
         const job = window.jobsManager.getJobByTable(key);
         if (job && !window.jobsManager.TERMINAL.has(job.status)) {
@@ -419,55 +325,262 @@ function selectTable(key, info) {
     }
 }
 
-// Renderiza estado do job na barra de progresso da tela atual.
-// Usa os elementos #progressBar / #progressFill / #progressText que ja
-// existem nos templates renderizados por renderStandardUpload e
-// renderTempTableUpload.
+function renderStandardUpload(key, info) {
+    const allowFullLoad = info && info.allowFullLoad !== undefined ? !!info.allowFullLoad : true;
+
+    uploadArea.innerHTML = `
+        <div class="sc-panel">
+            <div id="alertBox" class="sc-alert"></div>
+
+            <div class="sc-panel-hdr">
+                <div class="sc-panel-glyph">${info.icone}</div>
+                <div class="sc-panel-text">
+                    <div class="sc-panel-title">${info.nome}</div>
+                    <div class="sc-panel-desc">${info.descricao}</div>
+                </div>
+                <div class="sc-panel-stats">
+                    <div class="sc-stat-val" id="statCount">—</div>
+                    <div class="sc-stat-lbl">Registros</div>
+                </div>
+            </div>
+
+            <div class="sc-section">
+                <div class="sc-section-hd">
+                    <span class="sc-lbl">Tipo de carga</span>
+                    <button class="sc-btn-ghost" onclick="downloadModel('${key}')">
+                        <i class="fas fa-download"></i> Baixar modelo
+                    </button>
+                </div>
+                <div class="sc-load-grid">
+                    <div class="sc-load-opt ${allowFullLoad ? 'sc-sel' : 'sc-load-disabled'}" data-value="completa" id="btnCompleta">
+                        <div class="sc-load-row">
+                            <div class="sc-radio"><div class="sc-radio-dot"></div></div>
+                            <span class="sc-load-nm">Carga Completa</span>
+                        </div>
+                        <div class="sc-load-desc">Apaga todos os dados existentes e insere os novos</div>
+                        <div class="sc-warn-chip"><i class="fas fa-exclamation-triangle"></i> Destrói dados atuais</div>
+                    </div>
+                    <div class="sc-load-opt ${!allowFullLoad ? 'sc-sel' : ''}" data-value="incremental" id="btnIncremental">
+                        <div class="sc-load-row">
+                            <div class="sc-radio"><div class="sc-radio-dot"></div></div>
+                            <span class="sc-load-nm">Incremental</span>
+                        </div>
+                        <div class="sc-load-desc">Adiciona os novos registros sem apagar os existentes</div>
+                    </div>
+                </div>
+            </div>
+
+            ${key === ORCAMENTO_FLUXO_CAIXA_TABLE ? `
+            <div class="sc-section">
+                <div class="sc-section-hd"><span class="sc-lbl">Ano base do orçamento</span></div>
+                <input type="number" id="anoBase" class="sc-input" placeholder="Ex: 2025" min="2000" max="2100" style="max-width:180px">
+                <div class="sc-input-hint">Obrigatório para carga de orçamento/fluxo de caixa</div>
+            </div>
+            ` : ''}
+
+            <div class="sc-section">
+                <div class="sc-section-hd"><span class="sc-lbl">Arquivo Excel</span></div>
+                <div class="sc-dz" id="dropzone">
+                    <div id="dz-idle">
+                        <div class="sc-dz-idle-icon"><i class="fas fa-cloud-upload-alt"></i></div>
+                        <div class="sc-dz-idle-title">Clique ou arraste o arquivo aqui</div>
+                        <div class="sc-dz-idle-hint">.xlsx ou .xls · máx. 50 MB</div>
+                    </div>
+                    <div id="dz-file" class="sc-dz-file-row" style="display:none">
+                        <i class="fas fa-file-excel sc-dz-file-ico"></i>
+                        <div class="sc-dz-file-info">
+                            <div class="sc-dz-file-nm" id="dzFileName">—</div>
+                            <div class="sc-dz-file-sz" id="dzFileSize">—</div>
+                        </div>
+                        <button class="sc-dz-remove" onclick="event.stopPropagation(); removeFile()">
+                            <i class="fas fa-times"></i> Remover
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sc-prog" id="progressBar">
+                <div class="sc-prog-hd">
+                    <div class="sc-prog-stage" id="progStage">
+                        <div class="sc-prog-spin"></div>
+                        <span id="progStageText">Processando...</span>
+                    </div>
+                    <div class="sc-prog-pct" id="progressText">0%</div>
+                </div>
+                <div class="sc-prog-bar">
+                    <div class="sc-prog-fill" id="progressFill"></div>
+                </div>
+                <div class="sc-prog-meta" id="progMeta"></div>
+            </div>
+
+            <div class="sc-actions">
+                <button class="sc-btn-up" id="uploadBtn" disabled>
+                    <i class="fas fa-upload"></i> Fazer Upload
+                </button>
+            </div>
+        </div>
+    `;
+
+    setupDropzone();
+    setupUploadButton();
+    setupTipoCargaButtons();
+    loadPanelStats(key);
+
+    if (key === ORCAMENTO_FLUXO_CAIXA_TABLE) {
+        const anoBaseInput = document.getElementById('anoBase');
+        if (anoBaseInput) anoBaseInput.addEventListener('input', updateUploadButtonState);
+    }
+}
+
+function renderTempTableUpload(info) {
+    uploadArea.innerHTML = `
+        <div class="sc-panel">
+            <div id="alertBox" class="sc-alert"></div>
+
+            <div class="sc-panel-hdr">
+                <div class="sc-panel-glyph">${info.icone}</div>
+                <div class="sc-panel-text">
+                    <div class="sc-panel-title">${info.nome}</div>
+                    <div class="sc-panel-desc">Crie uma tabela temporária no banco a partir de qualquer planilha. O prefixo <strong>TEMP_</strong> é adicionado automaticamente.</div>
+                </div>
+            </div>
+
+            <div class="sc-section">
+                <div class="sc-section-hd"><span class="sc-lbl">Nome da tabela</span></div>
+                <div class="sc-prefix-row">
+                    <span class="sc-prefix-tag">TEMP_</span>
+                    <input type="text" id="tableName" class="sc-input" placeholder="NOME_DA_TABELA"
+                           pattern="[A-Za-z0-9_]+" maxlength="50">
+                </div>
+                <div class="sc-input-hint">Apenas letras, números e underscore (_)</div>
+            </div>
+
+            <div class="sc-section">
+                <div class="sc-section-hd"><span class="sc-lbl">Arquivo Excel</span></div>
+                <div class="sc-dz" id="dropzone">
+                    <div id="dz-idle">
+                        <div class="sc-dz-idle-icon"><i class="fas fa-cloud-upload-alt"></i></div>
+                        <div class="sc-dz-idle-title">Clique ou arraste o arquivo aqui</div>
+                        <div class="sc-dz-idle-hint">.xlsx ou .xls · máx. 50 MB</div>
+                    </div>
+                    <div id="dz-file" class="sc-dz-file-row" style="display:none">
+                        <i class="fas fa-file-excel sc-dz-file-ico"></i>
+                        <div class="sc-dz-file-info">
+                            <div class="sc-dz-file-nm" id="dzFileName">—</div>
+                            <div class="sc-dz-file-sz" id="dzFileSize">—</div>
+                        </div>
+                        <button class="sc-dz-remove" onclick="event.stopPropagation(); removeFile()">
+                            <i class="fas fa-times"></i> Remover
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sc-prog" id="progressBar">
+                <div class="sc-prog-hd">
+                    <div class="sc-prog-stage" id="progStage">
+                        <div class="sc-prog-spin"></div>
+                        <span id="progStageText">Processando...</span>
+                    </div>
+                    <div class="sc-prog-pct" id="progressText">0%</div>
+                </div>
+                <div class="sc-prog-bar">
+                    <div class="sc-prog-fill" id="progressFill"></div>
+                </div>
+                <div class="sc-prog-meta" id="progMeta"></div>
+            </div>
+
+            <div class="sc-actions">
+                <button class="sc-btn-up" id="uploadBtn" disabled>
+                    <i class="fas fa-plus-circle"></i> Criar Tabela
+                </button>
+            </div>
+        </div>
+    `;
+
+    setupDropzone();
+    setupUploadButton();
+
+    const tableNameInput = document.getElementById('tableName');
+    if (tableNameInput) tableNameInput.addEventListener('input', updateUploadButtonState);
+}
+
+async function loadPanelStats(tableKey) {
+    if (!tableKey || tableKey === 'TABELA_TEMPORARIA') return;
+    try {
+        const r = await fetch(`/api/excel/tabelas/${tableKey}/info`);
+        if (!r.ok) return;
+        const data = await r.json();
+        const statCount = document.getElementById('statCount');
+        if (statCount && data.total_registros !== undefined) {
+            statCount.textContent = formatNumber(data.total_registros);
+        }
+    } catch (_) {}
+}
+
+// Renderiza estado do job na área de progresso.
+// Chamado tanto pelo listener global quanto ao re-abrir uma tabela
+// com job em andamento.
 function renderJobProgress(state) {
-    const progressBar = document.getElementById('progressBar');
-    const progressFill = document.getElementById('progressFill');
-    const progressText = document.getElementById('progressText');
-    const uploadBtn = document.getElementById('uploadBtn');
+    const progressBar   = document.getElementById('progressBar');
+    const progressFill  = document.getElementById('progressFill');
+    const progressText  = document.getElementById('progressText');
+    const progStageText = document.getElementById('progStageText');
+    const progStage     = document.getElementById('progStage');
+    const progMeta      = document.getElementById('progMeta');
+    const uploadBtn     = document.getElementById('uploadBtn');
     if (!progressBar || !progressFill || !progressText) return;
 
     const isTerminal = window.jobsManager && window.jobsManager.TERMINAL.has(state.status);
+
     if (!isTerminal) {
         progressBar.classList.add('active');
-        progressText.style.display = 'block';
         if (uploadBtn) uploadBtn.disabled = true;
     }
 
     const pct = typeof state.progress === 'number' ? state.progress : 0;
     progressFill.style.width = `${pct}%`;
+    progressText.textContent = `${pct}%`;
 
-    // Mensagem com fase + ETA + throughput quando aplicavel
     const stageLabel = labelStage(state.stage || state.status);
-    const baseMsg = state.message || stageLabel || '';
-    const parts = [];
-    if (stageLabel) parts.push(stageLabel);
-    if (typeof state.insertedRows === 'number' && typeof state.totalRows === 'number') {
-        parts.push(`${formatNumber(state.insertedRows)}/${formatNumber(state.totalRows)} linhas`);
-    }
-    if (typeof state.throughput === 'number' && state.throughput > 0 && !isTerminal) {
-        parts.push(`${Math.round(state.throughput)} linhas/s`);
-    }
-    if (typeof state.etaSeconds === 'number' && state.etaSeconds > 0 && !isTerminal) {
-        parts.push(`ETA ${formatDuration(state.etaSeconds)}`);
-    }
-    progressText.textContent = parts.length > 1 ? `${parts.join(' • ')} (${pct}%)` : `${baseMsg} (${pct}%)`;
-    progressText.style.color = state.status === 'error' ? '#dc3545' : (state.status === 'success' ? '#28a745' : '#0066cc');
+    if (progStageText) progStageText.textContent = stageLabel || 'Processando...';
 
     if (state.status === 'success') {
-        // Reset suave 3s depois
+        progressFill.classList.add('done');
+        progressFill.classList.remove('err');
+        if (progStage) { progStage.className = 'sc-prog-stage done'; progStageText.textContent = 'Concluído'; }
+    } else if (state.status === 'error') {
+        progressFill.classList.add('err');
+        progressFill.classList.remove('done');
+        if (progStage) { progStage.className = 'sc-prog-stage err'; progStageText.textContent = 'Erro'; }
+    }
+
+    if (progMeta) {
+        const parts = [];
+        if (typeof state.insertedRows === 'number' && typeof state.totalRows === 'number') {
+            parts.push(`${formatNumber(state.insertedRows)} / ${formatNumber(state.totalRows)} linhas`);
+        }
+        if (typeof state.throughput === 'number' && state.throughput > 0 && !isTerminal) {
+            parts.push(`${Math.round(state.throughput)} lin/s`);
+        }
+        if (typeof state.etaSeconds === 'number' && state.etaSeconds > 0 && !isTerminal) {
+            parts.push(`ETA ${formatDuration(state.etaSeconds)}`);
+        }
+        progMeta.textContent = parts.join(' · ');
+    }
+
+    if (state.status === 'success') {
         setTimeout(() => {
             if (currentTable !== state.tableName) return;
-            selectedFile = null;
-            const fileInfoEl = document.getElementById('fileInfo');
-            if (fileInfoEl) fileInfoEl.innerHTML = '';
+            removeFile();
             progressBar.classList.remove('active');
             progressFill.style.width = '0%';
-            if (progressText) progressText.style.display = 'none';
-            if (uploadBtn) uploadBtn.disabled = false;
+            progressFill.classList.remove('done');
+            if (progStage) progStage.className = 'sc-prog-stage';
+            if (progStageText) progStageText.textContent = 'Processando...';
+            if (progMeta) progMeta.textContent = '';
+            if (progressText) progressText.textContent = '0%';
+            if (uploadBtn) { uploadBtn.disabled = false; syncUploadBtnLabel(); }
             const tn = document.getElementById('tableName');
             if (tn) tn.value = '';
         }, 3000);
@@ -479,269 +592,141 @@ function renderJobProgress(state) {
 
 function labelStage(stage) {
     if (!stage) return '';
-    switch (stage) {
-        case 'queued':     return 'Na fila';
-        case 'reading':    return 'Lendo arquivo';
-        case 'read':       return 'Arquivo lido';
-        case 'cleaning':   return 'Limpando tabela';
-        case 'cleaned':    return 'Tabela limpa';
-        case 'altering':   return 'Ajustando schema';
-        case 'creating':   return 'Criando tabela';
-        case 'inserting':  return 'Inserindo dados';
-        case 'completed':
-        case 'success':    return 'Concluído';
-        case 'error':      return 'Erro';
-        case 'running':    return 'Processando';
-        default:           return stage;
-    }
+    const map = {
+        queued:    'Na fila',
+        reading:   'Lendo arquivo',
+        read:      'Arquivo lido',
+        cleaning:  'Limpando tabela',
+        cleaned:   'Tabela limpa',
+        altering:  'Ajustando schema',
+        creating:  'Criando tabela',
+        inserting: 'Inserindo dados',
+        completed: 'Concluído',
+        success:   'Concluído',
+        error:     'Erro',
+        running:   'Processando',
+    };
+    return map[stage] || stage;
 }
 
 function formatDuration(sec) {
     if (!Number.isFinite(sec) || sec < 0) return '';
     if (sec < 60) return `${sec}s`;
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
+    const m = Math.floor(sec / 60), s = sec % 60;
     if (m < 60) return s ? `${m}m${s}s` : `${m}m`;
-    const h = Math.floor(m / 60);
-    const mm = m % 60;
+    const h = Math.floor(m / 60), mm = m % 60;
     return mm ? `${h}h${mm}m` : `${h}h`;
 }
 
-// Renderizar upload para tabela padrão
-function renderStandardUpload(key, info) {
-    uploadArea.className = 'upload-area';
-    const allowFullLoad = info && info.allowFullLoad !== undefined ? !!info.allowFullLoad : true;
-    uploadArea.innerHTML = `
-        <div class="upload-content">
-            <h2><span class="icon-emoji">${info.icone}</span> <span class="title-text">${info.nome}</span></h2>
-            
-            <div id="alertBox"></div>
-            
-            <div class="info-card">
-                <h3>Sobre esta tabela</h3>
-                <p>${info.descricao}</p>
-            </div>
-            
-            <div class="download-model-section">
-                <button class="btn btn-download" onclick="downloadModel('${key}')">
-                    <i class="fas fa-download"></i> Baixar Modelo
-                </button>
-            </div>
-            
-            <div class="form-group">
-                <label><i class="fas fa-cog"></i> Tipo de Carga</label>
-                <div class="btn-group-toggle">
-                    <button class="btn-toggle ${allowFullLoad ? 'active' : ''}" data-value="completa" id="btnCompleta" ${allowFullLoad ? '' : 'disabled'}>
-                        <i class="fas fa-sync-alt"></i> Carga Completa
-                    </button>
-                    <button class="btn-toggle ${allowFullLoad ? '' : 'active'}" data-value="incremental" id="btnIncremental">
-                        <i class="fas fa-plus-circle"></i> Carga Incremental
-                    </button>
-                </div>
-                <small class="hint-text" id="tipoCargaHint">${allowFullLoad ? 'Substitui todos os dados da tabela' : 'Carga completa desabilitada para esta tabela'}</small>
-            </div>
-
-            ${key === ORCAMENTO_FLUXO_CAIXA_TABLE ? `
-            <div class="form-group">
-                <label for="anoBase"><i class="fas fa-calendar-alt"></i> Ano base do orçamento</label>
-                <input type="number" id="anoBase" placeholder="Ex: 2025" min="2000" max="2100">
-                <small class="hint-text">Obrigatório para a carga de orçamento</small>
-            </div>
-            ` : ''}
-            
-            <div class="dropzone" id="dropzone">
-                <div class="upload-icon"><i class="fas fa-cloud-upload-alt"></i></div>
-                <div class="upload-text">Clique para selecionar ou arraste o arquivo Excel</div>
-                <div class="upload-hint">Formatos aceitos: .xlsx, .xls (Máximo: 50MB)</div>
-            </div>
-            
-            <div id="fileInfo"></div>
-            
-            <div class="progress-bar" id="progressBar">
-                <div class="progress-fill" id="progressFill"></div>
-            </div>
-            <div class="progress-text" id="progressText" style="display:none;">Processando...</div>
-            
-            <div class="btn-group">
-                <button class="btn btn-primary" id="uploadBtn" disabled>
-                    <i class="fas fa-upload"></i> Fazer Upload
-                </button>
-            </div>
-        </div>
-    `;
-    
-    setupDropzone();
-    setupUploadButton();
-    setupTipoCargaButtons();
-
-    if (key === ORCAMENTO_FLUXO_CAIXA_TABLE) {
-        const anoBaseInput = document.getElementById('anoBase');
-        if (anoBaseInput) {
-            anoBaseInput.addEventListener('input', updateUploadButtonState);
-        }
-    }
-}
-
-// Renderizar upload para tabela temporária
-function renderTempTableUpload(info) {
-    uploadArea.className = 'upload-area';
-    uploadArea.innerHTML = `
-        <div class="upload-content">
-            <h2><span class="icon-emoji">${info.icone}</span> <span class="title-text">${info.nome}</span></h2>
-            
-            <div id="alertBox"></div>
-            
-            <div class="info-card">
-                <h3><i class="fas fa-info-circle"></i> Sobre Tabelas Temporárias</h3>
-                <p>Crie uma nova tabela no banco de dados a partir de qualquer arquivo Excel. 
-                O nome será prefixado com "TEMP_" automaticamente. Ideal para testes e análises temporárias.</p>
-            </div>
-            
-            <div class="form-group">
-                <label for="tableName"><i class="fas fa-table"></i> Nome da Tabela</label>
-                <input type="text" id="tableName" placeholder="Ex: DADOS_TESTE" 
-                       pattern="[A-Za-z0-9_]+" maxlength="50">
-            </div>
-            
-            <div class="dropzone" id="dropzone">
-                <div class="upload-icon"><i class="fas fa-cloud-upload-alt"></i></div>
-                <div class="upload-text">Clique para selecionar ou arraste o arquivo Excel</div>
-                <div class="upload-hint">Formatos aceitos: .xlsx, .xls (Máximo: 50MB)</div>
-            </div>
-            
-            <div id="fileInfo"></div>
-            
-            <div class="progress-bar" id="progressBar">
-                <div class="progress-fill" id="progressFill"></div>
-            </div>
-            <div class="progress-text" id="progressText" style="display:none;">Criando tabela e carregando dados...</div>
-            
-            <div class="btn-group">
-                <button class="btn btn-primary" id="uploadBtn" disabled>
-                    <i class="fas fa-plus-circle"></i> Criar Tabela e Carregar Dados
-                </button>
-            </div>
-        </div>
-    `;
-    
-    setupDropzone();
-    setupUploadButton();
-    
-    // Validar nome da tabela
-    const tableNameInput = document.getElementById('tableName');
-    tableNameInput.addEventListener('input', () => {
-        updateUploadButtonState();
-    });
-}
-
-// Configurar dropzone
 function setupDropzone() {
     const dropzone = document.getElementById('dropzone');
+    if (!dropzone) return;
+
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.accept = '.xlsx,.xls';
-    
+
     dropzone.addEventListener('click', () => fileInput.click());
-    
-    fileInput.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) {
-            handleFileSelect(e.target.files[0]);
-        }
+    fileInput.addEventListener('change', e => {
+        if (e.target.files.length > 0) handleFileSelect(e.target.files[0]);
     });
-    
-    // Drag and drop
-    dropzone.addEventListener('dragover', (e) => {
+    dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('over'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('over'));
+    dropzone.addEventListener('drop', e => {
         e.preventDefault();
-        dropzone.classList.add('dragover');
-    });
-    
-    dropzone.addEventListener('dragleave', () => {
-        dropzone.classList.remove('dragover');
-    });
-    
-    dropzone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropzone.classList.remove('dragover');
-        
+        dropzone.classList.remove('over');
         if (e.dataTransfer.files.length > 0) {
-            const file = e.dataTransfer.files[0];
-            if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-                handleFileSelect(file);
+            const f = e.dataTransfer.files[0];
+            if (f.name.endsWith('.xlsx') || f.name.endsWith('.xls')) {
+                handleFileSelect(f);
             } else {
-                showAlert('Por favor, selecione um arquivo Excel (.xlsx ou .xls)', 'error');
+                showAlert('Selecione um arquivo Excel (.xlsx ou .xls)', 'error');
             }
         }
     });
 }
 
-// Manipular seleção de arquivo
 function handleFileSelect(file) {
     selectedFile = file;
-    
-    const fileInfo = document.getElementById('fileInfo');
-    fileInfo.innerHTML = `
-        <div class="file-info">
-            <div class="file-details">
-                <div class="file-name"><i class="fas fa-file-excel"></i> ${file.name}</div>
-                <div class="file-size">${formatFileSize(file.size)}</div>
-            </div>
-            <button class="remove-btn" onclick="removeFile()"><i class="fas fa-times"></i> Remover</button>
-        </div>
-    `;
-    
+    const dropzone   = document.getElementById('dropzone');
+    const dzIdle     = document.getElementById('dz-idle');
+    const dzFile     = document.getElementById('dz-file');
+    const dzFileName = document.getElementById('dzFileName');
+    const dzFileSize = document.getElementById('dzFileSize');
+    if (dropzone)   dropzone.classList.add('has-file');
+    if (dzIdle)     dzIdle.style.display = 'none';
+    if (dzFile)     dzFile.style.display = 'flex';
+    if (dzFileName) dzFileName.textContent = file.name;
+    if (dzFileSize) dzFileSize.textContent = formatFileSize(file.size);
     updateUploadButtonState();
 }
 
-// Remover arquivo selecionado
 function removeFile() {
     selectedFile = null;
-    document.getElementById('fileInfo').innerHTML = '';
+    const dropzone = document.getElementById('dropzone');
+    const dzIdle   = document.getElementById('dz-idle');
+    const dzFile   = document.getElementById('dz-file');
+    if (dropzone) dropzone.classList.remove('has-file');
+    if (dzIdle)   dzIdle.style.display = '';
+    if (dzFile)   dzFile.style.display = 'none';
     updateUploadButtonState();
 }
 
-// Atualizar estado do botão de upload
 function updateUploadButtonState() {
     const uploadBtn = document.getElementById('uploadBtn');
-    
+    if (!uploadBtn) return;
+    let enabled = false;
     if (currentTable === 'TABELA_TEMPORARIA') {
-        const tableName = document.getElementById('tableName').value.trim();
-        uploadBtn.disabled = !selectedFile || !tableName || !/^[A-Za-z0-9_]+$/.test(tableName);
+        const tn = document.getElementById('tableName')?.value.trim();
+        enabled = !!(selectedFile && tn && /^[A-Za-z0-9_]+$/.test(tn));
     } else if (currentTable === ORCAMENTO_FLUXO_CAIXA_TABLE) {
-        const anoBaseInput = document.getElementById('anoBase');
-        const anoBase = anoBaseInput ? anoBaseInput.value.trim() : '';
-        uploadBtn.disabled = !selectedFile || !/^[0-9]{4}$/.test(anoBase);
+        const ano = document.getElementById('anoBase')?.value.trim();
+        enabled = !!(selectedFile && /^[0-9]{4}$/.test(ano));
     } else {
-        uploadBtn.disabled = !selectedFile;
+        enabled = !!selectedFile;
+    }
+    uploadBtn.disabled = !enabled;
+    if (enabled) syncUploadBtnLabel();
+}
+
+// Sincroniza label/cor do botão de upload com o tipo de carga selecionado.
+// Quando Carga Completa está ativa, o botão fica vermelho escuro (danger)
+// com texto "Substituir Dados" para sinalizar ação destrutiva.
+function syncUploadBtnLabel() {
+    const uploadBtn = document.getElementById('uploadBtn');
+    if (!uploadBtn || uploadBtn.disabled) return;
+    if (currentTable === 'TABELA_TEMPORARIA') return;
+    if (getTipoCargaSelecionado() === 'completa') {
+        uploadBtn.className = 'sc-btn-up danger';
+        uploadBtn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Substituir Dados';
+    } else {
+        uploadBtn.className = 'sc-btn-up';
+        uploadBtn.innerHTML = '<i class="fas fa-upload"></i> Fazer Upload';
     }
 }
 
-// Configurar botão de upload
 function setupUploadButton() {
     const uploadBtn = document.getElementById('uploadBtn');
-    uploadBtn.addEventListener('click', handleUpload);
+    if (uploadBtn) uploadBtn.addEventListener('click', handleUpload);
 }
 
-// Realizar upload (fluxo async com jobsManager).
-// O backend responde 202+jobId; quem cuida do progresso/SSE/UI e' o
-// jobsManager via listener global. Isso permite o usuario trocar de
-// tabela enquanto o upload roda e voltar para ver progresso.
+// Upload async: backend responde 202+jobId; o jobsManager abre o SSE
+// e atualiza a UI via listener global. Permite trocar de tabela durante upload.
 async function handleUpload() {
     if (!selectedFile) return;
 
-    const uploadBtn = document.getElementById('uploadBtn');
-    const progressBar = document.getElementById('progressBar');
-    const progressText = document.getElementById('progressText');
+    const uploadBtn     = document.getElementById('uploadBtn');
+    const progressBar   = document.getElementById('progressBar');
+    const progressText  = document.getElementById('progressText');
+    const progStageText = document.getElementById('progStageText');
 
     const tableAtStart = currentTable;
-    const isTempTable = (tableAtStart === 'TABELA_TEMPORARIA');
+    const isTempTable  = (tableAtStart === 'TABELA_TEMPORARIA');
 
     uploadBtn.disabled = true;
     progressBar.classList.add('active');
-    if (progressText) {
-        progressText.style.display = 'block';
-        progressText.style.color = '#0066cc';
-        progressText.textContent = 'Enviando arquivo...';
-    }
+    if (progressText)  progressText.textContent  = '0%';
+    if (progStageText) progStageText.textContent = 'Enviando arquivo...';
 
     try {
         const formData = new FormData();
@@ -758,12 +743,10 @@ async function handleUpload() {
             formData.append('tipo_carga', tipoCarga);
 
             if (tableAtStart === ORCAMENTO_FLUXO_CAIXA_TABLE) {
-                const anoBaseInput = document.getElementById('anoBase');
-                const anoBase = anoBaseInput ? anoBaseInput.value.trim() : '';
+                const anoBase = document.getElementById('anoBase')?.value.trim();
                 if (!/^[0-9]{4}$/.test(anoBase)) {
                     showAlert('Informe o ano base do orçamento (4 dígitos)', 'error');
                     progressBar.classList.remove('active');
-                    if (progressText) progressText.style.display = 'none';
                     uploadBtn.disabled = false;
                     return;
                 }
@@ -775,156 +758,120 @@ async function handleUpload() {
         }
 
         const response = await fetch(url, { method: 'POST', body: formData });
-        const result = await response.json().catch(() => ({}));
+        const result   = await response.json().catch(() => ({}));
 
-        if (response.status === 409) {
-            throw new Error(result.error || 'Já existe uma carga em andamento para esta tabela.');
-        }
-        if (!response.ok) {
-            throw new Error(result.error || 'Falha ao iniciar upload');
-        }
+        if (response.status === 409) throw new Error(result.error || 'Já existe uma carga em andamento para esta tabela.');
+        if (!response.ok)            throw new Error(result.error || 'Falha ao iniciar upload');
 
         const jobId = result.jobId || result.sessionId;
-        if (!jobId) {
-            throw new Error('Servidor não retornou jobId');
-        }
+        if (!jobId) throw new Error('Servidor não retornou jobId');
 
-        // Registra no jobsManager — ele abre SSE e atualiza UI via listener global
         if (window.jobsManager) {
-            window.jobsManager.start({
-                jobId,
-                tableName: effectiveTableName,
-                fileName: selectedFile.name
-            });
+            window.jobsManager.start({ jobId, tableName: effectiveTableName, fileName: selectedFile.name });
         }
 
-        // Limpa selecao do arquivo na tela atual (a barra continua sendo
-        // controlada pelo listener global enquanto o usuario estiver na
-        // mesma tabela)
+        // Limpa seleção de arquivo (progresso continua via jobsManager)
         selectedFile = null;
-        const fileInfoEl = document.getElementById('fileInfo');
-        if (fileInfoEl) fileInfoEl.innerHTML = '';
+        const dzIdle = document.getElementById('dz-idle');
+        const dzFile = document.getElementById('dz-file');
+        const dz     = document.getElementById('dropzone');
+        if (dz)     dz.classList.remove('has-file');
+        if (dzIdle) dzIdle.style.display = '';
+        if (dzFile) dzFile.style.display = 'none';
 
     } catch (error) {
         console.error('Erro no upload:', error);
         showAlert('Erro no upload: ' + error.message, 'error');
         if (currentTable === tableAtStart) {
             progressBar.classList.remove('active');
-            if (progressText) progressText.style.display = 'none';
             uploadBtn.disabled = false;
         }
     }
 }
 
-// Atualizar contagem + data da ultima carga de uma tabela na sidebar
 async function updateTableCount(tableName) {
     try {
-        const response = await fetch(`/api/excel/tabelas/${tableName}/info`);
-        if (!response.ok) return;
+        const r = await fetch(`/api/excel/tabelas/${tableName}/info`);
+        if (!r.ok) return;
+        const data = await r.json();
 
-        const data = await response.json();
         const item = document.querySelector(`[data-table="${tableName}"]`);
-        if (!item) return;
-
-        const countElement = item.querySelector('.table-count');
-        if (countElement && data.total_registros !== undefined) {
-            countElement.textContent = formatNumber(data.total_registros) + ' registros';
-            countElement.style.opacity = '1';
-            countElement.style.transition = 'all 0.3s';
-            countElement.style.color = '#28a745';
-            countElement.style.fontWeight = '700';
-            setTimeout(() => {
-                countElement.style.color = '';
-                countElement.style.fontWeight = '';
-            }, 2000);
-        }
-
-        const lastLoadElement = item.querySelector('.table-last-load');
-        if (lastLoadElement) {
-            if (data.last_load_at) {
-                lastLoadElement.textContent = 'Última carga: ' + formatRelativeDate(data.last_load_at);
-                lastLoadElement.title = new Date(data.last_load_at).toLocaleString('pt-BR');
-                lastLoadElement.style.opacity = '1';
-            } else {
-                lastLoadElement.textContent = 'Sem cargas anteriores';
-                lastLoadElement.style.opacity = '0.5';
+        if (item && data.total_registros !== undefined) {
+            const meta = item.querySelector('.sc-item-meta');
+            if (meta) {
+                const count = formatNumber(data.total_registros);
+                const last  = data.last_load_at ? formatRelativeDate(data.last_load_at) : null;
+                meta.textContent = last ? `${count} registros · ${last}` : `${count} registros`;
+                if (data.last_load_at) meta.title = new Date(data.last_load_at).toLocaleString('pt-BR');
+                meta.style.color      = '#166534';
+                meta.style.fontWeight = '600';
+                setTimeout(() => { meta.style.color = ''; meta.style.fontWeight = ''; }, 2500);
             }
         }
-    } catch (error) {
-        console.error('Erro ao atualizar info:', error);
-    }
+
+        // Atualiza stat do painel se a tabela estiver aberta
+        if (currentTable === tableName) {
+            const statCount = document.getElementById('statCount');
+            if (statCount && data.total_registros !== undefined) {
+                statCount.textContent = formatNumber(data.total_registros);
+            }
+        }
+    } catch (_) {}
 }
 
-// Mostrar alerta
 function showAlert(message, type) {
     const alertBox = document.getElementById('alertBox');
-    alertBox.className = `alert alert-${type} show`;
-    alertBox.textContent = message;
-    
-    setTimeout(() => {
-        alertBox.classList.remove('show');
-    }, 5000);
+    if (!alertBox) return;
+    const iconMap  = { error: 'fa-exclamation-circle', success: 'fa-check-circle', info: 'fa-info-circle' };
+    const classMap = { error: 'sc-alert-err', success: 'sc-alert-ok', info: 'sc-alert-info' };
+    alertBox.className = `sc-alert ${classMap[type] || 'sc-alert-info'} show`;
+    alertBox.innerHTML = `<i class="fas ${iconMap[type] || 'fa-info-circle'}"></i>${escapeHtml(message)}`;
+    setTimeout(() => alertBox.classList.remove('show'), 5000);
 }
 
-// Formatar tamanho do arquivo
 function formatFileSize(bytes) {
     if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const k = 1024, sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 }
 
-// Configurar botões de tipo de carga
 function setupTipoCargaButtons() {
-    const btnCompleta = document.getElementById('btnCompleta');
+    const btnCompleta    = document.getElementById('btnCompleta');
     const btnIncremental = document.getElementById('btnIncremental');
-    const hintText = document.getElementById('tipoCargaHint');
-    
     if (!btnCompleta || !btnIncremental) return;
-    
+
     btnCompleta.addEventListener('click', () => {
-        if (btnCompleta.disabled) return;
-        btnCompleta.classList.add('active');
-        btnIncremental.classList.remove('active');
-        if (hintText) hintText.textContent = 'Substitui todos os dados da tabela';
+        if (btnCompleta.classList.contains('sc-load-disabled')) return;
+        btnCompleta.classList.add('sc-sel');
+        btnIncremental.classList.remove('sc-sel');
+        syncUploadBtnLabel();
     });
-    
+
     btnIncremental.addEventListener('click', () => {
-        btnIncremental.classList.add('active');
-        btnCompleta.classList.remove('active');
-        if (hintText) hintText.textContent = 'Adiciona aos dados existentes na tabela';
+        if (btnIncremental.classList.contains('sc-load-disabled')) return;
+        btnIncremental.classList.add('sc-sel');
+        btnCompleta.classList.remove('sc-sel');
+        syncUploadBtnLabel();
     });
 }
 
-// Obter tipo de carga selecionado
 function getTipoCargaSelecionado() {
     const btnCompleta = document.getElementById('btnCompleta');
-    return btnCompleta && btnCompleta.classList.contains('active') ? 'completa' : 'incremental';
+    return btnCompleta && btnCompleta.classList.contains('sc-sel') ? 'completa' : 'incremental';
 }
 
-// Download de modelo
 function downloadModel(tableName) {
     showAlert('Gerando modelo...', 'info');
-    
     fetch(`/api/excel/modelo/${tableName}`)
-        .then(response => {
-            if (!response.ok) throw new Error('Erro ao baixar modelo');
-            return response.blob();
-        })
+        .then(r => { if (!r.ok) throw new Error('Erro ao baixar modelo'); return r.blob(); })
         .then(blob => {
-            const url = window.URL.createObjectURL(blob);
+            const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url;
-            a.download = `Modelo_${tableName}.xlsx`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
+            a.href = url; a.download = `Modelo_${tableName}.xlsx`;
+            document.body.appendChild(a); a.click();
+            URL.revokeObjectURL(url); a.remove();
             showAlert('Modelo baixado com sucesso!', 'success');
         })
-        .catch(error => {
-            console.error('Erro ao baixar modelo:', error);
-            showAlert('Erro ao baixar modelo: ' + error.message, 'error');
-        });
+        .catch(err => showAlert('Erro ao baixar modelo: ' + err.message, 'error'));
 }

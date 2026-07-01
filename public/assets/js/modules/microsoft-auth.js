@@ -8,6 +8,8 @@ window.PortalMicrosoftAuth = {
     skipPromptKey: 'portal.microsoft.skipPromptOnce',
     activeAccountKey: 'portal.microsoft.activeAccount',
     startupRedirectInFlightKey: 'portal.microsoft.startupRedirectInFlight',
+    postLoginPathKey: 'portal.microsoft.postLoginPath',
+    pendingPostLoginRedirect: null,
 
     async init() {
         if (this.initialized) return;
@@ -61,6 +63,23 @@ window.PortalMicrosoftAuth = {
                 this.msalInstance.setActiveAccount(redirectResult.account);
                 sessionStorage.setItem(this.activeAccountKey, redirectResult.account.username || redirectResult.account.homeAccountId || '');
                 sessionStorage.removeItem(this.startupRedirectInFlightKey);
+
+                // Como o redirectUri AAD e' sempre `/`, qualquer login feito a
+                // partir de uma rota interna (ex.: /homologa) cai em / depois
+                // do AAD. Salvamos o pathname original em sessionStorage antes
+                // de disparar o loginRedirect e aqui re-navegamos pro destino
+                // pretendido. requireAccountAtStartup le pendingPostLoginRedirect
+                // logo apos await init() e dispara location.replace.
+                try {
+                    const postPath = sessionStorage.getItem(this.postLoginPathKey);
+                    if (postPath) {
+                        sessionStorage.removeItem(this.postLoginPathKey);
+                        const currentFullPath = window.location.pathname + window.location.search;
+                        if (postPath !== currentFullPath) {
+                            this.pendingPostLoginRedirect = postPath;
+                        }
+                    }
+                } catch (_) {}
             }
         } catch (error) {
             console.error('[MSAUTH] Falha na inicializacao:', error);
@@ -75,9 +94,113 @@ window.PortalMicrosoftAuth = {
 
     presenceHeartbeatTimer: null,
 
+    // Gera/le um tabId UUID em sessionStorage. Diferente do deviceId
+    // (localStorage, compartilhado entre abas), sessionStorage e' isolado
+    // por aba — cada aba tem seu proprio tabId. Isso permite ao servidor
+    // rastrear a view de cada aba individualmente.
+    getTabId() {
+        let id = null;
+        try { id = sessionStorage.getItem('portal.tabId'); } catch (_) {}
+        if (!id) {
+            id = (window.crypto && typeof window.crypto.randomUUID === 'function')
+                ? window.crypto.randomUUID()
+                : ('t-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10));
+            try { sessionStorage.setItem('portal.tabId', id); } catch (_) {}
+        }
+        return id;
+    },
+
+    // Gera/le um deviceId UUID persistente em localStorage. Util para o admin
+    // saber quantas maquinas (browsers + devices) estao logadas com um mesmo
+    // usuario generico — cada localStorage e' isolado por browser+device.
+    getDeviceId() {
+        let id = null;
+        try { id = localStorage.getItem('portal.deviceId'); } catch (_) {}
+        if (!id) {
+            id = (window.crypto && typeof window.crypto.randomUUID === 'function')
+                ? window.crypto.randomUUID()
+                : ('d-' + Date.now() + '-' + Math.random().toString(36).slice(2, 12));
+            try { localStorage.setItem('portal.deviceId', id); } catch (_) {}
+        }
+        return id;
+    },
+
+    // Identifica em qual tela do portal a sessao atual esta agora. Retorna
+    // um codigo curto pra economizar bytes no header (`portal:home`,
+    // `portal:page:42`, `homologa:page:7`, `admin:presenca`, etc). A
+    // resolucao do nome amigavel (ex: titulo da pagina) acontece no front
+    // do admin via lookup em window.PortalApp.pagesData / menuData.
+    getCurrentView() {
+        try {
+            const path = (window.location.pathname || '/').toLowerCase();
+
+            if (path === '/admin' || path === '/admin.html') {
+                const hash = (window.location.hash || '').replace(/^#\/?/, '').toLowerCase().trim();
+                return hash ? `admin:${hash.slice(0, 32)}` : 'admin';
+            }
+
+            if (path === '/homologa' || path === '/homologa.html') {
+                const pageId = window.PortalApp && window.PortalApp.selectedPageId;
+                return Number.isFinite(Number(pageId))
+                    ? `homologa:page:${Number(pageId)}`
+                    : 'homologa:home';
+            }
+
+            if (path.startsWith('/chatbot')) return 'chatbot';
+            if (path.startsWith('/excel'))   return 'excel';
+            if (path.startsWith('/fatura'))  return 'fatura';
+            if (path.startsWith('/mapdb'))   return 'mapdb';
+            if (path.startsWith('/tutorial'))return 'tutorial';
+
+            // / ou /index.html — portal principal.
+            const pageId = window.PortalApp && window.PortalApp.selectedPageId;
+            const groupId = window.PortalApp && window.PortalApp.selectedGroupId;
+            if (Number.isFinite(Number(pageId)))  return `portal:page:${Number(pageId)}`;
+            if (Number.isFinite(Number(groupId))) return `portal:group:${Number(groupId)}`;
+            return 'portal:home';
+        } catch (_) {
+            return '';
+        }
+    },
+
+    // Captura UMA VEZ o usuario Windows logado (DOMAIN\username) via NTLM/
+    // Kerberos. /api/whoami-windows responde 401 com WWW-Authenticate na
+    // primeira tentativa anonima — o browser, se for maquina joined e site
+    // estiver na zona intranet, re-envia automaticamente com credenciais e
+    // IIS Windows Auth popula LOGON_USER. Se o browser nao puder fornecer
+    // (BYOD, mobile, prompt cancelado), retornamos null e o heartbeat segue
+    // sem o header X-Win-User. Best-effort: nunca lanca.
+    _windowsUserCache: null,
+    _windowsUserChecked: false,
+    async getWindowsUser() {
+        if (this._windowsUserChecked) return this._windowsUserCache;
+        this._windowsUserChecked = true;
+        try {
+            const res = await fetch(`${window.PortalApp.API_URL}/whoami-windows`, {
+                credentials: 'same-origin',
+                cache: 'no-store'
+            });
+            // 401 = browser nao conseguiu autenticar (maquina nao joined,
+            // prompt cancelado, ou site fora da zona intranet). Trata como
+            // "sem mapeamento" silenciosamente.
+            if (!res.ok) {
+                this._windowsUserCache = null;
+                return null;
+            }
+            const data = await res.json();
+            const user = (data && data.user) ? String(data.user).trim() : '';
+            this._windowsUserCache = user || null;
+            return this._windowsUserCache;
+        } catch (_) {
+            this._windowsUserCache = null;
+            return null;
+        }
+    },
+
     // Envia heartbeat HTTP a cada 30s ao /api/presence/heartbeat. Backend
-    // atualiza lastSeen[email]; emails sem heartbeat em 90s viram offline.
-    // Substituiu a abordagem SSE original (incompativel com iisnode).
+    // atualiza presence[email][deviceId]; entradas sem heartbeat em 90s
+    // viram offline. Substituiu a abordagem SSE original (incompativel com
+    // iisnode).
     async startPresenceStream() {
         if (!this.isEnabled() || this.initializationFailed || !this.msalInstance) return;
         // getActiveAccount() retorna null em loads subsequentes mesmo com conta
@@ -97,9 +220,18 @@ window.PortalMicrosoftAuth = {
                     scopes: ['openid', 'profile'],
                 });
                 if (!result || !result.idToken) return;
+                const winUser = await this.getWindowsUser();
+                const view = this.getCurrentView();
+                const headers = {
+                    'X-MS-Id-Token': result.idToken,
+                    'X-Device-Id': this.getDeviceId(),
+                    'X-Tab-Id': this.getTabId(),
+                };
+                if (winUser) headers['X-Win-User'] = winUser;
+                if (view) headers['X-Portal-View'] = view;
                 await fetch(`${window.PortalApp.API_URL}/presence/heartbeat`, {
                     method: 'POST',
-                    headers: { 'X-MS-Id-Token': result.idToken },
+                    headers,
                 });
             } catch (e) {
                 // Silencioso — heartbeat eh best-effort.
@@ -193,6 +325,16 @@ window.PortalMicrosoftAuth = {
     async requireAccountAtStartup() {
         await this.init();
 
+        // Se acabamos de voltar do AAD e o login original veio de uma rota
+        // interna (/homologa, etc), re-navega pra ela antes de hidratar a UI.
+        // O caller (app.js) recebe false e PARA — a janela vai navegar.
+        if (this.pendingPostLoginRedirect) {
+            const target = this.pendingPostLoginRedirect;
+            this.pendingPostLoginRedirect = null;
+            try { window.location.replace(target); } catch (_) { window.location.href = target; }
+            return false;
+        }
+
         if (!this.isEnabled()) {
             return true;
         }
@@ -220,6 +362,18 @@ window.PortalMicrosoftAuth = {
         }
 
         sessionStorage.setItem(this.startupRedirectInFlightKey, '1');
+
+        // Salva o path atual pra ser restaurado depois do AAD. Isso e' o que
+        // permite acessos diretos a /homologa (ou outras rotas) sobreviverem
+        // ao redirect login — sem isso o usuario sempre cai em / depois do
+        // AAD por causa do redirectUri fixo. Ignoramos / e /index.html pois
+        // a/ ja' e' o destino padrao do MSAL.
+        try {
+            const curPath = window.location.pathname + window.location.search;
+            if (curPath && curPath !== '/' && curPath !== '/index.html') {
+                sessionStorage.setItem(this.postLoginPathKey, curPath);
+            }
+        } catch (_) {}
 
         try {
             await this.msalInstance.loginRedirect(this.getRedirectRequest());
@@ -322,6 +476,47 @@ window.PortalMicrosoftAuth = {
             } catch (e2) {
                 console.warn('[MSAUTH] acquireTokenPopup falhou:', e2);
                 return '';
+            }
+        }
+    },
+
+    // Retorna um access token AAD do usuario logado com escopo do Power BI
+    // Service (delegated). Usado pelo embed user-owns-data via SDK powerbi-client
+    // — permite renovacao silenciosa de token sem recarregar o relatorio.
+    //
+    // Pre-requisito (Entra ID): o app SPA precisa ter a permissao delegada
+    // "Power BI Service / Report.Read.All" e o consent (admin ou user) concedido.
+    // Sem isso, acquireTokenSilent falha com InteractionRequiredAuthError;
+    // por padrao (silentOnly:true) NAO abrimos popup — devolvemos null e o
+    // caller faz fallback gracioso pro iframe legado.
+    //
+    // Retorna { accessToken, expiresOn } ou null.
+    async getPowerBIToken({ silentOnly = true } = {}) {
+        await this.init();
+        if (!this.isEnabled() || this.initializationFailed || !this.msalInstance) return null;
+
+        const account = this.msalInstance.getActiveAccount() || this.msalInstance.getAllAccounts()[0] || null;
+        if (!account) return null;
+
+        const scopes = ['https://analysis.windows.net/powerbi/api/Report.Read.All'];
+        try {
+            const result = await this.msalInstance.acquireTokenSilent({ account, scopes });
+            if (!result || !result.accessToken) return null;
+            return { accessToken: result.accessToken, expiresOn: result.expiresOn || null };
+        } catch (e) {
+            if (silentOnly) {
+                // Esperado quando o consent do PBI ainda nao foi dado. Loga em
+                // info pra nao poluir; o caller cai pro iframe atual.
+                console.info('[MSAUTH] PBI token silent indisponivel (consent pendente?):', e && (e.errorCode || e.message));
+                return null;
+            }
+            try {
+                const result = await this.msalInstance.acquireTokenPopup({ account, scopes });
+                if (!result || !result.accessToken) return null;
+                return { accessToken: result.accessToken, expiresOn: result.expiresOn || null };
+            } catch (e2) {
+                console.warn('[MSAUTH] PBI token popup falhou:', e2 && (e2.errorCode || e2.message));
+                return null;
             }
         }
     },

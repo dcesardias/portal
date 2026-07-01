@@ -463,8 +463,21 @@ body {
     font-size: var(--type-sm);
 }
 
+/* #pageView preenche a altura visivel do .content para que o painel
+   se ajuste tambem em altura (sem barra de rolagem). display:flex e
+   definido inline pelo JS ao exibir a view. */
+#pageView {
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+
 .powerbi-shell {
     position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
 }
 
 .powerbi-placeholder-title {
@@ -505,8 +518,11 @@ body {
 
 .powerbi-container {
     width: 100%;
-    aspect-ratio: 16 / 9;
-    height: auto;
+    /* Preenche o espaco vertical restante da shell em vez de derivar a
+       altura da largura (aspect-ratio). Assim o painel respeita largura E
+       altura e nao gera scroll. */
+    flex: 1 1 auto;
+    min-height: 0;
     background: var(--info-card-bg);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
@@ -1119,7 +1135,11 @@ body {
     flex-shrink: 0;
 }
 
-/* === Admin Modal === */
+/* === Admin Modal ===
+   Layout: o overlay centraliza e dá padding mínimo nas bordas (mobile).
+   O .admin-modal é um flex column com overflow:hidden — o header e o
+   footer ficam fixos (flex: 0 0 auto) e só o .admin-modal-body rola.
+   Isso evita o bug de duas barras de rolagem aninhadas. */
 .admin-modal-overlay {
     position: fixed;
     inset: 0;
@@ -1129,6 +1149,8 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 24px 16px;
+    box-sizing: border-box;
     animation: adminModalFadeIn 0.15s ease;
 }
 @keyframes adminModalFadeIn {
@@ -1138,11 +1160,13 @@ body {
 .admin-modal {
     background: white;
     border-radius: 14px;
-    padding: 28px;
-    width: 92%;
+    padding: 0;
+    width: 100%;
     max-width: 560px;
-    max-height: 85vh;
-    overflow-y: auto;
+    max-height: min(85vh, 760px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     box-shadow: 0 20px 60px rgba(0,0,0,0.3);
     animation: adminModalSlideIn 0.2s ease;
 }
@@ -1151,17 +1175,20 @@ body {
     to { transform: translateY(0); opacity: 1; }
 }
 .admin-modal-header {
+    flex: 0 0 auto;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
-    padding-bottom: 14px;
+    gap: 12px;
+    margin: 0;
+    padding: 20px 24px 14px;
     border-bottom: 1px solid #e5e5e5;
 }
 .admin-modal-header h3 {
     margin: 0;
     font-size: 18px;
     font-weight: 700;
+    line-height: 1.3;
 }
 .admin-modal-close {
     background: none;
@@ -1172,6 +1199,7 @@ body {
     padding: 4px 10px;
     border-radius: 8px;
     line-height: 1;
+    flex-shrink: 0;
     transition: all 0.15s;
 }
 .admin-modal-close:hover {
@@ -1179,13 +1207,15 @@ body {
     color: #333;
 }
 .admin-modal-actions {
+    flex: 0 0 auto;
     display: flex;
     gap: 10px;
-    margin-top: 24px;
-    padding-top: 16px;
+    margin: 0;
+    padding: 14px 24px 20px;
     border-top: 1px solid #e5e5e5;
     justify-content: flex-end;
     align-items: center;
+    background: #fff;
 }
 .admin-modal-actions .btn {
     display: inline-flex;
@@ -1194,6 +1224,9 @@ body {
 }
 .admin-modal .form-group {
     margin-bottom: 14px;
+}
+.admin-modal .form-group:last-child {
+    margin-bottom: 0;
 }
 .admin-modal .admin-dropdown {
     position: relative;
@@ -2645,6 +2678,21 @@ body {
     width: 100%;
 }
 
+/* Bloqueador dos 3 pontinhos da barra do Power BI.
+   left e width sao calculados via JS (_positionPbiBlocker em pages.js)
+   com ResizeObserver — so top/height/z-index ficam aqui.
+   z-index: 5 = acima do iframe (0) mas abaixo dos botoes do portal (10). */
+#pbiDotsBlocker {
+    position: absolute;
+    top: 0;
+    height: 64px;
+    width: 210px; /* cobre "Assinar" + "..." com boa margem dos dois lados */
+    z-index: 5;
+    pointer-events: all;
+    cursor: default;
+    background: transparent;
+}
+
 .btn-refresh-iframe {
     position: absolute;
     top: 10px;
@@ -2705,6 +2753,160 @@ body {
 
 .btn-fullscreen-iframe i {
     font-size: 16px;
+}
+
+/* Botao Export do embed: posicionado abaixo do fullscreen. Abre menu com
+   formatos (PDF/PPTX/PNG) ancorado ao botao. So aparece em modo embed. */
+.btn-export-embed-wrap {
+    position: absolute;
+    top: 110px;
+    right: 10px;
+    z-index: 11;
+}
+.btn-export-embed {
+    background: rgba(0, 102, 204, 0.92);
+    border: none;
+    color: white;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+.btn-export-embed:hover {
+    background: rgba(0, 102, 204, 1);
+    transform: translateY(-1px);
+    filter: brightness(0.98);
+    box-shadow: var(--shadow-md);
+}
+.btn-export-embed i {
+    font-size: 16px;
+}
+.btn-export-embed.is-loading {
+    background: rgba(0, 102, 204, 0.65);
+    cursor: wait;
+}
+.btn-export-embed.is-loading i {
+    animation: spin 1s linear infinite;
+}
+.btn-export-embed-menu {
+    position: absolute;
+    top: 48px;
+    right: 0;
+    background: var(--content-bg, #fff);
+    color: var(--text-color, #1f2937);
+    border: 1px solid var(--border-color, rgba(0,0,0,0.1));
+    border-radius: 10px;
+    box-shadow: var(--shadow-md, 0 8px 24px rgba(0,0,0,0.12));
+    overflow: hidden;
+    min-width: 200px;
+    display: flex;
+    flex-direction: column;
+}
+.btn-export-embed-menu[hidden] { display: none; }
+.btn-export-embed-menu button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: transparent;
+    border: none;
+    color: inherit;
+    font-size: 14px;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+}
+.btn-export-embed-menu button:hover {
+    background: rgba(0, 102, 204, 0.08);
+}
+.btn-export-embed-menu button i {
+    width: 18px;
+    text-align: center;
+    color: #0066cc;
+}
+.btn-export-embed-divider {
+    height: 1px;
+    background: var(--border-color, rgba(0,0,0,0.08));
+}
+
+/* ===== Print: report.print() do Power BI dispara window.print(). Sem CSS
+   especifico, a impressao sai com sidebar, header, etc visiveis e o report
+   espremido. Aqui mascaramos tudo e damos full-bleed ao container do PBI.
+   A orientacao (retrato/paisagem) eh escolhida pelo usuario no dialogo;
+   se for retrato, rotacionamos 90deg para manter o report em paisagem. ==== */
+@media print {
+    @page {
+        size: auto;
+        /* margin: 0 ajuda a esconder o cabecalho/rodape automatico do navegador
+           em Chrome/Edge. O usuario ainda pode precisar desmarcar "Cabecalhos
+           e rodapes" no dialogo se o navegador for teimoso. */
+        margin: 0;
+    }
+    html, body {
+        background: #fff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+    }
+    /* Esconde tudo por padrao */
+    body * { visibility: hidden !important; }
+    /* Mas mostra o container do PBI e seus filhos */
+    #powerbiContainer, #powerbiContainer * { visibility: visible !important; }
+    /* Posiciona o container ocupando a pagina inteira */
+    #powerbiContainer {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+        box-shadow: none !important;
+        border: 0 !important;
+    }
+    /* Iframe interno (embed do Power BI) preenche o container 100% */
+    #powerbiContainer iframe {
+        width: 100% !important;
+        height: 100% !important;
+        border: 0 !important;
+    }
+    /* Esconde controles flutuantes que estao DENTRO do .powerbi-shell mas
+       acima do container (refresh, fullscreen, export, tutorial). */
+    .btn-refresh-iframe,
+    .btn-fullscreen-iframe,
+    .btn-export-embed-wrap,
+    .btn-start-tutorial,
+    .tutorial-group-selector-fixed,
+    #accountIndicator,
+    .header,
+    .search-container,
+    .info-card {
+        display: none !important;
+    }
+}
+
+/* Se o usuario escolheu RETRATO no dialogo, rotacionamos o container do PBI
+   em -90deg pra que o report (que tem aspect ratio paisagem 16:9) preencha
+   a pagina sem cortar. O usuario ve a impressao deitada na pagina retrato,
+   mas o conteudo nao fica espremido nem cortado. */
+@media print and (orientation: portrait) {
+    #powerbiContainer {
+        /* Em retrato, viewport eh "altura > largura" — trocamos pra usar
+           a altura como largura efetiva (e vice-versa) via rotacao. */
+        width: 100vh !important;
+        height: 100vw !important;
+        transform: rotate(-90deg) translateX(-100vh);
+        transform-origin: top left;
+    }
 }
 
 /* Wrapper de ações no header global, agrupa botão "Trocar conta" + barra de pesquisa */
@@ -4687,4 +4889,183 @@ input[type="range"]#highlightOpacity::-moz-range-thumb:hover {
 .admin-panel .btn-admin:hover,
 .admin-modal-overlay .btn-admin:hover {
     box-shadow: 0 6px 20px rgba(200, 16, 46, 0.32) !important;
+}
+
+/* =========================================================================
+   /homologa — body.homolog-page
+   Esconde a sidebar e mantem main-content full width. A pagina /homologa
+   compartilha CSS/JS com a home padrao, entao trabalhamos por escopo de
+   classe pra nao impactar nada do portal normal.
+   ========================================================================= */
+body.homolog-page .sidebar,
+body.homolog-page #adminButton,
+body.homolog-page .admin-panel,
+body.homolog-page .login-modal {
+    display: none !important;
+}
+
+body.homolog-page .container {
+    display: block;
+}
+
+body.homolog-page .main-content {
+    width: 100%;
+    height: 100vh;
+}
+
+/* Barra com o botao "Voltar para Homologacao" exibida no topo do pageView. */
+body.homolog-page .homolog-back-bar {
+    display: flex;
+    justify-content: flex-start;
+    padding: 0 0 12px 0;
+}
+
+body.homolog-page .homolog-back-bar .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Botao "Portal de Dados" no header da rota /homologa. Sempre visivel,
+   contrasta com o tema mas sem competir com o foco principal (cards). */
+body.homolog-page .homolog-portal-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: var(--menu-bg-color, #4A4A4A);
+    color: #fff;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    transition: background 0.15s ease, transform 0.15s ease;
+    border: none;
+    cursor: pointer;
+    margin-right: 8px;
+}
+
+body.homolog-page .homolog-portal-link:hover {
+    background: var(--menu-hover-color, #2a2d4a);
+    transform: translateY(-1px);
+    color: #fff;
+}
+
+body.homolog-page .homolog-portal-link i {
+    font-size: 12px;
+}
+
+/* Badge "Em homologacao ha X" exibida no card dentro de /homologa.
+   Visual sutil — texto pequeno em italico, cor secundaria, com icone
+   de relogio pra reforcar a ideia de tempo. */
+.quick-access-card--homolog .card-homolog-elapsed {
+    margin: 6px 0 0;
+    font-size: 12px;
+    color: var(--text-secondary, #888);
+    font-style: italic;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    line-height: 1.2;
+}
+
+.quick-access-card--homolog .card-homolog-elapsed i {
+    font-size: 11px;
+    opacity: 0.85;
+}
+
+/* Espaca os dois botoes do sidebar-footer (Em Homologacao + Configuracoes).
+   .sidebar-footer ja' e' flex column; gap entra como espacamento vertical. */
+.sidebar-footer {
+    gap: 8px;
+}
+
+/* Link "Em Homologacao" — herda .btn .btn-admin (mesmo visual do botao
+   Configuracoes), apenas remove sublinhado e garante alinhamento como
+   button no sidebar colapsado. */
+.sidebar-footer-link {
+    text-decoration: none;
+}
+
+.sidebar-footer-link:hover {
+    text-decoration: none;
+}
+
+/* =========================================================================
+   Header retratil (visivel quando o usuario esta dentro de um painel).
+   .header-collapse-zone tem height: 0, apenas serve como ancora pra o botao
+   absolute que protrude por baixo do header (ou no topo, quando colapsado).
+   Estado persiste em sessionStorage via pages.js.
+   ========================================================================= */
+.header-collapse-zone {
+    display: none;
+    position: relative;
+    height: 0;
+    overflow: visible;
+    z-index: 50;
+}
+
+.main-content.show-header-collapse .header-collapse-zone {
+    display: block;
+}
+
+.header-collapse-toggle {
+    position: absolute;
+    top: -11px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 44px;
+    height: 22px;
+    border: none;
+    border-radius: 0 0 11px 11px;
+    background: var(--menu-bg-color, #4A4A4A);
+    color: #fff;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    line-height: 1;
+    padding: 0;
+    transition: background 0.15s ease, top 0.2s ease;
+}
+
+.header-collapse-toggle:hover {
+    background: var(--menu-hover-color, #2a2d4a);
+}
+
+.header-collapse-toggle i {
+    transition: transform 0.2s ease;
+}
+
+/* Estado colapsado: o .header some, o info-card do pageView some,
+   e o botao encosta no topo do main-content (zone vira absolute pra
+   escapar do padding do .content/.pageView e ancorar no topo). */
+.main-content.show-header-collapse.header-collapsed {
+    position: relative;
+}
+
+.main-content.show-header-collapse.header-collapsed .header {
+    display: none;
+}
+
+.main-content.show-header-collapse.header-collapsed #pageView > .info-card {
+    display: none;
+}
+
+.main-content.show-header-collapse.header-collapsed .header-collapse-zone {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+}
+
+.main-content.show-header-collapse.header-collapsed .header-collapse-toggle {
+    top: 0;
+}
+
+.main-content.show-header-collapse.header-collapsed .header-collapse-toggle i {
+    transform: rotate(180deg);
 }

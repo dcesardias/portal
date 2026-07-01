@@ -29,17 +29,50 @@ if (document.readyState === 'loading') {
 
 window.PortalAdmin = {
 
-    toggleAdmin() {
-        if (!window.PortalApp.isAdmin) {
-            document.getElementById('loginModal').classList.add('show');
-            document.getElementById('overlay').classList.add('show');
-            document.getElementById('loginUsername').focus();
-        } else {
-            // Migração drawer → página dedicada: o botão "Configurações" agora
-            // navega para /admin. O drawer (openAdminPanel) ainda existe como
-            // fallback para chamadas legadas, mas não é mais o caminho principal.
+    async toggleAdmin() {
+        if (window.PortalApp.isAdmin) {
+            // Ja' autenticado como admin — navega direto para a pagina /admin.
             window.location.href = '/admin#/paginas';
+            return;
         }
+
+        // SSO via Microsoft: se o usuario MSAL ja' esta logado E o email dele
+        // bate com um admin ativo cadastrado, autenticamos automaticamente
+        // sem prompt. Se nao for admin (ou MSAL nao disponivel), cai pro
+        // modal tradicional de usuario/senha.
+        try {
+            if (window.PortalMicrosoftAuth && typeof window.PortalMicrosoftAuth.getIdToken === 'function') {
+                const idToken = await window.PortalMicrosoftAuth.getIdToken({ promptIfMissing: false });
+                if (idToken) {
+                    const r = await fetch(`${window.PortalApp.API_URL}/login-microsoft`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ idToken })
+                    });
+                    if (r.ok) {
+                        const data = await r.json();
+                        if (data && data.token) {
+                            sessionStorage.setItem('authToken', data.token);
+                            sessionStorage.setItem('currentUser', JSON.stringify(data.user || {}));
+                            window.PortalApp.authToken = data.token;
+                            window.PortalApp.currentUser = data.user || null;
+                            window.PortalApp.isAdmin = !!(data.user && data.user.isAdmin);
+                            window.location.href = '/admin#/paginas';
+                            return;
+                        }
+                    }
+                    // r.status === 401 (not_admin) → email autenticado pelo
+                    // Microsoft mas nao e' admin cadastrado. Cai pro modal.
+                }
+            }
+        } catch (e) {
+            console.warn('[toggleAdmin] SSO MSAL falhou, abrindo modal:', e && e.message);
+        }
+
+        // Fallback: modal de usuario/senha tradicional.
+        document.getElementById('loginModal').classList.add('show');
+        document.getElementById('overlay').classList.add('show');
+        document.getElementById('loginUsername').focus();
     },
 
     openAdminPanel() {
@@ -300,7 +333,8 @@ window.PortalAdmin = {
         let badges = '';
         if (page.icon) badges += '<span class="page-list-badge badge-blue" title="Tem ícone personalizado">🎨</span>';
         if (page.redirectPowerBIUrl && page.redirectEmails) badges += '<span class="page-list-badge badge-purple">REDIRECT</span>';
-        if (page.useEmbed && page.embedWorkspaceId && page.embedReportId) badges += '<span class="page-list-badge badge-green" title="Renderizado via Power BI Embedded">EMBED</span>';
+        // DESATIVADO — badge EMBED (App Owns Data). Descomente se retomar.
+        // if (page.useEmbed && page.embedWorkspaceId && page.embedReportId) badges += '<span class="page-list-badge badge-green" title="Renderizado via Power BI Embedded">EMBED</span>';
         const menuLinks = this._countMenuLinksToPage(page.id);
         if (menuLinks > 0) badges += `<span class="page-list-badge badge-green" title="${menuLinks} item(ns) do menu apontam para esta página">${menuLinks}× menu</span>`;
 
@@ -361,6 +395,363 @@ window.PortalAdmin = {
         return n;
     },
 
+    // Lista somente paginas com IsHomologation = true para a secao
+    // "Homologacao" da tela admin. Reusa _buildPageRow (mesmo card de
+    // Paginas), com botoes Editar/Excluir comportando-se igual.
+    loadHomologationList() {
+        const container = document.getElementById('homologationList');
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        const pages = Array.isArray(window.PortalApp.pagesData) ? window.PortalApp.pagesData : [];
+        const homologPages = pages
+            .filter(p => p.isHomologation === true)
+            .sort((a, b) => {
+                const aOrder = a.order ?? 0;
+                const bOrder = b.order ?? 0;
+                if (aOrder === bOrder) return (a.id || 0) - (b.id || 0);
+                return aOrder - bOrder;
+            });
+
+        if (homologPages.length === 0) {
+            container.innerHTML = `
+                <div class="admin-placeholder">
+                    Nenhuma página em homologação. Para publicar um painel para validação,
+                    edite uma página existente e marque <em>"Painel em Homologação"</em>.
+                </div>`;
+            return;
+        }
+
+        homologPages.forEach(page => container.appendChild(this._buildPageRow(page, { draggable: false })));
+    },
+
+    // ===================== USUARIOS ONLINE (PRESENCA) =====================
+
+    // Estado pro auto-refresh: clear no proximo tick se a hash saiu de #/presenca.
+    _presenceRefreshTimer: null,
+    _presenceExpanded: null, // Set<email> de usuarios manualmente expandidos (default: colapsado)
+
+    _stopPresenceRefresh() {
+        if (this._presenceRefreshTimer) {
+            clearInterval(this._presenceRefreshTimer);
+            this._presenceRefreshTimer = null;
+        }
+    },
+
+    // Parser leve de user-agent. NAO e' completo — cobre os browsers e OSs
+    // mais comuns no parque (Chrome, Edge, Firefox, Safari em Windows/macOS/
+    // Linux/Android/iOS). Casos exoticos caem em "Outro". O proposito e' so
+    // mostrar uma legenda amigavel pro admin, nao identificacao precisa.
+    _parseUserAgent(ua) {
+        const s = String(ua || '');
+        let browser = 'Outro', os = 'Outro';
+        // Edge (Chromium) precisa vir antes de Chrome.
+        if (/Edg\//.test(s))               browser = 'Edge';
+        else if (/OPR\//.test(s))          browser = 'Opera';
+        else if (/Firefox\//.test(s))      browser = 'Firefox';
+        else if (/Chrome\//.test(s))       browser = 'Chrome';
+        else if (/Safari\//.test(s) && !/Chrome\//.test(s)) browser = 'Safari';
+        else if (/MSIE |Trident\//.test(s)) browser = 'Internet Explorer';
+
+        if (/Windows NT 10/.test(s))       os = 'Windows 10/11';
+        else if (/Windows NT/.test(s))     os = 'Windows';
+        else if (/Mac OS X/.test(s))       os = 'macOS';
+        else if (/Android/.test(s))        os = 'Android';
+        else if (/iPhone|iPad|iOS/.test(s)) os = 'iOS';
+        else if (/Linux/.test(s))          os = 'Linux';
+
+        return { browser, os, label: `${browser} • ${os}` };
+    },
+
+    // Formata "ha X" a partir de timestamp em ms.
+    _formatElapsedMs(ts) {
+        const diff = Math.max(0, Date.now() - ts);
+        const sec = Math.floor(diff / 1000);
+        if (sec < 60) return sec <= 1 ? 'há instantes' : `há ${sec}s`;
+        const min = Math.floor(sec / 60);
+        if (min < 60) return min === 1 ? 'há 1 min' : `há ${min} min`;
+        const h = Math.floor(min / 60);
+        const remMin = min - h * 60;
+        if (h < 24) return remMin === 0
+            ? (h === 1 ? 'há 1h' : `há ${h}h`)
+            : `há ${h}h ${remMin}min`;
+        const days = Math.floor(h / 24);
+        return days === 1 ? 'há 1 dia' : `há ${days} dias`;
+    },
+
+    _renderPresenceList(data) {
+        const container = document.getElementById('presenceList');
+        if (!container) return;
+        const users = (data && Array.isArray(data.users)) ? data.users : [];
+        if (!this._presenceExpanded) this._presenceExpanded = new Set();
+
+        if (users.length === 0) {
+            container.innerHTML = `
+                <div class="admin-placeholder presence-empty">
+                    <i class="fas fa-user-slash" aria-hidden="true"></i>
+                    Ninguém online no momento.
+                </div>`;
+            return;
+        }
+
+        // Tres contadores no header:
+        //   - usuarios online    = users.length (emails distintos)
+        //   - hostnames online   = hostnames distintos resolvidos (exclui vazios)
+        //   - sessoes online     = total de devices (cada browser/aba persistido)
+        const allDevices = users.reduce((acc, u) => {
+            if (Array.isArray(u.devices)) acc.push(...u.devices);
+            return acc;
+        }, []);
+        const totalSessions = allDevices.length;
+        const uniqueHostnames = new Set(
+            allDevices
+                .map(d => (d.hostname || '').trim().toLowerCase())
+                .filter(h => h)
+        ).size;
+        const headerHtml = `
+            <div class="presence-summary">
+                <div><strong>${users.length}</strong> usuário(s) online</div>
+                <div><strong>${uniqueHostnames}</strong> hostname(s) online</div>
+                <div><strong>${totalSessions}</strong> sessão(ões) online</div>
+            </div>
+        `;
+
+        const escapeHtml = this._escHtml.bind(this);
+
+        const rowsHtml = users.map(u => {
+            const collapsed = !this._presenceExpanded.has(u.email);
+            const devices = Array.isArray(u.devices) ? u.devices : [];
+            const sharedBadge = u.deviceCount > 1
+                ? `<span class="presence-shared-badge" title="${u.deviceCount} sessões ativas com este e-mail">${u.deviceCount} sessões</span>`
+                : '<span class="presence-shared-badge presence-single">1 sessão</span>';
+
+            const devicesHtml = devices.map(d => {
+                const ua = this._parseUserAgent(d.userAgent);
+                const firstSeenStr = new Date(d.firstSeen).toLocaleString('pt-BR');
+                const lastSeenStr = new Date(d.lastSeen).toLocaleTimeString('pt-BR');
+                // Quando o reverse DNS resolveu (rede corporativa com PTR),
+                // mostra o hostname como destaque e o browser/OS como subtitulo.
+                // Caso contrario, mantem o browser/OS como destaque e mostra
+                // o IP cru no subtitulo (se disponivel) pra ainda dar alguma
+                // pista de origem.
+                const hasHostname = !!(d.hostname && d.hostname.trim());
+                const headline = hasHostname
+                    ? escapeHtml(d.hostname)
+                    : escapeHtml(ua.label);
+                const subline = hasHostname
+                    ? `${escapeHtml(ua.label)}${d.ip ? ` <span class="presence-dot">•</span> ${escapeHtml(d.ip)}` : ''}`
+                    : (d.ip ? `IP: ${escapeHtml(d.ip)}` : '');
+
+                // Badge do usuario Windows logado (DOMAIN\username via NTLM).
+                // Util pra auditar usuarios genericos: voce ve QUEM realmente
+                // esta usando a conta. Vazio se a maquina nao for joined no
+                // dominio ou Windows Auth nao estiver disponivel.
+                const winUserBadge = d.winUser
+                    ? `<span class="presence-winuser" title="Usuario Windows logado nesta maquina"><i class="fab fa-windows" aria-hidden="true"></i> ${escapeHtml(d.winUser)}</span>`
+                    : '';
+
+                // Telas abertas nesta sessao. Quando o usuario tem multiplas
+                // abas abertas, `d.views` tem um item por aba (deduplicado
+                // por codigo de view). Renderizamos uma linha verde por view.
+                const activeViews = Array.isArray(d.views) ? d.views : (d.view ? [d.view] : []);
+                const viewLine = activeViews.length === 0 ? '' : activeViews.map(v => {
+                    const info = this._resolveViewLabel(v);
+                    if (!info) return '';
+                    return `<div class="presence-device-view" title="Codigo: ${escapeHtml(v)}">
+                                <i class="fas fa-${info.icon}" aria-hidden="true"></i>
+                                <span>${escapeHtml(info.label)}</span>
+                            </div>`;
+                }).join('');
+
+                return `
+                    <li class="presence-device">
+                        <div class="presence-device-icon" title="${escapeHtml(ua.os)}">
+                            <i class="fas fa-${this._osIcon(ua.os)}" aria-hidden="true"></i>
+                        </div>
+                        <div class="presence-device-main">
+                            <div class="presence-device-name">${headline}</div>
+                            ${subline ? `<div class="presence-device-host">${subline}</div>` : ''}
+                            ${viewLine}
+                            <div class="presence-device-meta">
+                                ${winUserBadge}
+                                ${winUserBadge ? '<span class="presence-dot">•</span>' : ''}
+                                Entrou ${escapeHtml(this._formatElapsedMs(d.firstSeen))}
+                                <span class="presence-dot">•</span>
+                                Último heartbeat às ${escapeHtml(lastSeenStr)}
+                            </div>
+                        </div>
+                        <div class="presence-device-elapsed" title="Desde ${escapeHtml(firstSeenStr)}">
+                            ${escapeHtml(this._formatElapsedMs(d.firstSeen))}
+                        </div>
+                    </li>
+                `;
+            }).join('');
+
+            return `
+                <div class="presence-card${collapsed ? ' is-collapsed' : ''}" data-email="${escapeHtml(u.email)}">
+                    <button type="button" class="presence-card-head" data-toggle="${escapeHtml(u.email)}">
+                        <i class="fas fa-chevron-down presence-chevron" aria-hidden="true"></i>
+                        <div class="presence-card-user">
+                            <div class="presence-card-name">${escapeHtml(u.name || u.email)}</div>
+                            ${u.name && u.name !== u.email ? `<div class="presence-card-email">${escapeHtml(u.email)}</div>` : ''}
+                        </div>
+                        ${sharedBadge}
+                        <div class="presence-card-elapsed" title="Primeiro device entrou em ${escapeHtml(new Date(u.earliestFirstSeen).toLocaleString('pt-BR'))}">
+                            ${escapeHtml(this._formatElapsedMs(u.earliestFirstSeen))}
+                        </div>
+                    </button>
+                    <ul class="presence-devices">${devicesHtml}</ul>
+                </div>
+            `;
+        }).join('');
+
+        container.innerHTML = headerHtml + rowsHtml;
+
+        container.querySelectorAll('[data-toggle]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const email = btn.getAttribute('data-toggle');
+                if (this._presenceExpanded.has(email)) {
+                    this._presenceExpanded.delete(email);
+                } else {
+                    this._presenceExpanded.add(email);
+                }
+                btn.closest('.presence-card').classList.toggle('is-collapsed');
+            });
+        });
+    },
+
+    _osIcon(os) {
+        if (/Windows/i.test(os))  return 'desktop';
+        if (/macOS/i.test(os))    return 'laptop';
+        if (/Linux/i.test(os))    return 'server';
+        if (/Android/i.test(os))  return 'mobile-screen';
+        if (/iOS/i.test(os))      return 'mobile-screen';
+        return 'circle-question';
+    },
+
+    // Resolve um codigo de view (ex: "portal:page:42") em rotulo legivel
+    // (ex: "Painel: Dashboard de Vendas"). Faz lookup em PortalApp.pagesData
+    // / menuData pra pegar titulos. Retorna objeto { label, icon } ou null.
+    _resolveViewLabel(view) {
+        if (!view || typeof view !== 'string') return null;
+        const adminSections = {
+            'paginas':       'Admin · Páginas',
+            'menu':          'Admin · Menu',
+            'homologacao':   'Admin · Homologação',
+            'usuarios':      'Admin · Usuários',
+            'presenca':      'Admin · Usuários Online',
+            'dicionarios':   'Admin · Dicionários IA',
+            'configuracoes': 'Admin · Configurações',
+        };
+        const pages = (window.PortalApp && window.PortalApp.pagesData) || [];
+        const findPageTitle = (id) => {
+            const p = pages.find(p => p.id === id);
+            return p ? (p.title || `Página #${id}`) : `Página #${id}`;
+        };
+        const findGroupName = (id) => {
+            const scan = (items) => {
+                for (const it of items || []) {
+                    if (it.id === id) return it.name || `Grupo #${id}`;
+                    if (it.children && it.children.length) {
+                        const found = scan(it.children);
+                        if (found) return found;
+                    }
+                }
+                return null;
+            };
+            return scan(window.PortalApp && window.PortalApp.menuData) || `Grupo #${id}`;
+        };
+
+        if (view === 'portal:home')    return { label: 'Home do portal', icon: 'house' };
+        if (view === 'homologa:home')  return { label: 'Home de Homologação', icon: 'flask' };
+        if (view === 'admin')          return { label: 'Admin', icon: 'gear' };
+        if (view === 'chatbot')        return { label: 'Chatbot', icon: 'robot' };
+        if (view === 'excel')          return { label: 'Sistema de Carga (Excel)', icon: 'table' };
+        if (view === 'fatura')         return { label: 'Fatura', icon: 'file-invoice' };
+        if (view === 'mapdb')          return { label: 'MapDB', icon: 'project-diagram' };
+        if (view === 'tutorial')       return { label: 'Tutorial', icon: 'graduation-cap' };
+
+        const adminMatch = view.match(/^admin:(.+)$/);
+        if (adminMatch) {
+            const section = adminMatch[1];
+            return { label: adminSections[section] || `Admin · ${section}`, icon: 'gear' };
+        }
+
+        const pageMatch = view.match(/^(portal|homologa):page:(\d+)$/);
+        if (pageMatch) {
+            const prefix = pageMatch[1] === 'homologa' ? 'Homologação · ' : '';
+            return { label: `${prefix}${findPageTitle(parseInt(pageMatch[2], 10))}`, icon: 'chart-line' };
+        }
+
+        const groupMatch = view.match(/^portal:group:(\d+)$/);
+        if (groupMatch) {
+            return { label: `Grupo · ${findGroupName(parseInt(groupMatch[1], 10))}`, icon: 'folder' };
+        }
+
+        return { label: view, icon: 'circle-question' };
+    },
+
+    async loadOnlinePresence() {
+        this._stopPresenceRefresh();
+
+        const container = document.getElementById('presenceList');
+        const statusEl = document.getElementById('presenceRefreshStatus');
+        const refreshBtn = document.getElementById('presenceRefreshBtn');
+        if (!container) return;
+
+        if (!window.PortalApp.authToken || !window.PortalApp.isAdmin) {
+            container.innerHTML = '<div class="admin-placeholder">Acesso restrito a administradores.</div>';
+            return;
+        }
+
+        // Garante que o catalogo de paginas esta atualizado antes de renderizar.
+        // Sem isso, paginas criadas APOS o admin abrir /admin aparecem como
+        // "Pagina #N" porque o pagesData carregado no boot nao as conhece.
+        if (window.PortalData && typeof window.PortalData.loadDataFromAPI === 'function') {
+            try { await window.PortalData.loadDataFromAPI(); } catch (_) {}
+        }
+
+        const setStatus = (msg) => { if (statusEl) statusEl.textContent = msg || ''; };
+
+        const fetchOnce = async () => {
+            try {
+                setStatus('Atualizando…');
+                const r = await fetch(`${window.PortalApp.API_URL}/admin/online-users`, {
+                    headers: { 'Authorization': `Bearer ${window.PortalApp.authToken}` }
+                });
+                if (!r.ok) {
+                    container.innerHTML = `<div class="admin-placeholder">Erro ao carregar (HTTP ${r.status}).</div>`;
+                    setStatus('Falha');
+                    return;
+                }
+                const data = await r.json();
+                this._renderPresenceList(data);
+                setStatus(`Atualizado às ${new Date().toLocaleTimeString('pt-BR')}`);
+            } catch (e) {
+                container.innerHTML = '<div class="admin-placeholder">Erro de rede ao carregar a lista.</div>';
+                setStatus('Falha');
+            }
+        };
+
+        if (refreshBtn && !refreshBtn._presenceWired) {
+            refreshBtn._presenceWired = true;
+            refreshBtn.addEventListener('click', fetchOnce);
+        }
+
+        await fetchOnce();
+
+        // Auto-refresh a cada 5s, mas para se a hash sair de #/presenca.
+        this._presenceRefreshTimer = setInterval(() => {
+            const h = String(location.hash || '').toLowerCase();
+            if (!h.includes('presenca')) {
+                this._stopPresenceRefresh();
+                return;
+            }
+            fetchOnce();
+        }, 5000);
+    },
+
     // ===================== MODAIS =====================
 
     openPageModal(pageId) {
@@ -404,13 +795,32 @@ window.PortalAdmin = {
 
                 <fieldset class="admin-fieldset">
                     <legend class="admin-legend">Power BI</legend>
-                    <p class="admin-fieldset-hint">URL principal do dashboard embed (modo iframe legado).</p>
+                    <p class="admin-fieldset-hint">URL do report no Power BI Service (formato <code>/reportEmbed?reportId=…&groupId=…</code>).</p>
                     <div class="form-group">
                         <label for="powerbiUrlInput">URL do Power BI Embed</label>
-                        <input type="text" id="powerbiUrlInput" placeholder="https://app.powerbi.com/view?r=…">
+                        <input type="text" id="powerbiUrlInput" placeholder="https://app.powerbi.com/reportEmbed?reportId=…&groupId=…">
                     </div>
                 </fieldset>
 
+                <!--
+                    ============================================================
+                    DESATIVADO — Power BI Embedded (App Owns Data)
+                    ------------------------------------------------------------
+                    Projeto de migracao para App Owns Data foi suspenso. Toda a
+                    AACD continua usando user-owns-data via /reportEmbed (SDK
+                    powerbi-client com token AAD do proprio usuario, ver
+                    pages.js -> renderUserOwnsData).
+
+                    Os campos abaixo (useEmbedCheckbox, embedUrlPasteInput,
+                    embedWorkspaceIdInput, embedReportIdInput, embedRlsCheckbox)
+                    e o handler do paste de URL ficam comentados pra reduzir
+                    ruido no modal de criar/editar pagina. Os valores ja
+                    gravados no banco (UseEmbed/EmbedWorkspaceId/EmbedReportId/
+                    EmbedRoles) sao preservados — savePage le do pagesData
+                    em vez de ler do DOM. Pra retomar a feature: descomentar
+                    este fieldset, descomentar o preenchimento em "Preencher
+                    campos se editando", e voltar savePage a ler do DOM.
+                    ============================================================
                 <fieldset class="admin-fieldset">
                     <legend class="admin-legend">Power BI Embedded <span class="admin-legend-tag">(App Owns Data)</span></legend>
                     <p class="admin-fieldset-hint">Quando ligado, o portal gera embed token via Service Principal em vez de usar a URL iframe acima. Permissoes refletem o "Manage access" do workspace/report.</p>
@@ -440,15 +850,21 @@ window.PortalAdmin = {
                         <small class="admin-help">Marque se o dataset usa RLS. O portal vai enviar o email do usuário (MSAL) com o role <code>AcessoAvancado</code> ao Power BI ao gerar o embed token.</small>
                     </div>
                 </fieldset>
+                    -->
+
 
                 <fieldset class="admin-fieldset">
                     <legend class="admin-legend">Redirecionamento condicional <span class="admin-legend-tag">(opcional)</span></legend>
-                    <p class="admin-fieldset-hint">Painel alternativo (iframe ou embed) usado quando o usuário Microsoft logado estiver na lista de e-mails abaixo.</p>
+                    <p class="admin-fieldset-hint">URL alternativa usada quando o usuário Microsoft logado estiver na lista de e-mails abaixo.</p>
                     <div class="form-group">
                         <label for="redirectPowerbiUrlInput">URL alternativa (iframe)</label>
                         <input type="text" id="redirectPowerbiUrlInput" placeholder="https://app.powerbi.com/view?r=…">
-                        <small class="admin-help">Usada quando o painel está em modo iframe.</small>
                     </div>
+                    <!--
+                        DESATIVADO — campos de redirect via App Owns Data.
+                        Mesma justificativa do fieldset "Power BI Embedded" acima.
+                        Valores ja gravados (RedirectEmbedWorkspaceId/RedirectEmbedReportId)
+                        sao preservados pelo savePage via pagesData.
                     <div class="form-group">
                         <label for="redirectEmbedUrlPasteInput">URL alternativa (Power BI Embedded)</label>
                         <input type="text" id="redirectEmbedUrlPasteInput" placeholder="https://app.fabric.microsoft.com/groups/{workspaceId}/reports/{reportId}?…">
@@ -462,10 +878,11 @@ window.PortalAdmin = {
                         <label for="redirectEmbedReportIdInput">Report ID alternativo (GUID)</label>
                         <input type="text" id="redirectEmbedReportIdInput" placeholder="00000000-0000-0000-0000-000000000000">
                     </div>
+                    -->
                     <div class="form-group">
                         <label for="redirectEmailsInput">E-mails Microsoft</label>
                         <textarea id="redirectEmailsInput" rows="3" placeholder="usuario1@aacd.org.br&#10;usuario2@aacd.org.br"></textarea>
-                        <small class="admin-help">Um e-mail por linha. Aceita vírgula ou ponto e vírgula. Os mesmos e-mails valem para iframe e embed.</small>
+                        <small class="admin-help">Um e-mail por linha. Aceita vírgula ou ponto e vírgula. O redirecionamento vale apenas para usuários nesta lista.</small>
                     </div>
                 </fieldset>
 
@@ -476,6 +893,18 @@ window.PortalAdmin = {
                             <input type="checkbox" id="showInHomeCheckbox">
                             <span>Mostrar na tela inicial (Acesso Rápido)</span>
                         </label>
+                    </div>
+                    <div class="form-group">
+                        <label class="admin-checkbox-row">
+                            <input type="checkbox" id="isHomologationCheckbox">
+                            <span>Painel em Homologação (aparece em <code>/homologa</code>)</span>
+                        </label>
+                        <small class="admin-help">Quando marcado, este painel aparece na rota <code>/homologa</code> para validação. Não afeta a home padrão.</small>
+                    </div>
+                    <div class="form-group" id="homologationStartedAtGroup">
+                        <label for="homologationStartedAtInput">Data de publicação em homologação</label>
+                        <input type="date" id="homologationStartedAtInput">
+                        <small class="admin-help">Usada para exibir nos cards de <code>/homologa</code> há quanto tempo o painel está em homologação. Auto-preenche para hoje ao marcar o checkbox.</small>
                     </div>
                     <div class="form-group">
                         <label for="pageIconInput">Ícone do card</label>
@@ -512,15 +941,25 @@ window.PortalAdmin = {
             document.getElementById('redirectPowerbiUrlInput').value = page.redirectPowerBIUrl || '';
             document.getElementById('redirectEmailsInput').value = page.redirectEmails || '';
             document.getElementById('showInHomeCheckbox').checked = page.showInHome !== false;
+            const homologCb = document.getElementById('isHomologationCheckbox');
+            if (homologCb) homologCb.checked = !!page.isHomologation;
+            const homologDateInput = document.getElementById('homologationStartedAtInput');
+            if (homologDateInput) homologDateInput.value = page.homologationStartedAt || '';
             document.getElementById('pageIconInput').value = (window.PortalIcons ? window.PortalIcons.svgToKey(page.icon) : page.icon) || '';
-            document.getElementById('useEmbedCheckbox').checked = !!page.useEmbed;
-            document.getElementById('embedWorkspaceIdInput').value = page.embedWorkspaceId || '';
-            document.getElementById('embedReportIdInput').value = page.embedReportId || '';
-            // Convencao AACD: todo dataset com RLS usa o role "AcessoAvancado".
-            // Checkbox liga se a page tem qualquer valor em EmbedRoles.
-            document.getElementById('embedRlsCheckbox').checked = !!(page.embedRoles && String(page.embedRoles).trim());
-            document.getElementById('redirectEmbedWorkspaceIdInput').value = page.redirectEmbedWorkspaceId || '';
-            document.getElementById('redirectEmbedReportIdInput').value = page.redirectEmbedReportId || '';
+            // DESATIVADO — preenchimento dos campos de App Owns Data. Os
+            // elementos useEmbedCheckbox/embedWorkspaceIdInput/etc nao
+            // existem mais no DOM (ver fieldset comentado acima). Os
+            // valores no banco continuam la' e sao preservados pelo
+            // savePage via window.PortalApp.pagesData. Pra retomar a
+            // feature: descomentar este bloco junto com o fieldset.
+            // document.getElementById('useEmbedCheckbox').checked = !!page.useEmbed;
+            // document.getElementById('embedWorkspaceIdInput').value = page.embedWorkspaceId || '';
+            // document.getElementById('embedReportIdInput').value = page.embedReportId || '';
+            // // Convencao AACD: todo dataset com RLS usa o role "AcessoAvancado".
+            // // Checkbox liga se a page tem qualquer valor em EmbedRoles.
+            // document.getElementById('embedRlsCheckbox').checked = !!(page.embedRoles && String(page.embedRoles).trim());
+            // document.getElementById('redirectEmbedWorkspaceIdInput').value = page.redirectEmbedWorkspaceId || '';
+            // document.getElementById('redirectEmbedReportIdInput').value = page.redirectEmbedReportId || '';
         }
 
         // Auto-extrair IDs ao colar URL do Power BI Service
@@ -543,6 +982,25 @@ window.PortalAdmin = {
                 if (m) {
                     document.getElementById('redirectEmbedWorkspaceIdInput').value = m[1];
                     document.getElementById('redirectEmbedReportIdInput').value = m[2];
+                }
+            });
+        }
+
+        // Auto-preencher data de publicacao em homologacao quando o admin
+        // marca o checkbox e o campo de data ainda esta vazio. Nao altera
+        // datas ja' preenchidas (admin pode ter colocado manualmente). Ao
+        // desmarcar, mantemos a data — se remarcar depois, o valor original
+        // volta naturalmente.
+        const homologCheckEl = document.getElementById('isHomologationCheckbox');
+        const homologDateEl = document.getElementById('homologationStartedAtInput');
+        if (homologCheckEl && homologDateEl) {
+            homologCheckEl.addEventListener('change', () => {
+                if (homologCheckEl.checked && !homologDateEl.value) {
+                    const today = new Date();
+                    const yyyy = today.getFullYear();
+                    const mm = String(today.getMonth() + 1).padStart(2, '0');
+                    const dd = String(today.getDate()).padStart(2, '0');
+                    homologDateEl.value = `${yyyy}-${mm}-${dd}`;
                 }
             });
         }
@@ -1562,6 +2020,10 @@ window.PortalAdmin = {
         const rawRedirectPowerBIUrl = document.getElementById('redirectPowerbiUrlInput').value;
         const rawRedirectEmails = document.getElementById('redirectEmailsInput').value;
         const showInHome = document.getElementById('showInHomeCheckbox').checked;
+        const isHomologationEl = document.getElementById('isHomologationCheckbox');
+        const isHomologation = isHomologationEl ? isHomologationEl.checked : false;
+        const homologDateEl = document.getElementById('homologationStartedAtInput');
+        const homologationStartedAt = homologDateEl && homologDateEl.value ? homologDateEl.value : null;
         const rawIcon = document.getElementById('pageIconInput').value;
 
         if (!rawTitle) {
@@ -1599,6 +2061,17 @@ window.PortalAdmin = {
             (window.PortalApp.pagesData.find(p => p.id === window.PortalApp.editingPageId)?.order || 0) : 
             maxOrder + 10;
 
+        // Como o fieldset App Owns Data foi removido da UI, preservamos os
+        // valores existentes do banco em vez de ler do DOM (que nao tem mais
+        // os inputs). Para edicao: pega do pagesData. Para nova pagina: zeros/
+        // nulls (admin pode reativar a feature no futuro descomentando o
+        // fieldset). Isso evita que cada save zere as colunas UseEmbed/
+        // EmbedWorkspaceId/EmbedReportId/EmbedRoles/RedirectEmbedWorkspaceId/
+        // RedirectEmbedReportId que ja' tem dados gravados.
+        const existingPage = window.PortalApp.editingPageId
+            ? (window.PortalApp.pagesData || []).find(p => p.id === window.PortalApp.editingPageId)
+            : null;
+
         try {
             const url = window.PortalApp.editingPageId ? `${window.PortalApp.API_URL}/pages/${window.PortalApp.editingPageId}` : `${window.PortalApp.API_URL}/pages`;
             const method = window.PortalApp.editingPageId ? 'PUT' : 'POST';
@@ -1616,14 +2089,17 @@ window.PortalAdmin = {
                     redirectPowerBIUrl: prepared.redirectPowerBIUrl.value || null,
                     redirectEmails: prepared.redirectEmails.value || null,
                     showInHome: showInHome,
+                    isHomologation: isHomologation,
+                    homologationStartedAt: homologationStartedAt,
                     icon: prepared.icon.value || null,
                     order: pageOrder,
-                    useEmbed: document.getElementById('useEmbedCheckbox').checked,
-                    embedWorkspaceId: document.getElementById('embedWorkspaceIdInput').value.trim() || null,
-                    embedReportId: document.getElementById('embedReportIdInput').value.trim() || null,
-                    embedRoles: document.getElementById('embedRlsCheckbox').checked ? 'AcessoAvancado' : null,
-                    redirectEmbedWorkspaceId: document.getElementById('redirectEmbedWorkspaceIdInput').value.trim() || null,
-                    redirectEmbedReportId: document.getElementById('redirectEmbedReportIdInput').value.trim() || null
+                    // Campos preservados do projeto App Owns Data (UI desligada).
+                    useEmbed: existingPage ? !!existingPage.useEmbed : false,
+                    embedWorkspaceId: existingPage ? (existingPage.embedWorkspaceId || null) : null,
+                    embedReportId: existingPage ? (existingPage.embedReportId || null) : null,
+                    embedRoles: existingPage ? (existingPage.embedRoles || null) : null,
+                    redirectEmbedWorkspaceId: existingPage ? (existingPage.redirectEmbedWorkspaceId || null) : null,
+                    redirectEmbedReportId: existingPage ? (existingPage.redirectEmbedReportId || null) : null
                 })
             });
             

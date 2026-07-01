@@ -69,6 +69,10 @@
                     <i class="fas fa-bars" aria-hidden="true"></i>
                     <span>Menu</span>
                 </a>
+                <a class="admin-nav-item" href="#/homologacao" data-section="homologacao">
+                    <i class="fas fa-flask" aria-hidden="true"></i>
+                    <span>Homologação</span>
+                </a>
             </nav>
 
             <div class="admin-sidenav-section-title">Pessoas</div>
@@ -76,6 +80,10 @@
                 <a class="admin-nav-item" href="#/usuarios" data-section="usuarios">
                     <i class="fas fa-users" aria-hidden="true"></i>
                     <span>Usuários</span>
+                </a>
+                <a class="admin-nav-item" href="#/presenca" data-section="presenca">
+                    <i class="fas fa-wifi" aria-hidden="true"></i>
+                    <span>Usuários Online</span>
                 </a>
             </nav>
 
@@ -152,6 +160,22 @@
                 <div class="menu-list" id="menuStructure"></div>
             </section>
 
+            <!-- ============ HOMOLOGAÇÃO ============ -->
+            <section class="admin-page-section" id="section-homologacao" aria-labelledby="homologacaoTitle">
+                <header class="admin-page-head">
+                    <div>
+                        <h1 id="homologacaoTitle">Painéis em Homologação</h1>
+                        <p class="admin-page-subtitle">Painéis com a flag <strong>Homologação</strong> ligada aparecem na rota pública <code>/homologa</code>, sem menu lateral, para validação antes de irem para a home oficial. Marque/desmarque a flag editando a página.</p>
+                    </div>
+                    <div class="admin-page-head-actions">
+                        <a class="btn btn-admin" href="/homologa" target="_blank" rel="noopener" title="Abrir a tela /homologa em uma nova aba">
+                            <i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i> Abrir /homologa
+                        </a>
+                    </div>
+                </header>
+                <div class="menu-list" id="homologationList"></div>
+            </section>
+
             <!-- ============ USUÁRIOS ============ -->
             <section class="admin-page-section" id="section-usuarios" aria-labelledby="usuariosTitle">
                 <header class="admin-page-head">
@@ -168,6 +192,25 @@
 
                 <div class="menu-list" id="usersList">
                     <div class="admin-placeholder">Carregando usuários...</div>
+                </div>
+            </section>
+
+            <!-- ============ USUÁRIOS ONLINE (presença) ============ -->
+            <section class="admin-page-section" id="section-presenca" aria-labelledby="presencaTitle">
+                <header class="admin-page-head">
+                    <div>
+                        <h1 id="presencaTitle">Usuários Online</h1>
+                        <p class="admin-page-subtitle">Usuários autenticados via Microsoft com heartbeat nos últimos 90 segundos. Cada usuário pode aparecer com mais de um dispositivo — útil para auditar logins simultâneos com usuários genéricos.</p>
+                    </div>
+                    <div class="admin-page-head-actions">
+                        <span class="presence-refresh-status" id="presenceRefreshStatus" aria-live="polite"></span>
+                        <button type="button" class="btn btn-admin" id="presenceRefreshBtn" title="Atualizar agora">
+                            <i class="fa-solid fa-rotate" aria-hidden="true"></i> Atualizar
+                        </button>
+                    </div>
+                </header>
+                <div class="presence-list" id="presenceList">
+                    <div class="admin-placeholder">Carregando…</div>
                 </div>
             </section>
 

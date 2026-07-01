@@ -38,7 +38,9 @@
     const SECTIONS = {
         'paginas':       { id: 'section-paginas',       loader: () => window.PortalAdmin && window.PortalAdmin.loadPagesList && window.PortalAdmin.loadPagesList() },
         'menu':          { id: 'section-menu',          loader: () => window.PortalAdmin && window.PortalAdmin.loadMenuStructure && window.PortalAdmin.loadMenuStructure() },
+        'homologacao':   { id: 'section-homologacao',   loader: () => window.PortalAdmin && window.PortalAdmin.loadHomologationList && window.PortalAdmin.loadHomologationList() },
         'usuarios':      { id: 'section-usuarios',      loader: () => window.PortalAdmin && window.PortalAdmin.loadUsersList && window.PortalAdmin.loadUsersList() },
+        'presenca':      { id: 'section-presenca',      loader: () => window.PortalAdmin && window.PortalAdmin.loadOnlinePresence && window.PortalAdmin.loadOnlinePresence() },
         'dicionarios':   { id: 'section-dicionarios',   loader: () => window.PortalAdmin && window.PortalAdmin.loadDataDictionaries && window.PortalAdmin.loadDataDictionaries() },
         'configuracoes': { id: 'section-configuracoes', loader: () => {
             // A aba de configurações só precisa que os campos do form estejam preenchidos
@@ -134,6 +136,53 @@
         } catch (err) {
             console.error('[admin-page] verify-token falhou:', err);
             return { ok: false, reason: 'network' };
+        }
+    }
+
+    // SSO via Microsoft no boot do /admin: quando verifyAuth falha (sem JWT
+    // valido), tentamos trocar o id_token MSAL ativo por um JWT do portal
+    // via /api/login-microsoft. Funciona se o email do MSAL bater com um
+    // admin ativo cadastrado. Retorna true se conseguiu autenticar.
+    async function trySsoLogin() {
+        try {
+            // Tentativa de carregar o modulo microsoft-auth se ainda nao foi.
+            // No boot do /admin os modulos carregam via loadModules() *depois*
+            // do verifyAuth, entao aqui podemos chegar com window.PortalMicrosoftAuth
+            // ainda indefinido. Carrega sob demanda nesse caso.
+            if (!window.PortalMicrosoftAuth) {
+                try {
+                    await import(`./modules/microsoft-auth.js?v=${window.PortalApp.version || Date.now()}`);
+                } catch (e) {
+                    console.warn('[admin-page] SSO: falha ao carregar microsoft-auth:', e && e.message);
+                    return false;
+                }
+            }
+            if (!window.PortalMicrosoftAuth || typeof window.PortalMicrosoftAuth.getIdToken !== 'function') {
+                return false;
+            }
+
+            const idToken = await window.PortalMicrosoftAuth.getIdToken({ promptIfMissing: false });
+            if (!idToken) return false;
+
+            const r = await fetch(`${window.PortalApp.API_URL}/login-microsoft`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ idToken })
+            });
+            if (!r.ok) return false;
+
+            const data = await r.json();
+            if (!data || !data.token) return false;
+
+            sessionStorage.setItem('authToken', data.token);
+            sessionStorage.setItem('currentUser', JSON.stringify(data.user || {}));
+            window.PortalApp.authToken = data.token;
+            window.PortalApp.currentUser = data.user || null;
+            window.PortalApp.isAdmin = !!(data.user && data.user.isAdmin);
+            return true;
+        } catch (e) {
+            console.warn('[admin-page] SSO falhou:', e && e.message);
+            return false;
         }
     }
 
@@ -292,8 +341,16 @@
         installEscCloseModals();
         populateTypographyFontSelects();
 
-        // 1) Verifica token primeiro — se falhar, mostra a tela de acesso negado e para.
-        const auth = await verifyAuth();
+        // 1) Verifica token primeiro. Se nao houver JWT do portal valido,
+        // tentamos SSO via Microsoft (email MSAL bate com admin cadastrado).
+        // So' se ambos falharem, mostramos "Acesso restrito".
+        let auth = await verifyAuth();
+        if (!auth.ok) {
+            const ssoOk = await trySsoLogin();
+            if (ssoOk) {
+                auth = await verifyAuth();
+            }
+        }
         if (!auth.ok) {
             const app = document.getElementById('adminPanel');
             if (app) app.classList.add('is-ready');
@@ -333,6 +390,8 @@
 
     // Polling a cada 5s do /api/admin/online-count — atualiza o badge
     // #adminOnlineCount. Mais simples e confiavel que SSE em iisnode.
+    // Clicar no indicador navega para a secao "Usuários Online" do admin,
+    // que tem lista detalhada por usuario com dispositivos.
     function startOnlineCountStream() {
         const indicator = document.getElementById('adminOnlineIndicator');
         const countEl = document.getElementById('adminOnlineCount');
@@ -356,6 +415,12 @@
         };
         tick();
         setInterval(tick, 5000);
+
+        indicator.style.cursor = 'pointer';
+        indicator.title = 'Ver lista de usuários online';
+        indicator.addEventListener('click', () => {
+            window.location.hash = '#/presenca';
+        });
     }
 
     if (document.readyState === 'loading') {

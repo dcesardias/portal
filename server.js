@@ -10,7 +10,9 @@ const fs = require('fs');
 const { ensureMapDbTables, mountMapDb } = require('./mapdbIntegration');
 const { createUserManagementRouter, loadAppsByUserId } = require('./userManagement');
 const { mountPbiEmbed } = require('./pbiEmbed');
+const { mountPbiExport } = require('./pbiExport');
 const { mountPresence } = require('./presence');
+const msalVerify = require('./msalVerify');
 
 try { require('dotenv').config(); } catch (e) { console.warn('dotenv não encontrado (opcional)'); }
 
@@ -164,6 +166,25 @@ app.get(['/admin', '/admin.html'], (req, res) => {
         if (err) {
             console.error('Erro ao ler admin.html:', err);
             return res.status(500).send('Erro ao carregar a página admin');
+        }
+        const out = html.split('__APP_VERSION__').join(getAppVersion());
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.send(out);
+    });
+});
+
+// Home alternativa para paineis em homologacao. Mesma stack do index.html
+// (modulos JS/CSS), apenas oculta sidebar e filtra cards por IsHomologation=1.
+// Login opcional (mesma regra de /), o filtro acontece no client.
+const homologaHtmlPath = path.join(__dirname, 'public', 'homologa.html');
+app.get(['/homologa', '/homologa.html'], (req, res) => {
+    fs.readFile(homologaHtmlPath, 'utf8', (err, html) => {
+        if (err) {
+            console.error('Erro ao ler homologa.html:', err);
+            return res.status(500).send('Erro ao carregar a página de homologação');
         }
         const out = html.split('__APP_VERSION__').join(getAppVersion());
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -433,12 +454,16 @@ app.get('/api/excel/tabelas/:tabela/info', async (req, res) => {
         
         const tableDef = tableDefResult.recordset[0];
         
-        if (!poolFonte || !poolFonte.connected) {
+        let pf;
+        try {
+            pf = await ensurePoolFonte();
+        } catch (connErr) {
+            console.error('[tabela/info] Falha ao conectar ao banco Fonte:', connErr.message);
             return res.status(503).json({ error: 'Banco Fonte não conectado' });
         }
-        
+
         // Contar registros na tabela
-        const countResult = await poolFonte.request()
+        const countResult = await pf.request()
             .query(`SELECT COUNT(*) as total FROM dbo.[${tabela}]`);
 
         // Data da ultima carga bem-sucedida (vinda de UploadJobs)
@@ -487,12 +512,16 @@ app.get('/api/excel/modelo/:tabela', async (req, res) => {
         }
         
         // Caso contrário, gerar modelo dinamicamente
-        if (!poolFonte || !poolFonte.connected) {
+        let pfModelo;
+        try {
+            pfModelo = await ensurePoolFonte();
+        } catch (connErr) {
+            console.error('[modelo] Falha ao conectar ao banco Fonte:', connErr.message);
             return res.status(503).json({ error: 'Banco Fonte não conectado' });
         }
-        
+
         // Obter estrutura da tabela
-        const schemaResult = await poolFonte.request().query(`
+        const schemaResult = await pfModelo.request().query(`
             SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE
             FROM INFORMATION_SCHEMA.COLUMNS
             WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = '${tabela}'
@@ -2066,12 +2095,104 @@ async function runStandardUploadJob({ jobId, tabela, tipoCarga, file }) {
             return `${c.COLUMN_NAME} (${c.DATA_TYPE})`;
         }));
         
-        // Validar se o número de colunas do Excel corresponde ao da tabela
-        if (excelColumns.length > columns.length) {
-            fs.unlinkSync(req.file.path);
-            throw new Error(`Arquivo Excel tem ${excelColumns.length} colunas, mas a tabela espera ${columns.length} colunas`);
+        // === MAPEAMENTO POR NOME + DETECCAO DE COLUNAS NOVAS ===
+        // Casa cada header do Excel a uma coluna do banco por nome normalizado
+        // (sem acentos / case-insensitive / ignora pontuacao). Headers que nao
+        // batem com nenhuma coluna do banco viram candidatos a "coluna nova".
+        // Para evitar tratar um Excel totalmente diferente como "schema novo",
+        // exigimos que pelo menos 70% dos headers do Excel batam com a tabela
+        // antes de adicionar colunas.
+        const dbColByNormalized = new Map();
+        columns.forEach(c => {
+            const norm = normalizeHeader(c.COLUMN_NAME);
+            if (norm && !dbColByNormalized.has(norm)) dbColByNormalized.set(norm, c.COLUMN_NAME);
+        });
+        const excelHeaderByColName = new Map(); // DB col name -> Excel header
+        const matchedExcelHeaders = [];
+        const unmatchedExcelHeaders = [];
+        for (const header of excelColumns) {
+            const norm = normalizeHeader(header);
+            const dbColName = norm ? dbColByNormalized.get(norm) : null;
+            if (dbColName && !excelHeaderByColName.has(dbColName)) {
+                excelHeaderByColName.set(dbColName, header);
+                matchedExcelHeaders.push(header);
+            } else {
+                unmatchedExcelHeaders.push(header);
+            }
         }
-        
+
+        let newColumnsCreated = [];
+        if (unmatchedExcelHeaders.length > 0) {
+            const matchRatio = excelColumns.length > 0 ? matchedExcelHeaders.length / excelColumns.length : 0;
+            const matchPct = Math.round(matchRatio * 100);
+
+            if (tipoCarga !== 'completa') {
+                fs.unlinkSync(req.file.path);
+                throw new Error(`Colunas do Excel nao encontradas na tabela: ${unmatchedExcelHeaders.join(', ')}. Use carga completa para criar as colunas automaticamente.`);
+            }
+
+            if (matchRatio < 0.7) {
+                fs.unlinkSync(req.file.path);
+                throw new Error(`Arquivo Excel nao parece corresponder a tabela ${tabela}. Apenas ${matchedExcelHeaders.length} de ${excelColumns.length} colunas foram reconhecidas (${matchPct}%). Verifique se o arquivo selecionado e da tabela correta.`);
+            }
+
+            // Sanitiza nomes para SQL Server: alfanumerico + underscore, sem acentos,
+            // nao comeca com digito, evita colidir com colunas ja existentes.
+            const existingNamesLower = new Set(columns.map(c => c.COLUMN_NAME.toLowerCase()));
+            existingNamesLower.add('id');
+            existingNamesLower.add('datacarga');
+            let fallbackCounter = 1;
+            for (const header of unmatchedExcelHeaders) {
+                let base = simplifyHeader(header).replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+                if (!base) base = `Coluna_${fallbackCounter++}`;
+                if (/^[0-9]/.test(base)) base = `_${base}`;
+                let candidate = base;
+                let suffix = 2;
+                while (existingNamesLower.has(candidate.toLowerCase())) {
+                    candidate = `${base}_${suffix++}`;
+                }
+                existingNamesLower.add(candidate.toLowerCase());
+                newColumnsCreated.push({ header, columnName: candidate });
+            }
+
+            sendProgress(sessionId, {
+                stage: 'altering',
+                message: `Adicionando ${newColumnsCreated.length} coluna(s) nova(s) a tabela ${tabela}: ${newColumnsCreated.map(d => d.columnName).join(', ')}`,
+                progress: 12
+            });
+            console.log('[UPLOAD] Match ratio:', matchPct + '%', '- colunas novas a criar:', newColumnsCreated.map(d => `${d.header} -> ${d.columnName}`));
+            for (const def of newColumnsCreated) {
+                const alterSql = `ALTER TABLE dbo.[${tabela}] ADD [${def.columnName}] NVARCHAR(255) NULL`;
+                console.log('[UPLOAD]', alterSql);
+                await poolFonte.request().query(alterSql);
+            }
+
+            // Recarrega schema com as colunas novas e atualiza mapeamento
+            const schemaReload = await poolFonte.request().query(`
+                SELECT
+                    c.name AS COLUMN_NAME,
+                    t.name AS DATA_TYPE,
+                    c.is_nullable AS IS_NULLABLE,
+                    c.max_length AS CHARACTER_MAXIMUM_LENGTH,
+                    c.precision AS NUMERIC_PRECISION,
+                    c.scale AS NUMERIC_SCALE,
+                    c.is_identity AS IS_IDENTITY
+                FROM sys.columns c
+                INNER JOIN sys.types t ON c.user_type_id = t.user_type_id
+                WHERE c.object_id = OBJECT_ID('dbo.${tabela}')
+                ORDER BY c.column_id
+            `);
+            const refreshed = schemaReload.recordset.filter(col => !col.IS_IDENTITY && col.COLUMN_NAME !== 'DataCarga');
+            columns.length = 0;
+            refreshed.forEach(c => columns.push(c));
+            columnNames.length = 0;
+            columns.forEach(c => columnNames.push(c.COLUMN_NAME));
+            for (const def of newColumnsCreated) {
+                excelHeaderByColName.set(def.columnName, def.header);
+            }
+            console.log('[UPLOAD] Schema recarregado apos adicionar colunas novas. Total agora:', columnNames.length);
+        }
+
         // Limpar tabela se for carga completa
         if (tipoCarga === 'completa') {
             sendProgress(sessionId, { stage: 'cleaning', message: 'Limpando tabela...', progress: 15 });
@@ -2094,14 +2215,15 @@ async function runStandardUploadJob({ jobId, tabela, tipoCarga, file }) {
 
             for (let r = 0; r < sampleSize; r++) {
                 const row = data[r];
-                const excelValues = excelColumns.map(excelCol => row[excelCol]);
                 for (let c = 0; c < columns.length; c++) {
                     const col = columns[c];
                     const colType = String(col.DATA_TYPE || '').toLowerCase();
                     if (!integerTypes.has(colType)) continue;
                     if (colType.includes('date')) continue;
 
-                    const cell = excelValues[c];
+                    const excelHeader = excelHeaderByColName.get(col.COLUMN_NAME);
+                    if (!excelHeader) continue;
+                    const cell = row[excelHeader];
                     const raw = cell ? cell.raw : null;
                     if (raw === null || raw === undefined || raw === '') continue;
 
@@ -2183,13 +2305,12 @@ async function runStandardUploadJob({ jobId, tabela, tipoCarga, file }) {
                         console.log('[UPLOAD] Processando primeira linha:', JSON.stringify(row));
                     }
                     
-                    // Mapeia valores do Excel por ORDEM (não por nome da coluna)
-                    const excelValues = excelColumns.map(excelCol => row[excelCol]);
-                    
                     columns.forEach((col, idx) => {
                         const paramName = `param${idx}`;
-                        // Pega o valor pela POSIÇÃO, não pelo nome da coluna
-                        const cell = excelValues[idx];
+                        // Pega o valor pelo NOME (via excelHeaderByColName); colunas sem
+                        // header correspondente no Excel ficam como null.
+                        const excelHeader = excelHeaderByColName.get(col.COLUMN_NAME);
+                        const cell = excelHeader ? row[excelHeader] : null;
                         let rawValue = null;
                         // Para colunas de data
                         if (col.DATA_TYPE.toLowerCase().includes('date')) {
@@ -2234,7 +2355,7 @@ async function runStandardUploadJob({ jobId, tabela, tipoCarga, file }) {
                         
                         // Log detalhado da primeira linha E de todas as colunas de data
                         if (totalInserted === 0 || (col.DATA_TYPE.toLowerCase().includes('date') && totalInserted < 5)) {
-                            console.log(`[UPLOAD] Linha ${totalInserted} - Coluna ${col.COLUMN_NAME} <- Excel[${idx}] "${excelColumns[idx]}": raw="${rawValue}" (tipo JS: ${typeof rawValue}) -> convertido="${value}" (tipo SQL: ${col.DATA_TYPE})`);
+                            console.log(`[UPLOAD] Linha ${totalInserted} - Coluna ${col.COLUMN_NAME} <- Excel "${excelHeader || '(sem header)'}": raw="${rawValue}" (tipo JS: ${typeof rawValue}) -> convertido="${value}" (tipo SQL: ${col.DATA_TYPE})`);
                         }
                         
                         request.input(paramName, sqlDataType, value);
@@ -2273,8 +2394,11 @@ async function runStandardUploadJob({ jobId, tabela, tipoCarga, file }) {
         // Remove arquivo temporário
         if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
 
-        sendProgress(sessionId, { stage: 'completed', message: 'Upload concluído com sucesso!', progress: 100, total_inserido: totalInserted });
-        await jobStore.finish(sessionId, { insertedRows: totalInserted, totalRows: data.length, message: `${tipoCarga === 'completa' ? 'Carga completa' : 'Carga incremental'} concluída` });
+        const newColsSuffix = (newColumnsCreated && newColumnsCreated.length > 0)
+            ? ` (${newColumnsCreated.length} coluna(s) nova(s) criada(s): ${newColumnsCreated.map(d => d.columnName).join(', ')})`
+            : '';
+        sendProgress(sessionId, { stage: 'completed', message: 'Upload concluído com sucesso!' + newColsSuffix, progress: 100, total_inserido: totalInserted });
+        await jobStore.finish(sessionId, { insertedRows: totalInserted, totalRows: data.length, message: `${tipoCarga === 'completa' ? 'Carga completa' : 'Carga incremental'} concluída${newColsSuffix}` });
 
         // Fechar conexão SSE
         setTimeout(() => {
@@ -3539,6 +3663,19 @@ const configFonte = {
 let pool;
 let poolFonte;
 
+// Garante que poolFonte esteja conectado, reconectando se necessário.
+// Lança erro se não conseguir — o chamador deve tratar e retornar 503.
+async function ensurePoolFonte() {
+    if (poolFonte && poolFonte.connected) return poolFonte;
+    if (poolFonte) {
+        try { await poolFonte.close(); } catch (_) {}
+        poolFonte = null;
+    }
+    poolFonte = await new sql.ConnectionPool(configFonte).connect();
+    console.log('[poolFonte] Reconectado ao banco Fonte');
+    return poolFonte;
+}
+
 async function initDB() {
     try {
         pool = await sql.connect(config);
@@ -4089,6 +4226,77 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
+// SSO via Microsoft: o cliente passa um id_token MSAL valido. Validamos a
+// assinatura (msalVerify), extraimos o email, e procuramos um admin ativo
+// com Email igual (case-insensitive). Se encontrar, emite um JWT do portal
+// no mesmo formato de /api/login — assim o resto do front (verify-token,
+// authenticateToken, isAdmin) funciona sem alteracao.
+// Se o email nao for de um admin cadastrado, devolvemos 401 (o caller cai
+// pro fluxo de usuario/senha tradicional).
+app.post('/api/login-microsoft', async (req, res) => {
+    try {
+        const idToken = (req.body && req.body.idToken) || req.headers['x-ms-id-token'];
+        if (!idToken) return res.status(400).json({ error: 'idToken_required' });
+        if (!pool) return res.status(500).json({ error: 'Servico indisponivel: banco de dados' });
+
+        let payload;
+        try {
+            payload = await msalVerify.verify(idToken);
+        } catch (e) {
+            return res.status(401).json({ error: 'invalid_msal_token', message: e.message });
+        }
+
+        const email = (msalVerify.extractEmail(payload) || '').toLowerCase().trim();
+        if (!email) return res.status(401).json({ error: 'email_not_found' });
+
+        const result = await pool.request()
+            .input('email', sql.NVarChar, email)
+            .query('SELECT TOP 1 * FROM Users WHERE LOWER(Email) = @email AND IsActive = 1 AND IsAdmin = 1');
+
+        if (result.recordset.length === 0) {
+            // Email autenticado pelo Microsoft mas nao bate com nenhum admin
+            // ativo cadastrado. Front cai pro modal de usuario/senha.
+            return res.status(401).json({ error: 'not_admin' });
+        }
+
+        const user = result.recordset[0];
+
+        try {
+            await pool.request()
+                .input('userId', sql.Int, user.Id)
+                .query('UPDATE Users SET LastLogin = GETDATE() WHERE Id = @userId');
+        } catch (e) {
+            console.warn('Nao foi possivel atualizar LastLogin (MSAL SSO):', e);
+        }
+
+        const secret = process.env.JWT_SECRET || 'seu_secret_key_aqui';
+        const token = jwt.sign(
+            {
+                id: user.Id,
+                username: user.Username,
+                isAdmin: !!user.IsAdmin,
+                fullName: user.FullName || null,
+                email: user.Email || null
+            },
+            secret,
+            { expiresIn: '24h' }
+        );
+        return res.json({
+            token,
+            user: {
+                id: user.Id,
+                username: user.Username,
+                isAdmin: !!user.IsAdmin,
+                fullName: user.FullName || null,
+                email: user.Email || null
+            }
+        });
+    } catch (err) {
+        console.error('[login-microsoft] erro:', err);
+        return res.status(500).json({ error: 'Erro no servidor' });
+    }
+});
+
 app.get('/api/verify-token', authenticateToken, async (req, res) => {
     let apps = [];
     try {
@@ -4153,7 +4361,8 @@ app.post('/api/pages', authenticateToken, async (req, res) => {
     try {
         const { title, subtitle, description, powerBIUrl, redirectPowerBIUrl, redirectEmails, showInHome, icon, order,
                 useEmbed, embedWorkspaceId, embedReportId, allowedAADGroups, embedRoles,
-                redirectEmbedWorkspaceId, redirectEmbedReportId } = req.body;
+                redirectEmbedWorkspaceId, redirectEmbedReportId, isHomologation,
+                homologationStartedAt } = req.body;
 
         const allowedAADGroupsJson = Array.isArray(allowedAADGroups)
             ? JSON.stringify(allowedAADGroups)
@@ -4162,6 +4371,21 @@ app.post('/api/pages', authenticateToken, async (req, res) => {
         const embedRolesValue = Array.isArray(embedRoles)
             ? embedRoles.join(',')
             : (typeof embedRoles === 'string' && embedRoles.trim() ? embedRoles.trim() : null);
+
+        // homologationStartedAt vem como string 'YYYY-MM-DD' do <input type="date">.
+        // CUIDADO TIMEZONE: como a pool esta configurada com useUTC: false (ver
+        // sql.connect config), passar a string crua faz o driver mssql parsa-la
+        // como `new Date('YYYY-MM-DD')` que e' UTC midnight. Em horario de SP
+        // (UTC-3), UTC midnight = 21:00 do dia anterior LOCAL — o DATE column
+        // trunca pra esse dia, perdendo 1 dia. Construimos o Date com
+        // componentes locais (ano, mes-1, dia) pra que o driver veja a mesma
+        // data em local time.
+        const homologationStartedAtValue = (() => {
+            if (!homologationStartedAt || typeof homologationStartedAt !== 'string') return null;
+            const m = homologationStartedAt.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            if (!m) return null;
+            return new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
+        })();
 
         const result = await pool.request()
             .input('title', sql.NVarChar, title)
@@ -4180,16 +4404,18 @@ app.post('/api/pages', authenticateToken, async (req, res) => {
             .input('embedRoles', sql.NVarChar(sql.MAX), embedRolesValue)
             .input('redirectEmbedWorkspaceId', sql.UniqueIdentifier, redirectEmbedWorkspaceId || null)
             .input('redirectEmbedReportId', sql.UniqueIdentifier, redirectEmbedReportId || null)
+            .input('isHomologation', sql.Bit, isHomologation ? 1 : 0)
+            .input('homologationStartedAt', sql.Date, homologationStartedAtValue)
             .query(`
                 INSERT INTO Pages (Title, Subtitle, Description, PowerBIUrl, RedirectPowerBIUrl, RedirectEmails, ShowInHome, Icon, [Order],
                                    UseEmbed, EmbedWorkspaceId, EmbedReportId, AllowedAADGroups, EmbedRoles,
-                                   RedirectEmbedWorkspaceId, RedirectEmbedReportId)
+                                   RedirectEmbedWorkspaceId, RedirectEmbedReportId, IsHomologation, HomologationStartedAt)
                 OUTPUT INSERTED.*
                 SELECT
                     @title, @subtitle, @description, @powerBIUrl, @redirectPowerBIUrl, @redirectEmails, @showInHome, @icon,
                     COALESCE(@order, (SELECT ISNULL(MAX([Order]), 0) + 10 FROM Pages)),
                     @useEmbed, @embedWorkspaceId, @embedReportId, @allowedAADGroups, @embedRoles,
-                    @redirectEmbedWorkspaceId, @redirectEmbedReportId
+                    @redirectEmbedWorkspaceId, @redirectEmbedReportId, @isHomologation, @homologationStartedAt
             `);
 
         return res.status(201).json(result.recordset[0]);
@@ -4206,7 +4432,8 @@ app.put('/api/pages/:id', authenticateToken, async (req, res) => {
     try {
         const { title, subtitle, description, powerBIUrl, redirectPowerBIUrl, redirectEmails, showInHome, icon, order,
                 useEmbed, embedWorkspaceId, embedReportId, allowedAADGroups, embedRoles,
-                redirectEmbedWorkspaceId, redirectEmbedReportId } = req.body;
+                redirectEmbedWorkspaceId, redirectEmbedReportId, isHomologation,
+                homologationStartedAt } = req.body;
 
         const allowedAADGroupsJson = Array.isArray(allowedAADGroups)
             ? JSON.stringify(allowedAADGroups)
@@ -4215,6 +4442,15 @@ app.put('/api/pages/:id', authenticateToken, async (req, res) => {
         const embedRolesValue = Array.isArray(embedRoles)
             ? embedRoles.join(',')
             : (typeof embedRoles === 'string' && embedRoles.trim() ? embedRoles.trim() : null);
+
+        // Mesma logica de timezone do POST acima — construir Date com componentes
+        // locais pra useUTC:false nao shiftar 1 dia pra tras.
+        const homologationStartedAtValue = (() => {
+            if (!homologationStartedAt || typeof homologationStartedAt !== 'string') return null;
+            const m = homologationStartedAt.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            if (!m) return null;
+            return new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
+        })();
 
         const result = await pool.request()
             .input('id', sql.Int, req.params.id)
@@ -4234,6 +4470,8 @@ app.put('/api/pages/:id', authenticateToken, async (req, res) => {
             .input('embedRoles', sql.NVarChar(sql.MAX), embedRolesValue)
             .input('redirectEmbedWorkspaceId', sql.UniqueIdentifier, redirectEmbedWorkspaceId || null)
             .input('redirectEmbedReportId', sql.UniqueIdentifier, redirectEmbedReportId || null)
+            .input('isHomologation', sql.Bit, isHomologation ? 1 : 0)
+            .input('homologationStartedAt', sql.Date, homologationStartedAtValue)
             .query(`
                 UPDATE Pages
                 SET Title = @title,
@@ -4252,6 +4490,8 @@ app.put('/api/pages/:id', authenticateToken, async (req, res) => {
                     EmbedRoles = @embedRoles,
                     RedirectEmbedWorkspaceId = @redirectEmbedWorkspaceId,
                     RedirectEmbedReportId = @redirectEmbedReportId,
+                    IsHomologation = @isHomologation,
+                    HomologationStartedAt = @homologationStartedAt,
                     UpdatedAt = GETDATE()
                 OUTPUT INSERTED.*
                 WHERE Id = @id
@@ -7464,8 +7704,31 @@ async function startServer() {
     // /api/embed/token exige id_token MSAL (header X-MS-Id-Token); nao exige
     // JWT do portal porque o usuario final acessa via MSAL apenas.
     mountPbiEmbed({ app, getPool: () => pool });
-    // Presence (SSE) — usuarios online em tempo real para o widget do admin.
+    // Export server-side de reports embedados (PDF/PPTX/PNG) via ExportTo.
+    mountPbiExport({ app, getPool: () => pool });
+    // Presence — usuarios online em tempo real para o widget do admin.
     mountPresence({ app, authenticateToken });
+
+    // Endpoint Windows Auth — best effort SILENCIOSO. Como o URL Rewrite
+    // atropela <location> por path, Windows Auth ficou habilitada no nivel
+    // do site (web.config root) em conjunto com Anonymous. NAO disparamos
+    // challenge 401 (evita prompt de credenciais em PCs fora da zona intranet).
+    //
+    // Captura acontece automaticamente quando:
+    //   - PC esta joined no dominio AACD
+    //   - Site esta na zona "Local Intranet" do browser (GPO ou manual em
+    //     Edge/Chrome: Settings > Privacy > Cookies > Trusted sites)
+    //   - Browser entao envia Negotiate preemptivamente, IIS valida e popula
+    //     LOGON_USER → respondemos com o user
+    //
+    // Se nao houver as condicoes acima, LOGON_USER vem vazio e respondemos
+    // 200 com user=''. Sem prompt, sem regressao. Pra ativar em escala
+    // basta IT adicionar *.aacd.org.br na zona intranet via GPO.
+    app.get('/api/whoami-windows', (req, res) => {
+        res.setHeader('Cache-Control', 'no-store');
+        const winUser = (req.headers['x-iisnode-logon_user'] || '').toString().trim();
+        res.json({ user: winUser });
+    });
     // Garantir rota /chatbot mesmo se regras de rewrite modificarem a URL
     // Colocada aqui perto do start para evitar qualquer interferência de outras rotas/middlewares.
     // Se o IIS reescrever /chatbot -> /public/chatbot, podemos também atender /public/chatbot.

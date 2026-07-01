@@ -45,8 +45,14 @@ function envOk() {
     );
 }
 
-async function getAadToken() {
-    if (aadTokenCache.value && nowMs() < aadTokenCache.expiresAt - 5 * 60 * 1000) {
+// minRemainingMs: quanto de vida o token AAD precisa ainda ter pra ser
+// reaproveitado do cache. Importa porque a validade do embed token gerado
+// e min(tempo restante do AAD, 60min) — se o AAD esta no fim, o embed token
+// nasce valendo poucos minutos. O caminho que gera embed token passa uma
+// folga grande pra garantir embed tokens longos.
+async function getAadToken(opts) {
+    const minRemainingMs = (opts && opts.minRemainingMs) || 5 * 60 * 1000;
+    if (aadTokenCache.value && nowMs() < aadTokenCache.expiresAt - minRemainingMs) {
         return aadTokenCache.value;
     }
     const body = new URLSearchParams({
@@ -266,7 +272,10 @@ function mountPbiEmbed({ app, getPool }) {
                 console.log(`[PBI EMBED] page ${page.Id} sem allowlist — acesso livre`);
             }
 
-            const aadToken = await getAadToken();
+            // Folga de 30min: garante que o embed token gerado abaixo nasca
+            // com pelo menos ~30min de validade (e nao herde poucos minutos de
+            // um AAD token quase expirado). O cliente ainda renova em background.
+            const aadToken = await getAadToken({ minRemainingMs: 30 * 60 * 1000 });
             const report = await pbiGet(
                 `/groups/${effectiveWorkspaceId}/reports/${effectiveReportId}`,
                 aadToken,
@@ -334,4 +343,4 @@ function mountPbiEmbed({ app, getPool }) {
     console.log('[PBI EMBED] Endpoints montados: GET /api/embed/status, POST /api/embed/token');
 }
 
-module.exports = { mountPbiEmbed };
+module.exports = { mountPbiEmbed, getAadToken, loadPage, isGuid };

@@ -3,658 +3,707 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerenciamento de Tabelas - Excel</title>
+    <title>Administração — Sistema de Carga</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/assets/css/portal.css?v=__APP_VERSION__">
     <link rel="stylesheet" href="/assets/css/admin-shared.css?v=__APP_VERSION__">
     <link rel="stylesheet" href="/assets/css/admin-confirm.css?v=__APP_VERSION__">
     <style>
-        /* Excel Admin Page - Custom Styles */
-        .admin-container {
+        /* Tokens de página — usa prefixo ea- para não conflitar com admin-shared */
+        :root {
+            --ea-red:          #c8102e;
+            --ea-red-dark:     #a30d25;
+            --ea-red-light:    #fbe7ea;
+            --ea-danger:       #991b1b;
+            --ea-danger-bg:    #fef2f2;
+            --ea-success:      #166534;
+            --ea-success-bg:   #f0fdf4;
+            --ea-surface:      #ffffff;
+            --ea-bg:           #f3f4f6;
+            --ea-border:       #e5e7eb;
+            --ea-border-2:     #d1d5db;
+            --ea-text:         #111827;
+            --ea-text-2:       #6b7280;
+            --ea-text-3:       #9ca3af;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html, body {
+            height: 100%;
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
+            background: var(--ea-bg);
+            color: var(--ea-text);
+        }
+
+        /* ─── Layout ─────────────────────────────────── */
+        .ea-layout {
             display: flex;
             min-height: 100vh;
-            background: var(--admin-bg-page);
-            position: relative;
+        }
+
+        /* ─── Sidebar ────────────────────────────────── */
+        .ea-sidebar {
+            width: 240px;
+            flex-shrink: 0;
+            background: var(--ea-surface);
+            border-right: 1px solid var(--ea-border);
+            display: flex;
+            flex-direction: column;
+            position: sticky;
+            top: 0;
+            height: 100vh;
             overflow: hidden;
         }
 
-        .admin-container::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            right: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-            animation: adminPulse 15s ease-in-out infinite;
-            pointer-events: none;
+        .ea-sidebar-head {
+            padding: 20px 16px 16px;
+            border-bottom: 1px solid var(--ea-border);
         }
 
-        .admin-sidebar {
-            width: 300px;
-            background: var(--admin-bg-sidebar);
-            backdrop-filter: blur(10px);
-            box-shadow: 4px 0 30px rgba(0, 0, 0, 0.12);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            z-index: 10;
-            animation: adminSlideIn 0.4s ease-out;
-        }
-
-        .admin-header {
-            padding: var(--admin-spacing-xl);
-            background: var(--admin-success-gradient);
-            color: var(--admin-text-inverse);
-            box-shadow: var(--admin-shadow-success);
-            display: flex;
-            flex-direction: column;
-            gap: var(--admin-spacing-lg);
-        }
-
-        .admin-header h1 {
-            font-size: var(--admin-font-size-xl);
-            font-weight: var(--admin-font-weight-bold);
-            color: var(--admin-text-inverse);
-            margin: 0;
+        .ea-brand {
             display: flex;
             align-items: center;
-            gap: var(--admin-spacing-md);
+            gap: 11px;
+            margin-bottom: 3px;
         }
 
-        .admin-header p {
-            font-size: var(--admin-font-size-base);
-            color: rgba(255, 255, 255, 0.9);
-            font-weight: var(--admin-font-weight-normal);
-            margin: 0;
+        .ea-brand-icon {
+            width: 34px;
+            height: 34px;
+            background: var(--ea-red);
+            border-radius: 9px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 14px;
+            flex-shrink: 0;
+            box-shadow: 0 2px 8px rgba(200,16,46,.3);
         }
 
-        .nav-menu {
+        .ea-brand-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--ea-text);
+            line-height: 1.2;
+        }
+
+        .ea-brand-sub {
+            font-size: 11px;
+            color: var(--ea-text-3);
+            padding-left: 45px;
+        }
+
+        /* Nav */
+        .ea-nav {
             list-style: none;
-            padding: var(--admin-spacing-lg);
-            margin: 0;
+            padding: 12px 10px 8px;
             flex: 1;
-            overflow-y: auto;
         }
 
-        .nav-item {
-            margin-bottom: var(--admin-spacing-sm);
+        .ea-nav-item { margin-bottom: 2px; }
+
+        .ea-nav-divider {
+            height: 1px;
+            background: var(--ea-border);
+            margin: 8px 6px;
         }
 
+        /* admin.js usa .nav-link[data-section] e .nav-link.active */
         .nav-link {
             display: flex;
             align-items: center;
-            gap: var(--admin-spacing-md);
-            padding: var(--admin-spacing-md) var(--admin-spacing-lg);
-            border-radius: var(--admin-border-radius);
-            color: var(--admin-text-primary);
+            gap: 9px;
+            padding: 8px 11px;
+            border-radius: 7px;
+            color: var(--ea-text-2);
             text-decoration: none;
-            transition: all var(--admin-transition);
+            transition: background 0.13s, color 0.13s;
             cursor: pointer;
-            font-size: var(--admin-font-size-base);
-            font-weight: var(--admin-font-weight-medium);
-            border: 2px solid transparent;
+            font-size: 13px;
+            font-weight: 500;
+            border: none;
+            background: transparent;
+            width: 100%;
+            text-align: left;
+            font-family: inherit;
         }
 
         .nav-link:hover {
-            background: rgba(40, 167, 69, 0.08);
-            border-color: rgba(40, 167, 69, 0.15);
-            color: var(--admin-success);
-            transform: translateX(4px);
+            background: var(--ea-bg);
+            color: var(--ea-text);
         }
 
         .nav-link.active {
-            background: var(--admin-success-gradient);
-            color: var(--admin-text-inverse);
-            box-shadow: var(--admin-shadow-success);
+            background: var(--ea-red-light);
+            color: var(--ea-red);
+            font-weight: 600;
         }
 
         .nav-link i {
-            font-size: var(--admin-font-size-md);
-            width: 24px;
+            font-size: 13px;
+            width: 16px;
             text-align: center;
+            flex-shrink: 0;
         }
 
-        .admin-main {
+        /* ─── Main ───────────────────────────────────── */
+        .ea-main {
             flex: 1;
-            padding: var(--admin-spacing-2xl);
+            padding: 28px 32px;
+            min-width: 0;
             overflow-y: auto;
-            position: relative;
         }
 
-        .admin-content {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
+        .ea-main-inner { max-width: 1080px; margin: 0 auto; }
 
-        .content-section {
+        /* Alert — admin.js faz alertBox.className = 'alert alert-success show' */
+        .alert {
             display: none;
-            background: var(--admin-bg-card);
-            border-radius: var(--admin-border-radius-lg);
-            padding: var(--admin-spacing-2xl);
-            box-shadow: var(--admin-shadow-lg);
+            align-items: center;
+            gap: 9px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 20px;
         }
+        .alert.show     { display: flex; }
+        .alert-success  { background: var(--ea-success-bg); color: var(--ea-success); border: 1px solid rgba(22,101,52,.2); }
+        .alert-error    { background: var(--ea-danger-bg);  color: var(--ea-danger);  border: 1px solid rgba(153,27,27,.2); }
 
+        /* Section — admin.js usa .content-section e .content-section.active */
+        .content-section { display: none; }
         .content-section.active {
             display: block;
-            animation: adminFadeIn 0.3s;
+            animation: ea-fadein 0.18s ease-out;
         }
 
-        .section-header {
+        @keyframes ea-fadein {
+            from { opacity: 0; transform: translateY(4px); }
+            to   { opacity: 1; transform: none; }
+        }
+
+        /* Section card */
+        .ea-card {
+            background: var(--ea-surface);
+            border-radius: 12px;
+            border: 1px solid var(--ea-border);
+            box-shadow: 0 1px 4px rgba(0,0,0,.06);
+            padding: 22px 24px;
+        }
+
+        .ea-section-head {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: var(--admin-spacing-xl);
-            padding-bottom: var(--admin-spacing-lg);
-            border-bottom: 2px solid var(--admin-gray-100);
+            margin-bottom: 16px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid var(--ea-border);
         }
 
-        .section-header h2 {
-            font-size: var(--admin-font-size-2xl);
-            font-weight: var(--admin-font-weight-bold);
-            color: var(--admin-success);
-            margin: 0;
+        .ea-section-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--ea-text);
             display: flex;
             align-items: center;
-            gap: var(--admin-spacing-md);
+            gap: 8px;
         }
 
-        .section-header h2 i {
-            font-size: var(--admin-font-size-xl);
+        .ea-section-title i {
+            font-size: 13px;
+            color: var(--ea-red);
         }
 
+        .ea-row-gap { display: flex; gap: 8px; align-items: center; }
+
+        /* ─── Buttons ─────────────────────────────────── */
+        /* admin.js usa .btn .btn-primary .btn-danger em linhas da tabela */
         .btn {
-            padding: var(--admin-spacing-md) var(--admin-spacing-xl);
-            font-size: var(--admin-font-size-base);
-            font-weight: var(--admin-font-weight-semibold);
+            padding: 8px 16px;
+            font-size: 13px;
+            font-weight: 600;
             border: none;
-            border-radius: var(--admin-border-radius);
+            border-radius: 7px;
             cursor: pointer;
-            transition: all var(--admin-transition);
+            transition: opacity .14s, transform .14s, box-shadow .14s;
             display: inline-flex;
             align-items: center;
-            gap: var(--admin-spacing-sm);
+            gap: 6px;
+            font-family: inherit;
+            text-decoration: none;
+            white-space: nowrap;
         }
+
+        .btn:hover:not(:disabled)  { opacity: .88; transform: translateY(-1px); }
+        .btn:active:not(:disabled) { transform: none; opacity: .94; }
+        .btn:disabled { opacity: .4; cursor: not-allowed; }
 
         .btn-primary {
-            background: var(--admin-primary-gradient);
-            color: var(--admin-text-inverse);
-            box-shadow: var(--admin-shadow-primary);
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 25px rgba(0, 102, 204, 0.4);
+            background: var(--ea-red);
+            color: #fff;
+            box-shadow: 0 2px 6px rgba(200,16,46,.22);
         }
 
         .btn-secondary {
-            background: var(--admin-gray-100);
-            color: var(--admin-text-primary);
-            border: 2px solid var(--admin-gray-300);
+            background: var(--ea-surface);
+            color: var(--ea-text-2);
+            border: 1px solid var(--ea-border-2);
         }
-
-        .btn-secondary:hover {
-            background: var(--admin-gray-200);
-            border-color: var(--admin-gray-400);
-        }
+        .btn-secondary:hover:not(:disabled) { color: var(--ea-text); border-color: var(--ea-text-2); }
 
         .btn-danger {
-            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
-            color: var(--admin-text-inverse);
-            box-shadow: var(--admin-shadow-danger);
-        }
-
-        .btn-danger:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 25px rgba(220, 53, 69, 0.4);
+            background: var(--ea-danger);
+            color: #fff;
+            box-shadow: 0 2px 6px rgba(153,27,27,.22);
         }
 
         .btn-success {
-            background: var(--admin-success-gradient);
-            color: var(--admin-text-inverse);
-            box-shadow: var(--admin-shadow-success);
+            background: var(--ea-success);
+            color: #fff;
+            box-shadow: 0 2px 6px rgba(22,101,52,.22);
         }
 
-        .btn-success:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 25px rgba(40, 167, 69, 0.4);
+        /* ─── Search bar ──────────────────────────────── */
+        .ea-search {
+            position: relative;
+            margin-bottom: 14px;
+            max-width: 380px;
         }
 
+        .ea-search-icon {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--ea-text-3);
+            font-size: 12px;
+            pointer-events: none;
+        }
+
+        /* admin.js usa id="groupsSearchInput" e id="tablesSearchInput" */
+        .ea-search input {
+            width: 100%;
+            padding: 8px 80px 8px 30px;
+            border: 1px solid var(--ea-border-2);
+            border-radius: 7px;
+            font-size: 13px;
+            font-family: inherit;
+            background: var(--ea-bg);
+            color: var(--ea-text);
+            transition: border-color .13s, box-shadow .13s;
+        }
+
+        .ea-search input:focus {
+            outline: none;
+            border-color: var(--ea-red);
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(200,16,46,.08);
+        }
+
+        .ea-search input::placeholder { color: var(--ea-text-3); }
+
+        /* admin.js usa id="groupsSearchCount" e id="tablesSearchCount" */
+        .ea-search-count {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 11px;
+            color: var(--ea-text-3);
+            pointer-events: none;
+        }
+
+        /* ─── Data table ──────────────────────────────── */
         .data-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 16px;
-        }
-
-        .data-table th,
-        .data-table td {
-            padding: 12px 16px;
-            text-align: left;
-            border-bottom: 1px solid #e0e0e0;
+            font-size: 13px;
         }
 
         .data-table th {
-            background: #f8f9fa;
-            color: #28a745;
-            font-weight: 600;
-            font-size: 12px;
+            padding: 9px 12px;
+            text-align: left;
+            font-size: 11px;
+            font-weight: 700;
             text-transform: uppercase;
+            letter-spacing: 0.4px;
+            color: var(--ea-text-2);
+            background: var(--ea-bg);
+            border-bottom: 1px solid var(--ea-border-2);
+            white-space: nowrap;
         }
 
-        .data-table tr:hover td {
-            background: #f8f9fa;
+        .data-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--ea-border);
+            vertical-align: middle;
         }
 
+        .data-table tr:last-child td { border-bottom: none; }
+        .data-table tbody tr:hover td { background: #fafafa; }
+
+        /* Botões dentro da tabela — admin.js usa .btn.btn-primary e .btn.btn-danger */
         .data-table .btn {
-            padding: 6px 12px;
+            padding: 5px 10px;
             font-size: 12px;
             margin-right: 4px;
         }
 
-        .data-table .btn:last-child {
-            margin-right: 0;
+        .data-table .btn:last-child { margin-right: 0; }
+
+        /* code tag nos IDs de grupo/tabela */
+        .data-table code {
+            background: var(--ea-bg);
+            border: 1px solid var(--ea-border-2);
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-size: 12px;
+            font-family: 'Cascadia Mono', 'Consolas', monospace;
+            color: var(--ea-text);
         }
 
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(4px);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal.show {
-            display: flex;
-        }
-
-        .modal-content {
-            background: var(--admin-bg-card);
-            border-radius: var(--admin-border-radius-lg);
-            padding: var(--admin-spacing-2xl);
-            max-width: 600px;
-            width: 94%;
-            max-height: 85vh;
-            overflow-y: auto;
-            animation: adminFadeIn 0.3s ease-out;
-            box-shadow: var(--admin-shadow-lg);
-        }
-
-        .modal-header {
-            margin-bottom: var(--admin-spacing-xl);
-            padding-bottom: var(--admin-spacing-lg);
-            border-bottom: 2px solid var(--admin-gray-100);
-        }
-
-        .modal-header h3 {
-            font-size: var(--admin-font-size-lg);
-            font-weight: var(--admin-font-weight-bold);
-            color: var(--admin-success);
-            margin: 0;
-        }
-
-        .form-group {
-            margin-bottom: var(--admin-spacing-lg);
-        }
-
-        .form-group label {
-            display: block;
-            font-size: var(--admin-font-size-sm);
-            font-weight: var(--admin-font-weight-semibold);
-            color: var(--admin-text-primary);
-            margin-bottom: var(--admin-spacing-sm);
-        }
-
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-            width: 100%;
-            padding: var(--admin-spacing-md) var(--admin-spacing-lg);
-            font-size: var(--admin-font-size-base);
-            border: 2px solid var(--admin-border-color);
-            border-radius: var(--admin-border-radius);
-            transition: all var(--admin-transition);
-            background: var(--admin-bg-input);
-            box-sizing: border-box;
-        }
-
-        .form-group input:focus,
-        .form-group select:focus,
-        .form-group textarea:focus {
-            outline: none;
-            border-color: var(--admin-success);
-            box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.1);
-        }
-
-        .form-group textarea {
-            resize: vertical;
-            min-height: 80px;
-        }
-
-        .form-group small {
-            display: block;
-            font-size: var(--admin-font-size-xs);
-            color: var(--admin-text-muted);
-            margin-top: var(--admin-spacing-xs);
-        }
-
-        .file-upload {
-            border: 3px dashed rgba(40, 167, 69, 0.25);
-            border-radius: var(--admin-border-radius);
-            padding: var(--admin-spacing-xl);
-            text-align: center;
-            cursor: pointer;
-            transition: all var(--admin-transition);
-            background: linear-gradient(135deg, rgba(40, 167, 69, 0.02) 0%, rgba(32, 201, 151, 0.02) 100%);
-        }
-
-        .file-upload:hover {
-            border-color: var(--admin-success);
-            background: linear-gradient(135deg, rgba(40, 167, 69, 0.05) 0%, rgba(32, 201, 151, 0.05) 100%);
-            transform: translateY(-2px);
-        }
-
-        .file-upload input[type="file"] {
-            display: none;
-        }
-
-        .file-upload i {
-            font-size: 36px !important;
-            color: var(--admin-success);
-            margin-bottom: var(--admin-spacing-md);
-            display: block;
-        }
-
-        .file-upload p {
-            margin: var(--admin-spacing-sm) 0 var(--admin-spacing-xs) 0;
-            font-size: var(--admin-font-size-base);
-            font-weight: var(--admin-font-weight-medium);
-            color: var(--admin-text-primary);
-        }
-
-        .file-upload small {
-            font-size: var(--admin-font-size-xs);
-            color: var(--admin-text-muted);
-        }
-
-        .file-info {
-            margin-top: var(--admin-spacing-md);
-            padding: var(--admin-spacing-md);
-            background: linear-gradient(135deg, rgba(40, 167, 69, 0.08) 0%, rgba(32, 201, 151, 0.08) 100%);
-            border-radius: var(--admin-border-radius);
-            display: none;
-            font-size: var(--admin-font-size-sm);
-            color: var(--admin-success);
-        }
-
-        .file-info.show {
-            display: flex;
-            align-items: center;
-            gap: var(--admin-spacing-sm);
-        }
-
-        .modal-footer {
-            margin-top: var(--admin-spacing-xl);
-            padding-top: var(--admin-spacing-lg);
-            border-top: 2px solid var(--admin-gray-100);
-            display: flex;
-            gap: var(--admin-spacing-md);
-            justify-content: flex-end;
-        }
-
-        .modal-footer .btn {
-            padding: var(--admin-spacing-md) var(--admin-spacing-xl);
-            font-size: var(--admin-font-size-base);
-        }
-
-        .alert {
-            padding: var(--admin-spacing-lg) var(--admin-spacing-xl);
-            border-radius: var(--admin-border-radius);
-            margin-bottom: var(--admin-spacing-xl);
-            display: none;
-            align-items: center;
-            gap: var(--admin-spacing-md);
-            font-weight: var(--admin-font-weight-medium);
-            animation: adminFadeIn 0.3s ease-out;
-        }
-
-        .alert.show {
-            display: flex;
-        }
-
-        .alert-success {
-            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
-            color: #155724;
-            border: 2px solid var(--admin-success);
-        }
-
-        .alert-error {
-            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
-            color: #721c24;
-            border: 2px solid var(--admin-danger);
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: var(--admin-spacing-3xl) var(--admin-spacing-xl);
-            color: var(--admin-text-muted);
-        }
-
-        .empty-state i {
-            font-size: 64px;
-            margin-bottom: var(--admin-spacing-lg);
-            color: var(--admin-success);
-            opacity: 0.5;
-        }
-
-        .empty-state p {
-            font-size: var(--admin-font-size-md);
-            color: var(--admin-text-secondary);
-        }
-
+        /* Badge — admin.js usa .badge.badge-primary */
         .badge {
             display: inline-flex;
             align-items: center;
-            padding: var(--admin-spacing-xs) var(--admin-spacing-md);
+            padding: 2px 8px;
             border-radius: 20px;
-            font-size: var(--admin-font-size-xs);
-            font-weight: var(--admin-font-weight-semibold);
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-primary { background: var(--ea-red-light); color: var(--ea-red); }
+
+        /* Empty state — admin.js injeta <td class="empty-state"> */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px !important;
+            color: var(--ea-text-3);
+        }
+        .empty-state i {
+            font-size: 32px;
+            display: block;
+            margin-bottom: 10px;
+            color: var(--ea-border-2);
+        }
+        .empty-state p { font-size: 13px; }
+
+        /* ─── Modal ───────────────────────────────────── */
+        /* admin.js usa .modal e .modal.show */
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(17,24,39,.5);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 48px 16px 16px;
+            overflow-y: auto;
+        }
+        .modal.show { display: flex; }
+
+        .modal-content {
+            background: var(--ea-surface);
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 540px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,.22);
+            position: relative;
         }
 
-        .badge-primary {
-            background: rgba(40, 167, 69, 0.1);
-            color: var(--admin-success);
+        .modal-header {
+            margin-bottom: 20px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid var(--ea-border);
         }
 
-        /* Responsive */
-        @media (max-width: 768px) {
-            .admin-sidebar {
-                width: 100%;
-                position: fixed;
-                left: -100%;
-                z-index: 100;
-                transition: left var(--admin-transition);
-            }
-            
-            .admin-sidebar.show {
-                left: 0;
-            }
-            
-            .admin-main {
-                padding: var(--admin-spacing-lg);
-            }
-            
-            .content-section {
-                padding: var(--admin-spacing-lg);
-            }
-            
-            .section-header {
-                flex-direction: column;
-                gap: var(--admin-spacing-lg);
-                align-items: flex-start;
-            }
-            
-            .data-table {
-                font-size: var(--admin-font-size-sm);
-            }
-            
+        .modal-header h3 {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--ea-text);
+        }
+
+        /* ─── Forms ───────────────────────────────────── */
+        .form-group { margin-bottom: 16px; }
+
+        .form-group > label:first-child:not(:has(input[type="checkbox"])) {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            color: var(--ea-text-2);
+            margin-bottom: 6px;
+        }
+
+        .form-group label:has(input[type="checkbox"]) {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--ea-text);
+            cursor: pointer;
+        }
+
+        .form-group input[type="checkbox"] {
+            width: 15px;
+            height: 15px;
+            cursor: pointer;
+            accent-color: var(--ea-red);
+            flex-shrink: 0;
+        }
+
+        .form-group input:not([type="checkbox"]),
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 9px 11px;
+            font-size: 13px;
+            font-family: inherit;
+            border: 1.5px solid var(--ea-border-2);
+            border-radius: 7px;
+            background: var(--ea-surface);
+            color: var(--ea-text);
+            transition: border-color .13s, box-shadow .13s;
+        }
+
+        .form-group input:not([type="checkbox"]):focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--ea-red);
+            box-shadow: 0 0 0 3px rgba(200,16,46,.08);
+        }
+
+        .form-group textarea { resize: vertical; min-height: 72px; }
+
+        .form-group small,
+        .admin-field-hint {
+            display: block;
+            font-size: 11px;
+            color: var(--ea-text-3);
+            margin-top: 5px;
+            line-height: 1.4;
+        }
+
+        /* File upload */
+        .file-upload {
+            display: block;
+            border: 2px dashed var(--ea-border-2);
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color .13s, background .13s;
+            background: var(--ea-bg);
+        }
+        .file-upload:hover { border-color: var(--ea-red); background: var(--ea-red-light); }
+        .file-upload input[type="file"] { display: none; }
+        .file-upload i   { font-size: 22px !important; color: var(--ea-text-3); margin-bottom: 7px; display: block; }
+        .file-upload p   { font-size: 13px; font-weight: 500; color: var(--ea-text); margin: 0 0 2px; }
+        .file-upload small { font-size: 11px; color: var(--ea-text-3); }
+
+        /* admin.js usa fileInfo.classList.add/remove('show') */
+        .file-info {
+            display: none;
+            align-items: center;
+            gap: 7px;
+            margin-top: 8px;
+            padding: 7px 10px;
+            background: var(--ea-success-bg);
+            border-radius: 6px;
+            font-size: 12px;
+            color: var(--ea-success);
+        }
+        .file-info.show { display: flex; }
+
+        .modal-footer {
+            margin-top: 20px;
+            padding-top: 14px;
+            border-top: 1px solid var(--ea-border);
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        /* ─── Utilities ───────────────────────────────── */
+        .u-row-gap  { display: flex; gap: 8px; align-items: center; }
+        .u-pointer  { cursor: pointer; }
+        .u-primary  { color: var(--ea-red); }
+        .u-success  { color: var(--ea-success); }
+        .u-danger   { color: var(--ea-danger); }
+
+        /* ─── Responsive ──────────────────────────────── */
+        @media (max-width: 680px) {
+            .ea-layout     { flex-direction: column; }
+            .ea-sidebar    { width: 100%; height: auto; position: static; }
+            .ea-nav        { display: flex; overflow-x: auto; padding: 8px; gap: 4px; }
+            .ea-nav-item   { flex-shrink: 0; }
+            .ea-main       { padding: 16px; }
+            .ea-section-head { flex-direction: column; gap: 10px; align-items: flex-start; }
+            .data-table    { font-size: 12px; }
             .data-table th,
-            .data-table td {
-                padding: var(--admin-spacing-sm);
-            }
-
-            .u-pointer {
-                cursor: pointer;
-            }
-
-            .u-row-gap {
-                display: flex;
-                gap: var(--admin-spacing-md);
-            }
-
-            .u-primary {
-                color: var(--admin-primary);
-            }
+            .data-table td { padding: 8px; }
         }
 
-        .u-success { color: var(--admin-success); }
-        .u-danger  { color: var(--admin-danger); }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+        }
     </style>
 </head>
 <body>
-    <div class="admin-container">
-        <div class="admin-sidebar">
-            <div class="admin-header">
-                <h1><i class="fas fa-cog"></i> Administração</h1>
-                <p>Gerenciamento de Tabelas</p>
+    <div class="ea-layout">
+        <aside class="ea-sidebar">
+            <div class="ea-sidebar-head">
+                <div class="ea-brand">
+                    <div class="ea-brand-icon"><i class="fas fa-cog"></i></div>
+                    <div class="ea-brand-title">Administração</div>
+                </div>
+                <div class="ea-brand-sub">Sistema de Carga</div>
             </div>
-            
-            <ul class="nav-menu">
-                <li class="nav-item">
+
+            <ul class="ea-nav">
+                <li class="ea-nav-item">
                     <a class="nav-link active" data-section="groups">
                         <i class="fas fa-folder"></i>
                         <span>Grupos</span>
                     </a>
                 </li>
-                <li class="nav-item">
+                <li class="ea-nav-item">
                     <a class="nav-link" data-section="tables">
                         <i class="fas fa-table"></i>
                         <span>Tabelas</span>
                     </a>
                 </li>
-<li class="nav-item">
+                <div class="ea-nav-divider"></div>
+                <li class="ea-nav-item">
                     <a class="nav-link u-pointer" onclick="window.location.href='/excel/index.html'">
                         <i class="fas fa-arrow-left"></i>
                         <span>Voltar ao Sistema</span>
                     </a>
                 </li>
-                <li class="nav-item">
+                <li class="ea-nav-item">
                     <a class="nav-link u-pointer" onclick="window.close(); window.opener ? null : window.location.href='/'">
                         <i class="fas fa-home"></i>
                         <span>Voltar ao Portal</span>
                     </a>
                 </li>
             </ul>
-        </div>
+        </aside>
 
-        <div class="admin-main">
-            <div class="admin-content">
-                <!-- Alertas -->
+        <div class="ea-main">
+            <div class="ea-main-inner">
+                <!-- alertBox: admin.js usa className = 'alert alert-success|error show' -->
                 <div id="alertBox" class="alert"></div>
 
-                <!-- Seção de Grupos -->
+                <!-- Seção Grupos -->
                 <div id="groups-section" class="content-section active">
-                    <div class="section-header">
-                        <h2><i class="fas fa-folder"></i> Grupos de Tabelas</h2>
-                        <div class="u-row-gap">
-                            <button class="btn btn-secondary" onclick="loadGroups()">
-                                <i class="fas fa-sync"></i> Recarregar
-                            </button>
-                            <button class="btn btn-success" onclick="showGroupModal()">
-                                <i class="fas fa-plus"></i> Novo Grupo
-                            </button>
+                    <div class="ea-card">
+                        <div class="ea-section-head">
+                            <div class="ea-section-title">
+                                <i class="fas fa-folder"></i>
+                                Grupos de Tabelas
+                            </div>
+                            <div class="u-row-gap">
+                                <button class="btn btn-secondary" onclick="loadGroups()">
+                                    <i class="fas fa-sync-alt"></i> Recarregar
+                                </button>
+                                <button class="btn btn-primary" onclick="showGroupModal()">
+                                    <i class="fas fa-plus"></i> Novo Grupo
+                                </button>
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="excel-search-bar">
-                        <i class="fas fa-search excel-search-icon" aria-hidden="true"></i>
-                        <input type="text" id="groupsSearchInput" placeholder="Filtrar por código, nome ou descrição..." autocomplete="off" aria-label="Filtrar grupos">
-                        <span id="groupsSearchCount" class="excel-search-count"></span>
-                    </div>
+                        <div class="ea-search">
+                            <i class="fas fa-search ea-search-icon"></i>
+                            <input type="text" id="groupsSearchInput"
+                                   placeholder="Filtrar por código, nome ou descrição..."
+                                   autocomplete="off">
+                            <span id="groupsSearchCount" class="ea-search-count"></span>
+                        </div>
 
-                    <table class="data-table" id="groupsTable">
-                        <thead>
-                            <tr>
-                                <th>Código</th>
-                                <th>Nome</th>
-                                <th>Descrição</th>
-                                <th>Ícone</th>
-                                <th>Tabelas</th>
-                                <th>Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody id="groupsTableBody">
-                            <tr>
-                                <td colspan="6" class="empty-state">
-                                    <i class="fas fa-folder-open"></i>
-                                    <p>Carregando grupos...</p>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                        <table class="data-table" id="groupsTable">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Nome</th>
+                                    <th>Descrição</th>
+                                    <th>Ícone</th>
+                                    <th>Tabelas</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="groupsTableBody">
+                                <tr>
+                                    <td colspan="6" class="empty-state">
+                                        <i class="fas fa-folder-open"></i>
+                                        <p>Carregando grupos...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
-                <!-- Seção de Tabelas -->
+                <!-- Seção Tabelas -->
                 <div id="tables-section" class="content-section">
-                    <div class="section-header">
-                        <h2><i class="fas fa-table"></i> Definições de Tabelas</h2>
-                        <div class="u-row-gap">
-                            <button class="btn btn-secondary" onclick="loadTables()">
-                                <i class="fas fa-sync"></i> Recarregar
-                            </button>
-                            <button class="btn btn-success" onclick="showTableModal()">
-                                <i class="fas fa-plus"></i> Nova Tabela
-                            </button>
+                    <div class="ea-card">
+                        <div class="ea-section-head">
+                            <div class="ea-section-title">
+                                <i class="fas fa-table"></i>
+                                Definições de Tabelas
+                            </div>
+                            <div class="u-row-gap">
+                                <button class="btn btn-secondary" onclick="loadTables()">
+                                    <i class="fas fa-sync-alt"></i> Recarregar
+                                </button>
+                                <button class="btn btn-primary" onclick="showTableModal()">
+                                    <i class="fas fa-plus"></i> Nova Tabela
+                                </button>
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="excel-search-bar">
-                        <i class="fas fa-search excel-search-icon" aria-hidden="true"></i>
-                        <input type="text" id="tablesSearchInput" placeholder="Filtrar por nome ou grupo..." autocomplete="off" aria-label="Filtrar tabelas">
-                        <span id="tablesSearchCount" class="excel-search-count"></span>
-                    </div>
+                        <div class="ea-search">
+                            <i class="fas fa-search ea-search-icon"></i>
+                            <input type="text" id="tablesSearchInput"
+                                   placeholder="Filtrar por nome ou grupo..."
+                                   autocomplete="off">
+                            <span id="tablesSearchCount" class="ea-search-count"></span>
+                        </div>
 
-                    <table class="data-table" id="tablesTable">
-                        <thead>
-                            <tr>
-                                <th>Nome da Tabela</th>
-                                <th>Nome de Exibição</th>
-                                <th>Descrição</th>
-                                <th>Grupo</th>
-                                <th>Modelo</th>
-                                <th>Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tablesTableBody">
-                            <tr>
-                                <td colspan="6" class="empty-state">
-                                    <i class="fas fa-table"></i>
-                                    <p>Carregando tabelas...</p>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                        <table class="data-table" id="tablesTable">
+                            <thead>
+                                <tr>
+                                    <th>Nome da Tabela</th>
+                                    <th>Nome de Exibição</th>
+                                    <th>Descrição</th>
+                                    <th>Grupo</th>
+                                    <th>Modelo</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablesTableBody">
+                                <tr>
+                                    <td colspan="6" class="empty-state">
+                                        <i class="fas fa-table"></i>
+                                        <p>Carregando tabelas...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Modal de Grupo -->
+    <!-- Modal Grupo — admin.js usa groupModal.classList.add/remove('show') -->
     <div id="groupModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -662,25 +711,25 @@
             </div>
             <form id="groupForm">
                 <input type="hidden" id="groupId">
-                
+
                 <div class="form-group">
-                    <label for="groupCode">Código <span aria-hidden="true">*</span></label>
+                    <label for="groupCode">Código *</label>
                     <input type="text" id="groupCode" required pattern="[A-Z0-9_]+"
                            placeholder="Ex: RH, FINANCEIRO" maxlength="50"
                            aria-describedby="groupCodeHint"
-                           oninvalid="this.setCustomValidity('Use apenas letras maiúsculas, números e underline. Ex: RH_2025')"
+                           oninvalid="this.setCustomValidity('Use letras MAIÚSCULAS, números e underline.')"
                            oninput="this.setCustomValidity('')">
-                    <small id="groupCodeHint" class="admin-field-hint">Apenas letras MAIÚSCULAS, números e underline (_).</small>
+                    <small id="groupCodeHint" class="admin-field-hint">Apenas letras MAIÚSCULAS, números e underline (_)</small>
                 </div>
 
                 <div class="form-group">
                     <label for="groupName">Nome *</label>
-                    <input type="text" id="groupName" required maxlength="200">
+                    <input type="text" id="groupName" required maxlength="200" placeholder="Nome do grupo">
                 </div>
 
                 <div class="form-group">
                     <label for="groupDescription">Descrição</label>
-                    <textarea id="groupDescription" maxlength="500"></textarea>
+                    <textarea id="groupDescription" maxlength="500" placeholder="Descrição do grupo (opcional)"></textarea>
                 </div>
 
                 <div class="form-group">
@@ -689,9 +738,7 @@
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="closeGroupModal()">
-                        Cancelar
-                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="closeGroupModal()">Cancelar</button>
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-save"></i> Salvar
                     </button>
@@ -700,7 +747,7 @@
         </div>
     </div>
 
-    <!-- Modal de Tabela -->
+    <!-- Modal Tabela — admin.js usa tableModal.classList.add/remove('show') -->
     <div id="tableModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -708,26 +755,25 @@
             </div>
             <form id="tableForm">
                 <input type="hidden" id="tableId">
-                
+
                 <div class="form-group">
-                    <label for="tableName">Nome da Tabela (SQL) <span aria-hidden="true">*</span></label>
+                    <label for="tableName">Nome da Tabela (SQL) *</label>
                     <input type="text" id="tableName" required pattern="[A-Z0-9_]+"
                            placeholder="Ex: FUNCIONARIOS" maxlength="100"
                            aria-describedby="tableNameHint"
-                           oninvalid="this.setCustomValidity('Use apenas letras maiúsculas, números e underline. Ex: FUNCIONARIOS_2025')"
+                           oninvalid="this.setCustomValidity('Use letras MAIÚSCULAS, números e underline.')"
                            oninput="this.setCustomValidity('')">
-                    <small id="tableNameHint" class="admin-field-hint">Apenas letras MAIÚSCULAS, números e underline (_).</small>
+                    <small id="tableNameHint" class="admin-field-hint">Apenas letras MAIÚSCULAS, números e underline (_)</small>
                 </div>
 
                 <div class="form-group">
                     <label for="tableDisplayName">Nome de Exibição *</label>
-                    <input type="text" id="tableDisplayName" required maxlength="200"
-                           placeholder="Ex: Funcionários">
+                    <input type="text" id="tableDisplayName" required maxlength="200" placeholder="Ex: Funcionários">
                 </div>
 
                 <div class="form-group">
                     <label for="tableDescription">Descrição</label>
-                    <textarea id="tableDescription" maxlength="500"></textarea>
+                    <textarea id="tableDescription" maxlength="500" placeholder="Descrição da tabela (opcional)"></textarea>
                 </div>
 
                 <div class="form-group">
@@ -743,7 +789,7 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="allowFullLoad">
+                    <label>
                         <input type="checkbox" id="allowFullLoad" checked>
                         Permitir Carga Completa
                     </label>
@@ -753,21 +799,19 @@
                 <div class="form-group">
                     <label for="tableModelFile">Arquivo Modelo Excel</label>
                     <label class="file-upload" for="tableModelFile">
-                        <i class="fas fa-cloud-upload-alt u-primary" aria-hidden="true"></i>
+                        <i class="fas fa-cloud-upload-alt u-primary"></i>
                         <p>Clique para selecionar arquivo</p>
-                        <small>Formato: .xlsx ou .xls</small>
+                        <small>.xlsx ou .xls</small>
                     </label>
                     <input type="file" id="tableModelFile" accept=".xlsx,.xls">
                     <div class="file-info" id="fileInfo" aria-live="polite">
-                        <i class="fas fa-file-excel" aria-hidden="true"></i>
+                        <i class="fas fa-file-excel"></i>
                         <span id="fileName"></span>
                     </div>
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="closeTableModal()">
-                        Cancelar
-                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="closeTableModal()">Cancelar</button>
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-save"></i> Salvar
                     </button>
@@ -777,15 +821,14 @@
     </div>
 
     <script>
-        // Verificar se usuário está logado como admin
-        (function() {
+        (function () {
             let token = sessionStorage.getItem('authToken');
             if (!token) {
                 token = localStorage.getItem('authToken');
                 if (token) {
                     sessionStorage.setItem('authToken', token);
-                    const cachedUser = localStorage.getItem('currentUser');
-                    if (cachedUser) sessionStorage.setItem('currentUser', cachedUser);
+                    const u = localStorage.getItem('currentUser');
+                    if (u) sessionStorage.setItem('currentUser', u);
                 }
             }
             if (!token) {
@@ -793,39 +836,31 @@
                 window.location.href = '/';
                 return;
             }
-
-            // Verificar se token e' valido.
-            // CRITICO: so apaga o token se o servidor responder 401/403 (token
-            // realmente invalido). Em qualquer outro erro (5xx, timeout, rede),
-            // mantem o token intacto — outras abas dependem do localStorage e
-            // nao podem ser deslogadas por uma falha transitoria nesta aba.
-            fetch('/api/verify-token', {
-                headers: { 'Authorization': 'Bearer ' + token }
-            })
-            .then(async res => {
-                if (res.status === 401 || res.status === 403) {
-                    sessionStorage.removeItem('authToken');
-                    localStorage.removeItem('authToken');
-                    alert('Sessão expirada. Faça login novamente.');
-                    window.location.href = '/';
-                    return;
-                }
-                if (!res.ok) {
-                    console.error('[verify-token] resposta inesperada:', res.status);
-                    alert('Erro ao validar sessão (HTTP ' + res.status + '). Tente novamente.');
-                    return;
-                }
-                const data = await res.json();
-                const apps = (data.user && data.user.apps) || [];
-                if (!data.user || (!data.user.isAdmin && !apps.includes('excel'))) {
-                    alert('Acesso negado. Apenas administradores podem acessar.');
-                    window.location.href = '/';
-                }
-            })
-            .catch((err) => {
-                console.error('[verify-token] falha de rede:', err);
-                alert('Não foi possível validar a sessão (erro de rede). Tente recarregar.');
-            });
+            fetch('/api/verify-token', { headers: { 'Authorization': 'Bearer ' + token } })
+                .then(async res => {
+                    if (res.status === 401 || res.status === 403) {
+                        sessionStorage.removeItem('authToken');
+                        localStorage.removeItem('authToken');
+                        alert('Sessão expirada. Faça login novamente.');
+                        window.location.href = '/';
+                        return;
+                    }
+                    if (!res.ok) {
+                        console.error('[verify-token] resposta inesperada:', res.status);
+                        alert('Erro ao validar sessão (HTTP ' + res.status + '). Tente novamente.');
+                        return;
+                    }
+                    const data = await res.json();
+                    const apps = (data.user && data.user.apps) || [];
+                    if (!data.user || (!data.user.isAdmin && !apps.includes('excel'))) {
+                        alert('Acesso negado. Apenas administradores podem acessar.');
+                        window.location.href = '/';
+                    }
+                })
+                .catch(err => {
+                    console.error('[verify-token] falha de rede:', err);
+                    alert('Não foi possível validar a sessão (erro de rede). Tente recarregar.');
+                });
         })();
     </script>
     <script src="/assets/js/admin-confirm.js?v=__APP_VERSION__"></script>

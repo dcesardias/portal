@@ -22,6 +22,10 @@
             </div>
             <div id="menuContainer"></div>
             <div class="sidebar-footer">
+                <a class="btn btn-admin sidebar-footer-link" id="homologaButton" href="/homologa" title="Em Homologação" aria-label="Em Homologação">
+                    <span class="btn-admin-icon" aria-hidden="true"><i class="fa-solid fa-arrows-rotate"></i></span>
+                    <span class="btn-admin-label">Em Homologação</span>
+                </a>
                 <button class="btn btn-admin" id="adminButton" onclick="toggleAdmin()" title="Configurações" aria-label="Configurações">
                     <span class="btn-admin-icon" aria-hidden="true"><i class="fa-solid fa-gear"></i></span>
                     <span class="btn-admin-label">Configurações</span>
@@ -100,6 +104,11 @@
                     <div class="info-card">
                         <p id="pageDescription">Este painel oferece uma visão abrangente das métricas...</p>
                     </div>
+                    <div class="header-collapse-zone">
+                        <button type="button" id="headerCollapseToggle" class="header-collapse-toggle" title="Recolher cabeçalho" aria-label="Recolher cabeçalho">
+                            <i class="fas fa-chevron-up" aria-hidden="true"></i>
+                        </button>
+                    </div>
                     <div class="powerbi-shell">
                         <button id="startTutorialBtn" class="btn-start-tutorial" style="display:none;" title="Iniciar tutorial desta página">
                             <i class="fas fa-graduation-cap"></i>
@@ -113,15 +122,26 @@
                         <button id="fullscreenIframeBtn" class="btn-fullscreen-iframe" style="display:none;" title="Tela cheia">
                             <i class="fas fa-expand"></i>
                         </button>
+                        <div id="exportEmbedWrap" class="btn-export-embed-wrap" style="display:none;">
+                            <button id="exportEmbedBtn" class="btn-export-embed" title="Exportar painel">
+                                <i class="fas fa-download"></i>
+                            </button>
+                            <div id="exportEmbedMenu" class="btn-export-embed-menu" hidden>
+                                <button type="button" data-action="print"><i class="fas fa-print"></i> Imprimir / Salvar PDF (navegador)</button>
+                                <div class="btn-export-embed-divider"></div>
+                                <button type="button" data-format="PDF"><i class="fas fa-file-pdf"></i> PDF</button>
+                                <button type="button" data-format="PPTX"><i class="fas fa-file-powerpoint"></i> PowerPoint</button>
+                                <button type="button" data-format="PNG"><i class="fas fa-file-image"></i> Imagem (PNG)</button>
+                            </div>
+                        </div>
                         <button id="refreshIframeBtn" class="btn-refresh-iframe" style="display:none;" title="Atualizar painel">
                             <i class="fas fa-sync-alt"></i>
                         </button>
+                        <div id="pbiDotsBlocker" aria-hidden="true"></div>
                         <div class="powerbi-container" id="powerbiContainer">
                             <div class="placeholder">
-                                <div class="powerbi-icon">📊</div>
-                                <h3 class="powerbi-placeholder-title">Power BI</h3>
-                                <p class="powerbi-placeholder-desc">Entre para ver este relatório</p>
-                                <button class="btn">Entrar</button>
+                                <div class="powerbi-icon"><i class="fas fa-spinner" style="animation: spin 1.2s linear infinite;"></i></div>
+                                <p class="powerbi-placeholder-desc">Carregando painel…</p>
                             </div>
                         </div>
                     </div>

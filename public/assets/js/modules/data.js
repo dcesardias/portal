@@ -117,7 +117,19 @@ window.PortalData = {
             allowedAADGroups: p.AllowedAADGroups || p.allowedAADGroups || null,
             embedRoles: p.EmbedRoles || p.embedRoles || '',
             redirectEmbedWorkspaceId: p.RedirectEmbedWorkspaceId || p.redirectEmbedWorkspaceId || '',
-            redirectEmbedReportId: p.RedirectEmbedReportId || p.redirectEmbedReportId || ''
+            redirectEmbedReportId: p.RedirectEmbedReportId || p.redirectEmbedReportId || '',
+            isHomologation: !!(p.IsHomologation !== undefined ? p.IsHomologation : p.isHomologation),
+            // HomologationStartedAt vem do SQL Server como Date que o JSON
+            // serializa em ISO 8601 ('2026-05-28T00:00:00.000Z'). O <input
+            // type="date"> precisa de 'YYYY-MM-DD' puro — pegamos os 10
+            // primeiros caracteres. null/undefined viram null.
+            homologationStartedAt: (() => {
+                const raw = p.HomologationStartedAt !== undefined ? p.HomologationStartedAt : p.homologationStartedAt;
+                if (!raw) return null;
+                if (raw instanceof Date) return raw.toISOString().slice(0, 10);
+                const s = String(raw);
+                return s.length >= 10 ? s.slice(0, 10) : null;
+            })()
         }));
     }
 };

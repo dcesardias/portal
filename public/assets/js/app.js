@@ -11,7 +11,11 @@ window.PortalApp = {
     selectedPageId: null,
     selectedGroupId: null,
     editingPageId: null,
-    editingMenuId: null
+    editingMenuId: null,
+    // homologMode: a rota /homologa marca body.homolog-page; quando essa flag
+    // for true, pages.js filtra os cards por isHomologation em vez de
+    // showInHome e showHome() usa titulo "Paineis em Homologacao".
+    homologMode: (typeof document !== 'undefined' && document.body && document.body.classList.contains('homolog-page'))
 };
 
 // Versão da aplicação — usada para cache-busting dos imports dinâmicos.
@@ -89,6 +93,20 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
         }
 
+        // Le o lastPageId ANTES do checkAuth porque checkAuth() -> showHome()
+        // limpa o storage. Guardamos em variavel local pra usar no restore.
+        // Chave do lastPageId separada por rota (/ e /homologa) pra evitar
+        // cross-restore: se o usuario esta vendo um painel em / e clica em
+        // "Em Homologacao", a /homologa nao deve restaurar o mesmo painel.
+        const lastPageIdKey = window.PortalApp.homologMode
+            ? 'portal.homologa.lastPageId'
+            : 'portal.lastPageId';
+        let pendingRestorePageId = null;
+        try {
+            const raw = sessionStorage.getItem(lastPageIdKey);
+            if (raw) pendingRestorePageId = Number(raw);
+        } catch (_) {}
+
         // Verificar autenticação e carregar dados
         if (window.PortalAuth) {
             await window.PortalAuth.checkAuth();
@@ -114,6 +132,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         // Fallback do switchAccount: se a troca de conta no painel teve que
         // recarregar a pagina (porque o iframe travou), restauramos a pagina
         // que o usuario estava vendo, em vez de cair na home.
+        let switchAccountRestoredPage = false;
         try {
             const pendingSwitchPageRaw = sessionStorage.getItem('portal.pendingPageAfterSwitch');
             if (pendingSwitchPageRaw) {
@@ -121,10 +140,30 @@ document.addEventListener('DOMContentLoaded', async function() {
                 const pendingSwitchPageId = Number(pendingSwitchPageRaw);
                 if (Number.isFinite(pendingSwitchPageId) && window.PortalPages && typeof window.PortalPages.loadPage === 'function') {
                     await window.PortalPages.loadPage(pendingSwitchPageId);
+                    switchAccountRestoredPage = true;
                 }
             }
         } catch (e) {
             console.warn('[SWITCH] Falha ao restaurar pagina apos reload:', e);
+        }
+
+        // Restaurar a ultima page visitada apos F5. Usamos pendingRestorePageId
+        // que foi capturado ANTES do checkAuth (porque checkAuth -> showHome()
+        // limpa o storage). So aplica se nao houver pendingPageAfterSwitch
+        // ja restaurado acima.
+        if (!switchAccountRestoredPage && Number.isFinite(pendingRestorePageId)) {
+            try {
+                if (window.PortalPages
+                    && typeof window.PortalPages.loadPage === 'function'
+                    && Array.isArray(window.PortalApp.pagesData)
+                    && window.PortalApp.pagesData.some(p => p.id === pendingRestorePageId)) {
+                    await window.PortalPages.loadPage(pendingRestorePageId);
+                }
+                // Se a page nao existe mais, nada a fazer — showHome() ja foi
+                // chamada por checkAuth e ja limpou o storage.
+            } catch (e) {
+                console.warn('[RESTORE PAGE] Falha ao restaurar ultima page:', e);
+            }
         }
 
         console.log('Portal ready!');
@@ -157,7 +196,7 @@ window.PortalPages = {
 
             // Mostrar view da página
             document.getElementById('homeView').style.display = 'none';
-            document.getElementById('pageView').style.display = 'block';
+            document.getElementById('pageView').style.display = 'flex';
             
             // Renderizar Power BI
             this.renderPowerBI(page.PowerBIUrl);
