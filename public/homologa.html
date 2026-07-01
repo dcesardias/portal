@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Homologação — Portal Power BI</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="assets/css/portal.css?v=__APP_VERSION__">
+    <link rel="stylesheet" href="assets/css/portal-redesign.css?v=__APP_VERSION__">
+    <link rel="stylesheet" href="assets/css/admin-confirm.css?v=__APP_VERSION__">
+    <meta name="app-version" content="__APP_VERSION__">
+</head>
+<body class="app-hydrating homolog-page">
+    <div class="container">
+        <!--
+            Sem sidebar (omitida deliberadamente). O app.js detecta body.homolog-page
+            e seta window.PortalApp.homologMode = true, o que faz pages.js filtrar
+            cards por isHomologation e ajustar titulos. CSS regra-zera margens de
+            .main-content para preencher a largura toda.
+        -->
+
+        <div class="main-content">
+            <div class="header">
+                <div>
+                    <div class="page-title" id="pageTitle">Painéis em Homologação</div>
+                    <div class="page-subtitle" id="pageSubtitle">Painéis publicados para validação antes de irem para produção</div>
+                </div>
+                <div class="header-actions">
+                    <a class="btn homolog-portal-link" href="/" title="Voltar ao Portal de Dados">
+                        <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                        <span>Portal de Dados</span>
+                    </a>
+                    <div id="accountIndicator" class="account-indicator" style="display:none;" aria-live="polite">
+                        <i class="fas fa-user-circle"></i>
+                        <span class="account-indicator-label" id="accountIndicatorLabel"></span>
+                    </div>
+                    <form class="search-container" id="portalSearchForm" role="search" autocomplete="on" action="javascript:void(0)">
+                        <input id="searchInput"
+                               name="portal_search"
+                               class="search-input"
+                               type="search"
+                               inputmode="search"
+                               placeholder="Buscar painéis..."
+                               autocomplete="on"
+                               autocorrect="off"
+                               autocapitalize="off"
+                               spellcheck="false"
+                               aria-label="Buscar painéis"
+                               role="searchbox"
+                               data-lpignore="true"
+                               data-form-type="search" />
+                        <button id="themeToggle"
+                                type="button"
+                                class="theme-toggle"
+                                title="Alternar tema claro/escuro"
+                                aria-label="Alternar entre modo claro e escuro">
+                            <span class="icon sun-icon">☀️</span>
+                            <span class="icon moon-icon">🌙</span>
+                        </button>
+                        <div id="searchResults" class="search-results"></div>
+                    </form>
+                </div>
+            </div>
+            <div class="content" id="mainContent">
+                <div id="homeView">
+                    <div class="info-card info-card--mb20">
+                        <h3>Ambiente de Homologação</h3>
+                        <p id="homeSubtitle">Os painéis abaixo estão em fase de validação. Acesse, valide a integridade dos dados e reporte qualquer divergência ao time de BI.</p>
+                    </div>
+
+                    <div class="cards-section">
+                        <h2 class="portal-section-title">Painéis em Homologação</h2>
+                        <div id="quickAccessCards" class="cards-grid"></div>
+                    </div>
+                </div>
+
+                <div id="groupView" style="display:none;">
+                    <div class="info-card info-card--mb20">
+                        <h3 id="groupViewTitle">Grupo</h3>
+                        <p id="groupViewSubtitle">Selecione um item deste grupo para continuar.</p>
+                    </div>
+                    <div class="cards-section">
+                        <h2 class="portal-section-title" id="groupViewSectionTitle">Itens do Grupo</h2>
+                        <div id="groupCards" class="cards-grid"></div>
+                    </div>
+                </div>
+
+                <div id="pageView" style="display:none;">
+                    <div class="homolog-back-bar">
+                        <button type="button" id="homologBackBtn" class="btn btn-admin" title="Voltar para a lista de homologação">
+                            <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                            Voltar para Homologação
+                        </button>
+                    </div>
+                    <div class="info-card">
+                        <p id="pageDescription">Carregando painel…</p>
+                    </div>
+                    <div class="header-collapse-zone">
+                        <button type="button" id="headerCollapseToggle" class="header-collapse-toggle" title="Recolher cabeçalho" aria-label="Recolher cabeçalho">
+                            <i class="fas fa-chevron-up" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                    <div class="powerbi-shell">
+                        <button id="startTutorialBtn" class="btn-start-tutorial" style="display:none;" title="Iniciar tutorial desta página">
+                            <i class="fas fa-graduation-cap"></i>
+                            Ajuda
+                        </button>
+
+                        <select id="tutorialGroupSelector" class="tutorial-group-selector-fixed" style="display:none;" title="Selecionar grupo do tutorial">
+                            <option value="">Selecione um grupo...</option>
+                        </select>
+
+                        <button id="fullscreenIframeBtn" class="btn-fullscreen-iframe" style="display:none;" title="Tela cheia">
+                            <i class="fas fa-expand"></i>
+                        </button>
+                        <div id="exportEmbedWrap" class="btn-export-embed-wrap" style="display:none;">
+                            <button id="exportEmbedBtn" class="btn-export-embed" title="Exportar painel">
+                                <i class="fas fa-download"></i>
+                            </button>
+                            <div id="exportEmbedMenu" class="btn-export-embed-menu" hidden>
+                                <button type="button" data-action="print"><i class="fas fa-print"></i> Imprimir / Salvar PDF (navegador)</button>
+                                <div class="btn-export-embed-divider"></div>
+                                <button type="button" data-format="PDF"><i class="fas fa-file-pdf"></i> PDF</button>
+                                <button type="button" data-format="PPTX"><i class="fas fa-file-powerpoint"></i> PowerPoint</button>
+                                <button type="button" data-format="PNG"><i class="fas fa-file-image"></i> Imagem (PNG)</button>
+                            </div>
+                        </div>
+                        <button id="refreshIframeBtn" class="btn-refresh-iframe" style="display:none;" title="Atualizar painel">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                        <div id="pbiDotsBlocker" aria-hidden="true"></div>
+                        <div class="powerbi-container" id="powerbiContainer">
+                            <div class="placeholder">
+                                <div class="powerbi-icon"><i class="fas fa-spinner" style="animation: spin 1.2s linear infinite;"></i></div>
+                                <p class="powerbi-placeholder-desc">Carregando painel…</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="overlay" id="overlay"></div>
+
+    <!--
+        Menu container vazio (oculto via CSS). Existe so para evitar runtime
+        errors em modulos legados que esperam #menuContainer no DOM.
+    -->
+    <div id="menuContainer" style="display:none;" aria-hidden="true"></div>
+
+    <script defer src="/vendor/msal-browser/msal-browser.min.js"></script>
+    <script defer src="assets/js/app.js?v=__APP_VERSION__"></script>
+    <script defer src="assets/js/admin-confirm.js?v=__APP_VERSION__"></script>
+    <script defer src="assets/js/modules/tutorial.js?v=__APP_VERSION__"></script>
+    <script defer src="assets/js/chatbot.js?v=__APP_VERSION__"></script>
+
+    <script>
+        // Botao "Voltar para Homologacao": volta da pageView para o homeView de
+        // cards filtrados por isHomologation. Reusa showHome() que ja sabe o
+        // mode (via window.PortalApp.homologMode setado em app.js).
+        document.addEventListener('DOMContentLoaded', () => {
+            const btn = document.getElementById('homologBackBtn');
+            if (btn) {
+                btn.addEventListener('click', () => {
+                    if (window.PortalPages && typeof window.PortalPages.showHome === 'function') {
+                        window.PortalPages.showHome();
+                    } else {
+                        // Fallback defensivo se o modulo ainda nao carregou.
+                        document.getElementById('pageView').style.display = 'none';
+                        document.getElementById('homeView').style.display = 'block';
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>
