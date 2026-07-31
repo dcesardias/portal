@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <base href="/chamados/" />
+  <script>
+    // Remove o parâmetro _kauth da URL após o checkpoint de autenticação por aba,
+    // preservando o hash (#/cockpit etc.) pra não perder a view atual no F5.
+    if (location.search.indexOf('_kauth') !== -1) {
+      history.replaceState(null, '', '/chamados/' + (location.hash || ''));
+    }
+    // define o tema antes da pintura (evita flash). Escolha salva > preferência do SO.
+    (function () {
+      var t = localStorage.getItem("kanban_tema");
+      if (!t) t = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", t);
+    })();
+  </script>
+  <title>Central de Chamados · TI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css?v=36" />
+  <script src="vendor/Sortable.min.js?v=1.15.2"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-row topbar-row-main">
+      <a href="#/inicio" class="brand" aria-label="Ir para a tela inicial">
+        <span class="logo"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>
+        <span class="brand-title">Central de Chamados</span>
+      </a>
+      <div class="search-wrap">
+        <div class="search-inner">
+          <svg class="search-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input id="busca" type="search" placeholder="Buscar nº, solicitante, descrição…" aria-label="Buscar chamados" />
+        </div>
+      </div>
+      <div class="tools">
+        <span id="user-badge" class="user-badge" style="display:none" title="Usuário logado"></span>
+        <button id="tema" class="btn btn-icon" title="Alternar tema claro/escuro" aria-label="Alternar tema"></button>
+      </div>
+    </div>
+    <div class="topbar-row topbar-row-nav">
+      <nav class="mode-switch" aria-label="Modo de visualização">
+        <a href="#/kanban" class="mode-tab" data-view="kanban">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="10" rx="1"/></svg>
+          Kanban
+        </a>
+        <a href="#/cockpit" class="mode-tab" data-view="cockpit">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>
+          Cockpit
+        </a>
+        <a href="#/indicadores" class="mode-tab" data-view="indicadores">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
+          Indicadores
+        </a>
+      </nav>
+      <div class="nav-actions">
+        <button id="refresh" class="btn btn-icon" title="Atualizar" aria-label="Atualizar quadro"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button>
+        <button id="novo" class="btn btn-success" title="Abrir novo chamado">+ Novo chamado</button>
+      </div>
+    </div>
+  </header>
+
+  <main id="view-inicio" class="view"></main>
+
+  <main id="view-kanban" class="view hidden">
+  <div class="kpis" id="kpis"></div>
+
+  <div class="filterbar">
+    <span class="fb-label">Grupo</span>
+    <div id="filtro-planej" class="msel-lg" title="Grupo de planejamento"></div>
+    <div id="filtro-trabalho" class="msel-lg" title="Grupo de trabalho"></div>
+    <div id="filtro-prio" title="Prioridade"></div>
+    <div id="filtro-exec" title="Responsável"></div>
+    <div id="filtro-setor" title="Setor solicitante"></div>
+    <select id="filtro-idade" title="Tempo em aberto">
+      <option value="0">Qualquer tempo</option>
+      <option value="novo">Novos (≤ 2 dias)</option>
+      <option value="7">Há mais de 7 dias</option>
+      <option value="15">Há mais de 15 dias</option>
+      <option value="30">Há mais de 30 dias</option>
+      <option value="90">Há mais de 90 dias</option>
+    </select>
+    <select id="ordenacao" title="Ordenação">
+      <option value="recentes">↓ Mais recentes</option>
+      <option value="antigos">↑ Mais antigos</option>
+      <option value="prioridade">★ Prioridade</option>
+    </select>
+    <label class="chk"><input type="checkbox" id="filtro-semexec" /> Sem responsável</label>
+    <button id="meus-chamados" class="btn-ghost-sm" title="Mostrar apenas meus chamados" style="display:none">Meus chamados</button>
+    <button id="salvar-padrao" class="btn-ghost-sm btn-salvar-padrao" title="Salvar filtros atuais como padrão (aplicados automaticamente ao entrar)" style="display:none">Salvar padrão</button>
+    <button id="limpar" class="btn-ghost-sm" title="Limpar filtros">Limpar filtros</button>
+    <span class="filter-count" id="filter-count"></span>
+  </div>
+
+  <div id="board" class="board"></div>
+  </main>
+
+  <main id="view-cockpit" class="view hidden"></main>
+
+  <main id="view-indicadores" class="view hidden"></main>
+
+  <div id="toast" class="toast"></div>
+
+  <!-- Modal de edição -->
+  <div id="modal" class="modal-overlay hidden">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="m-title">
+      <button class="modal-close" id="modal-close" aria-label="Fechar">×</button>
+      <h2 id="m-title">Chamado <span id="m-num"></span></h2>
+      <div class="m-meta" id="m-meta"></div>
+      <div id="m-readonly" class="m-readonly hidden">🔒 <b>Somente consulta.</b> Você não pertence ao grupo de trabalho deste chamado, então não pode encerrá-lo, movê-lo nem alterá-lo.</div>
+      <div class="contato-box" id="m-contato"></div>
+
+      <label>Descrição breve
+        <input id="m-breve" type="text" maxlength="240" />
+      </label>
+      <label>Descrição (dano)
+        <textarea id="m-dano" rows="8"></textarea>
+      </label>
+      <div class="row">
+        <label>Prioridade
+          <select id="m-prio"></select>
+        </label>
+        <label>Status
+          <select id="m-status"></select>
+        </label>
+      </div>
+      <label>Estágio do processo
+        <div class="busca-combo" id="m-estagio-combo">
+          <input id="m-estagio-texto" type="text" placeholder="Digite p/ buscar o estágio…" autocomplete="off" />
+          <input type="hidden" id="m-estagio-id" />
+          <ul id="m-estagio-opts" class="busca-combo-opts hidden"></ul>
+        </div>
+      </label>
+      <div class="row">
+        <label>Grupo de planejamento
+          <select id="m-planej"></select>
+        </label>
+        <label>Grupo de trabalho
+          <select id="m-trab"></select>
+        </label>
+      </div>
+      <label>Responsável (executor)
+        <div class="busca-combo" id="m-exec-combo">
+          <input id="m-exec" type="text" placeholder="Digite pra buscar por nome ou login…" autocomplete="off" />
+          <ul id="m-exec-opts" class="busca-combo-opts hidden"></ul>
+        </div>
+        <small id="m-exec-nome" class="muted"></small>
+      </label>
+
+      <div class="historico-box">
+        <div class="historico-head">Histórico de interação <span id="m-historico-count" class="anexos-count">0</span></div>
+        <ul id="m-historico" class="historico-list"></ul>
+        <div class="historico-compor">
+          <textarea id="m-nota" rows="3" placeholder="Adicionar uma interação: pedir mais informação ao solicitante, atualizar o andamento, registrar um passo do atendimento…"></textarea>
+          <button id="m-nota-add" type="button" class="btn-primary">Adicionar ao histórico</button>
+        </div>
+      </div>
+
+      <div class="anexos-box">
+        <div class="anexos-head"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg> Anexos <span id="m-anexos-count" class="anexos-count">0</span></div>
+        <ul id="m-anexos" class="anexos-list"></ul>
+      </div>
+
+      <div class="modal-actions">
+        <button id="m-encerrar" class="btn-danger">Encerrar chamado</button>
+        <div class="spacer"></div>
+        <button id="m-cancel" class="btn-ghost">Cancelar</button>
+        <button id="m-save" class="btn-primary">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de novo chamado -->
+  <div id="novo-modal" class="modal-overlay hidden">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="n-title">
+      <button class="modal-close" id="n-close" aria-label="Fechar">×</button>
+      <h2 id="n-title">Novo chamado</h2>
+      <label>Solicitante *
+        <div class="busca-combo" id="n-solic-combo">
+          <input id="n-solic" type="text" placeholder="Digite nome ou login do solicitante…" autocomplete="off" />
+          <ul id="n-solic-opts" class="busca-combo-opts hidden"></ul>
+        </div>
+        <small id="n-solic-info" class="muted"></small>
+      </label>
+      <label>Descrição breve * <small class="muted">(máx. 80)</small>
+        <input id="n-breve" type="text" maxlength="80" />
+      </label>
+      <label>Descrição *
+        <textarea id="n-dano" rows="6"></textarea>
+      </label>
+      <div class="row">
+        <label>Prioridade
+          <select id="n-prio"></select>
+        </label>
+        <label>Grupo de planejamento *
+          <select id="n-planej"></select>
+        </label>
+      </div>
+      <label>Grupo de trabalho
+        <select id="n-trab"></select>
+      </label>
+      <div id="n-erro" class="campo-erro hidden"></div>
+      <div class="modal-actions">
+        <div class="spacer"></div>
+        <button id="n-cancel" class="btn-ghost">Cancelar</button>
+        <button id="n-save" class="btn-primary">Criar chamado</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de atribuição de executor (obrigatório p/ Processo) -->
+  <div id="exec-modal" class="modal-overlay hidden">
+    <div class="modal modal-sm" role="dialog" aria-modal="true" aria-labelledby="x-title">
+      <h2 id="x-title">Atribuir responsável <span id="x-num"></span></h2>
+      <p class="muted" style="margin-top:-2px" id="x-msg">Defina o <b>executor</b> para colocar o chamado em processo. Obrigatório.</p>
+      <div class="busca-combo" id="x-exec-combo">
+        <input id="x-exec" type="text" placeholder="Digite pra buscar por nome ou login…" autocomplete="off" />
+        <ul id="x-exec-opts" class="busca-combo-opts hidden"></ul>
+      </div>
+      <div id="x-erro" class="campo-erro hidden">Selecione um responsável válido.</div>
+      <div class="modal-actions">
+        <div class="spacer"></div>
+        <button id="x-cancel" class="btn-ghost">Cancelar</button>
+        <button id="x-confirm" class="btn-primary">Atribuir</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de encerramento (solução obrigatória) -->
+  <div id="close-modal" class="modal-overlay hidden">
+    <div class="modal modal-sm" role="dialog" aria-modal="true" aria-labelledby="c-title">
+      <h2 id="c-title">Encerrar chamado <span id="c-num"></span></h2>
+      <p class="muted" style="margin-top:-2px">Descreva <b>o que foi feito</b> (solução). Obrigatório.</p>
+      <textarea id="c-relato" rows="6" placeholder="Ex.: Resetada a senha do usuário; acesso normalizado. Chamado validado com o solicitante."></textarea>
+      <div id="c-erro" class="campo-erro hidden">Informe a solução para encerrar.</div>
+      <div class="modal-actions">
+        <div class="spacer"></div>
+        <button id="c-cancel" class="btn-ghost">Cancelar</button>
+        <button id="c-confirm" class="btn-danger">Encerrar chamado</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="common.js?v=23"></script>
+  <script src="router.js?v=3"></script>
+  <script src="app.js?v=38"></script>
+  <script src="home.js?v=3"></script>
+  <script src="cockpit.js?v=9"></script>
+  <script src="metricas.js?v=23"></script>
+  <script src="indicadores.js?v=4"></script>
+  <script>aplicarRoute();</script>
+</body>
+</html>

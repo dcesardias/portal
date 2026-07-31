@@ -257,9 +257,10 @@
             $('fileInput').value = '';
             setSelectedFile(null);
 
-            await Promise.all([loadHistory(), loadFornecedores(), loadCategorias()]);
-            // Se houver novos, rola ate as tabelas mestras pra revisao
+            await Promise.all([loadStats(), loadHistory(), loadFornecedores(), loadCategorias()]);
+            // Se houver novos, abre a aba de fornecedores pra revisao
             if (novosLabel.length) {
+                activateTab('fornecedores');
                 $('fornecedoresTable').closest('.card').scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
         } catch (err) {
@@ -278,6 +279,8 @@
         const tbody = $('historyTable').querySelector('tbody');
         try {
             const data = await api('GET', '/fatura/list?limit=50');
+            const pill = $('tabCountHistorico');
+            if (pill) pill.textContent = Array.isArray(data) ? data.length : 0;
             if (!Array.isArray(data) || data.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="10" class="empty-state">Nenhuma fatura processada ainda.</td></tr>`;
                 return;
@@ -307,22 +310,34 @@
     }
 
     // --- FORNECEDORES / CATEGORIAS (master tables) ---
+    function nameCell(row, novosKey) {
+        return `<td>
+            <span class="drill-name">
+                <span class="name-text">${escapeHtml(row.nome)}</span>${badgeNovo(row, novosKey)}${row.despesa_ti ? '<span class="badge-ti">TI</span>' : ''}
+                <span class="chev" aria-hidden="true">›</span>
+            </span>
+        </td>`;
+    }
     async function loadFornecedores() {
         await loadMasterTable({
+            kind: 'fornecedor',
             endpoint: '/fatura/fornecedores',
             tableId: 'fornecedoresTable',
+            countPillId: 'tabCountFornecedores',
             patchPath: id => `/fatura/fornecedores/${id}`,
             novosKey: 'fornecedoresIds',
-            colsBefore: (row) => `<td>${escapeHtml(row.nome)}${badgeNovo(row, 'fornecedoresIds')}${row.despesa_ti ? '<span class="badge-ti">TI</span>' : ''}</td>`
+            colsBefore: (row) => nameCell(row, 'fornecedoresIds')
         });
     }
     async function loadCategorias() {
         await loadMasterTable({
+            kind: 'categoria',
             endpoint: '/fatura/categorias',
             tableId: 'categoriasTable',
+            countPillId: 'tabCountCategorias',
             patchPath: id => `/fatura/categorias/${id}`,
             novosKey: 'categoriasIds',
-            colsBefore: (row) => `<td>${escapeHtml(row.nome)}${badgeNovo(row, 'categoriasIds')}${row.despesa_ti ? '<span class="badge-ti">TI</span>' : ''}</td>`
+            colsBefore: (row) => nameCell(row, 'categoriasIds')
         });
     }
 
@@ -331,10 +346,12 @@
         return novos.includes(row.Id) ? '<span class="badge-novo">Novo</span>' : '';
     }
 
-    async function loadMasterTable({ endpoint, tableId, patchPath, novosKey, colsBefore }) {
+    async function loadMasterTable({ kind, endpoint, tableId, countPillId, patchPath, novosKey, colsBefore }) {
         const tbody = $(tableId).querySelector('tbody');
         try {
             const data = await api('GET', endpoint);
+            const pill = countPillId && $(countPillId);
+            if (pill) pill.textContent = Array.isArray(data) ? data.length : 0;
             if (!Array.isArray(data) || data.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Nenhum item ainda. Suba uma fatura para começar.</td></tr>`;
                 return;
@@ -349,17 +366,23 @@
             });
 
             tbody.innerHTML = sorted.map(row => `
-                <tr class="${novosIds.includes(row.Id) ? 'row-novo' : ''}" data-row-id="${row.Id}">
+                <tr class="clickable ${novosIds.includes(row.Id) ? 'row-novo' : ''}"
+                    data-row-id="${row.Id}"
+                    data-kind="${kind}"
+                    data-nome="${escapeHtml(row.nome)}"
+                    data-count="${row.occurrences != null ? row.occurrences : 0}"
+                    data-total="${row.total_brl != null ? row.total_brl : ''}"
+                    data-ti="${row.despesa_ti ? '1' : '0'}">
                     ${colsBefore(row)}
                     <td class="num">${row.occurrences != null ? row.occurrences : 0}</td>
                     <td class="num">${row.total_brl != null ? fmtBRL(row.total_brl) : '—'}</td>
-                    <td>
+                    <td class="no-drill">
                         <label class="switch">
                             <input type="checkbox" data-field="despesa_ti" ${row.despesa_ti ? 'checked' : ''}>
                             <span class="slider"></span>
                         </label>
                     </td>
-                    <td>
+                    <td class="no-drill">
                         <input type="text" data-field="observacao" value="${escapeHtml(row.observacao || '')}" placeholder="(opcional)">
                     </td>
                 </tr>
@@ -368,6 +391,18 @@
             // Wire-up dos PATCH on-change
             tbody.querySelectorAll('tr[data-row-id]').forEach(tr => {
                 const id = tr.dataset.rowId;
+
+                // Clique na linha (fora dos controles) abre o detalhamento
+                tr.addEventListener('click', (e) => {
+                    if (e.target.closest('.no-drill')) return;
+                    openDrillModal(tr.dataset.kind, {
+                        id: id,
+                        nome: tr.dataset.nome,
+                        count: parseInt(tr.dataset.count, 10) || 0,
+                        total: tr.dataset.total === '' ? null : parseFloat(tr.dataset.total),
+                        ti: tr.dataset.ti === '1'
+                    });
+                });
                 const tiInput = tr.querySelector('input[data-field="despesa_ti"]');
                 const obsInput = tr.querySelector('input[data-field="observacao"]');
                 tiInput.addEventListener('change', async () => {
@@ -404,6 +439,96 @@
                 tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Erro: ${escapeHtml(err.message || '')}</td></tr>`;
             }
         }
+    }
+
+    // --- KPIs ---
+    async function loadStats() {
+        try {
+            const s = await api('GET', '/fatura/stats', null, { silentAuthFail: true });
+            $('kpiGasto').textContent   = fmtBRL(s.total_gasto_brl);
+            $('kpiTi').textContent      = fmtBRL(s.total_ti_brl);
+            $('kpiFaturas').textContent = s.total_faturas != null ? s.total_faturas.toLocaleString('pt-BR') : '0';
+            $('kpiItens').textContent   = s.total_itens != null ? s.total_itens.toLocaleString('pt-BR') : '0';
+            const gasto = parseFloat(s.total_gasto_brl) || 0;
+            const ti = parseFloat(s.total_ti_brl) || 0;
+            const pct = gasto > 0 ? Math.round((ti / gasto) * 100) : 0;
+            $('kpiTiHint').textContent = gasto > 0 ? `${pct}% do total processado` : 'classificado como TI';
+        } catch (_) {
+            // KPIs sao best-effort; nao bloqueiam a tela
+            ['kpiGasto','kpiTi','kpiFaturas','kpiItens'].forEach(id => { if ($(id).textContent === '—') $(id).textContent = '—'; });
+        }
+    }
+
+    // --- TABS ---
+    function activateTab(name) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.dataset.panel === name));
+    }
+    function bindTabs() {
+        document.querySelectorAll('.tab').forEach(t => {
+            t.addEventListener('click', () => activateTab(t.dataset.tab));
+        });
+    }
+
+    // --- MODAL DRILL-DOWN (lançamentos por fornecedor / categoria) ---
+    async function openDrillModal(kind, meta) {
+        const overlay = $('drillModal');
+        const isFornecedor = kind === 'fornecedor';
+        const label = isFornecedor ? 'Fornecedor' : 'Categoria';
+        overlay.classList.remove('hidden');
+
+        $('drillTitle').textContent = meta.nome || label;
+        $('drillSub').innerHTML = `${label}${meta.ti ? ' <span class="badge-ti">Despesa de TI</span>' : ''}`;
+        // A 4ª coluna mostra a "outra" dimensão: numa lista de fornecedor exibimos a categoria, e vice-versa.
+        $('drillCol6').textContent = isFornecedor ? 'Categoria' : 'Fornecedor';
+
+        $('drillSummary').innerHTML = `
+            <div class="stat"><div class="l">Total</div><div class="v">${meta.total != null ? fmtBRL(meta.total) : '—'}</div></div>
+            <div class="stat"><div class="l">Lançamentos</div><div class="v">${meta.count != null ? meta.count : 0}</div></div>
+        `;
+        const tbody = $('drillItens').querySelector('tbody');
+        tbody.innerHTML = `<tr><td colspan="8" class="empty-state">Carregando…</td></tr>`;
+
+        try {
+            const path = isFornecedor
+                ? `/fatura/fornecedores/${meta.id}/itens`
+                : `/fatura/categorias/${meta.id}/itens`;
+            const itens = await api('GET', path);
+            if (!Array.isArray(itens) || itens.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="empty-state">Nenhum lançamento encontrado.</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = itens.map(it => {
+                const outra = isFornecedor ? it.categoria_normalizada : it.fornecedor_normalizado;
+                const neg = (parseFloat(it.valor_brl) || 0) < 0;
+                return `
+                    <tr>
+                        <td>${escapeHtml(fmtDate(it.data))}</td>
+                        <td>${tipoPill(it.tipo)}</td>
+                        <td>${escapeHtml(it.estabelecimento || it.descricao || '—')}${it.produto_servico ? `<span class="fornecedor-prod" style="display:block">${escapeHtml(it.produto_servico)}</span>` : ''}</td>
+                        <td>${escapeHtml(outra || '—')}</td>
+                        <td>${escapeHtml(it.portador_nome || '—')}${it.portador_cartao_final ? ` ••${escapeHtml(it.portador_cartao_final)}` : ''}</td>
+                        <td>${escapeHtml(it.cidade || '—')}</td>
+                        <td><button class="btn btn-sm" data-fatura-id="${it.fatura_id}">#${it.fatura_id}</button></td>
+                        <td class="num ${neg ? 'val-neg' : ''}">${fmtBRL(it.valor_brl)}</td>
+                    </tr>
+                `;
+            }).join('');
+            // "#fatura" abre o detalhamento completo da fatura de origem
+            tbody.querySelectorAll('button[data-fatura-id]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    closeDrillModal();
+                    openDetalhesModal(btn.dataset.faturaId);
+                });
+            });
+        } catch (err) {
+            if (err.message !== 'auth') {
+                tbody.innerHTML = `<tr><td colspan="8" class="empty-state">Erro: ${escapeHtml(err.message || '')}</td></tr>`;
+            }
+        }
+    }
+    function closeDrillModal() {
+        $('drillModal').classList.add('hidden');
     }
 
     // --- MODAL DETALHES ---
@@ -560,19 +685,26 @@
             return;
         }
         showApp();
-        await Promise.all([loadHistory(), loadFornecedores(), loadCategorias()]);
+        await Promise.all([loadStats(), loadHistory(), loadFornecedores(), loadCategorias()]);
     }
 
     function init() {
         $('loginForm').addEventListener('submit', handleLoginSubmit);
         $('logoutBtn').addEventListener('click', () => { clearSession(); location.reload(); });
         bindDropZone();
+        bindTabs();
         $('detalhesClose').addEventListener('click', closeDetalhesModal);
         $('detalhesModal').addEventListener('click', (e) => {
             if (e.target.id === 'detalhesModal') closeDetalhesModal();
         });
+        $('drillClose').addEventListener('click', closeDrillModal);
+        $('drillModal').addEventListener('click', (e) => {
+            if (e.target.id === 'drillModal') closeDrillModal();
+        });
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && !$('detalhesModal').classList.contains('hidden')) closeDetalhesModal();
+            if (e.key !== 'Escape') return;
+            if (!$('drillModal').classList.contains('hidden')) closeDrillModal();
+            else if (!$('detalhesModal').classList.contains('hidden')) closeDetalhesModal();
         });
         bootstrap();
     }

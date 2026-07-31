@@ -123,7 +123,23 @@ function createUserManagementRouter({ getPool, authenticateToken, sql, bcrypt })
                 ORDER BY Username
             `);
 
-            return res.json(result.recordset.map(sanitizeUser));
+            // Carrega permissões de app de todos os usuários em uma só query
+            const appsMap = {};
+            try {
+                const perms = await pool.request().query(
+                    'SELECT UserId, AppKey FROM dbo.UserAppPermissions'
+                );
+                perms.recordset.forEach(p => {
+                    if (!appsMap[p.UserId]) appsMap[p.UserId] = [];
+                    appsMap[p.UserId].push(p.AppKey);
+                });
+            } catch (e) {
+                console.warn('[Users] Falha ao carregar UserAppPermissions:', e.message);
+            }
+
+            return res.json(result.recordset.map(u =>
+                sanitizeUser({ ...u, apps: appsMap[u.Id] || [] })
+            ));
         } catch (error) {
             console.error('[Users] Erro ao listar usuarios:', error);
             return res.status(500).json({ error: 'Erro ao listar usuarios' });
@@ -172,7 +188,23 @@ function createUserManagementRouter({ getPool, authenticateToken, sql, bcrypt })
                     VALUES (@username, @passwordHash, @email, @fullName, @isAdmin, @isActive, GETDATE())
                 `);
 
-            return res.status(201).json(sanitizeUser(insert.recordset[0]));
+            // Sincroniza permissões de app para o novo usuário
+            const newUserId = insert.recordset[0].Id;
+            const newApps = Array.isArray(req.body.apps)
+                ? [...new Set(req.body.apps.filter(a => typeof a === 'string' && a.trim()).map(a => a.trim().slice(0, 60)))]
+                : [];
+            try {
+                for (const appKey of newApps) {
+                    await pool.request()
+                        .input('userId', sql.Int, newUserId)
+                        .input('appKey', sql.NVarChar(60), appKey)
+                        .query('INSERT INTO dbo.UserAppPermissions (UserId, AppKey) VALUES (@userId, @appKey)');
+                }
+            } catch (e) {
+                console.warn('[Users] Falha ao inserir apps para novo usuario:', e.message);
+            }
+
+            return res.status(201).json(sanitizeUser({ ...insert.recordset[0], apps: newApps }));
         } catch (error) {
             console.error('[Users] Erro ao criar usuario:', error);
             return res.status(500).json({ error: 'Erro ao criar usuario' });
@@ -254,7 +286,25 @@ function createUserManagementRouter({ getPool, authenticateToken, sql, bcrypt })
                     WHERE Id = @id
                 `);
 
-            return res.json(sanitizeUser(update.recordset[0]));
+            // Sincroniza permissões de app
+            const updatedApps = Array.isArray(req.body.apps)
+                ? [...new Set(req.body.apps.filter(a => typeof a === 'string' && a.trim()).map(a => a.trim().slice(0, 60)))]
+                : [];
+            try {
+                await pool.request()
+                    .input('userId', sql.Int, targetUserId)
+                    .query('DELETE FROM dbo.UserAppPermissions WHERE UserId = @userId');
+                for (const appKey of updatedApps) {
+                    await pool.request()
+                        .input('userId', sql.Int, targetUserId)
+                        .input('appKey', sql.NVarChar(60), appKey)
+                        .query('INSERT INTO dbo.UserAppPermissions (UserId, AppKey) VALUES (@userId, @appKey)');
+                }
+            } catch (e) {
+                console.warn('[Users] Falha ao sincronizar apps:', e.message);
+            }
+
+            return res.json(sanitizeUser({ ...update.recordset[0], apps: updatedApps }));
         } catch (error) {
             console.error('[Users] Erro ao atualizar usuario:', error);
             return res.status(500).json({ error: 'Erro ao atualizar usuario' });

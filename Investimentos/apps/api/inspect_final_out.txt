@@ -1,0 +1,48 @@
+﻿=== distinct aprovador_final values ===
+[
+  {
+    "aprovador_final": "dcesar-conuki-srodrigues"
+  },
+  {
+    "aprovador_final": "invgpe"
+  }
+]
+=== rows with grupo=10 (orphan) ===
+[
+  {
+    "c": 27
+  }
+]
+=== sample active user logins (for comparison) ===
+[
+  {
+    "login": "acbatista"
+  },
+  {
+    "login": "cachur"
+  },
+  {
+    "login": "cetrindade"
+  },
+  {
+    "login": "cjaques"
+  },
+  {
+    "login": "conuki"
+  },
+  {
+    "login": "emello"
+  },
+  {
+    "login": "fpoliveira"
+  },
+  {
+    "login": "gdamaral"
+  },
+  {
+    "login": "gestor"
+  },
+  {
+    "login": "mokada"
+  }
+]

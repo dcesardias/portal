@@ -214,23 +214,17 @@ window.PortalAdmin = {
         container.appendChild(tutorialBtn);
     },
 
+    // Estado da tela de Páginas: filtro de chip, e ids marcados para acao em
+    // massa. O filtro de texto fica no proprio input (sem estado dedicado).
+    _pagesFilter: 'all',
+    _pagesSelected: null, // Set<number>, criado lazy
+
     loadPagesList() {
         const container = document.getElementById('pagesList');
         if (!container) return;
 
-        // Criar barra de busca uma vez
-        if (!document.getElementById('pagesSearchBar')) {
-            const bar = document.createElement('div');
-            bar.id = 'pagesSearchBar';
-            bar.className = 'pages-search-bar';
-            bar.innerHTML = `
-                <i class="fa fa-search search-icon" aria-hidden="true"></i>
-                <input type="text" id="pagesSearchInput" placeholder="Filtrar por título ou subtítulo..." autocomplete="off">
-                <span id="pagesSearchCount" class="pages-search-count"></span>
-            `;
-            container.parentNode.insertBefore(bar, container);
-            document.getElementById('pagesSearchInput').addEventListener('input', () => this._renderPagesList());
-        }
+        this._wirePagesToolbar();
+        if (!this._pagesSelected) this._pagesSelected = new Set();
 
         this._pagesListSorted = [...window.PortalApp.pagesData].sort((a, b) => {
             const ao = a.order ?? 0, bo = b.order ?? 0;
@@ -239,33 +233,89 @@ window.PortalAdmin = {
         this._renderPagesList();
     },
 
+    // Liga os eventos da toolbar de Páginas (busca, chips, limpar seleção e
+    // barra de ações em massa) uma única vez — mesmo padrão do _wireUsersToolbar.
+    _wirePagesToolbar() {
+        if (this._pagesToolbarWired) return;
+        this._pagesToolbarWired = true;
+
+        const searchInput = document.getElementById('pagesSearchInput');
+        if (searchInput) searchInput.addEventListener('input', () => this._renderPagesList());
+
+        const chips = document.getElementById('pagesFilterChips');
+        if (chips) {
+            chips.addEventListener('click', (e) => {
+                const btn = e.target.closest('.admin-chip');
+                if (!btn) return;
+                chips.querySelectorAll('.admin-chip').forEach(c => c.classList.remove('is-active'));
+                btn.classList.add('is-active');
+                this._pagesFilter = btn.dataset.filter;
+                this._renderPagesList();
+            });
+        }
+
+        const bulkClear = document.getElementById('pagesBulkClear');
+        if (bulkClear) {
+            bulkClear.addEventListener('click', () => {
+                this._pagesSelected.clear();
+                this._renderPagesList();
+            });
+        }
+
+        const bulkBar = document.getElementById('pagesBulkBar');
+        if (bulkBar) {
+            bulkBar.addEventListener('click', (e) => {
+                const btn = e.target.closest('[data-bulk]');
+                if (!btn) return;
+                this._applyPagesBulkAction(btn.dataset.bulk);
+            });
+        }
+    },
+
     _renderPagesList() {
         const container = document.getElementById('pagesList');
         if (!container) return;
+        if (!this._pagesSelected) this._pagesSelected = new Set();
 
-        const filter = (document.getElementById('pagesSearchInput')?.value || '').toLowerCase().trim();
+        const textFilter = (document.getElementById('pagesSearchInput')?.value || '').toLowerCase().trim();
         const sorted = this._pagesListSorted || [];
-        const pages = filter
+        let pages = textFilter
             ? sorted.filter(p =>
-                (p.title || '').toLowerCase().includes(filter) ||
-                (p.subtitle || '').toLowerCase().includes(filter))
-            : sorted;
+                (p.title || '').toLowerCase().includes(textFilter) ||
+                (p.subtitle || '').toLowerCase().includes(textFilter))
+            : sorted.slice();
+
+        const chipFilter = this._pagesFilter || 'all';
+        if (chipFilter === 'quick') pages = pages.filter(p => p.showInHome !== false);
+        else if (chipFilter === 'other') pages = pages.filter(p => p.showInHome === false);
+        else if (chipFilter === 'homolog') pages = pages.filter(p => p.isHomologation);
+        else if (chipFilter === 'redirect') pages = pages.filter(p => p.redirectPowerBIUrl && p.redirectEmails);
+        else if (chipFilter === 'orphan') pages = pages.filter(p => this._countMenuLinksToPage(p.id) === 0);
 
         const countEl = document.getElementById('pagesSearchCount');
-        if (countEl) countEl.textContent = filter ? `${pages.length} de ${sorted.length}` : `${sorted.length} página(s)`;
+        if (countEl) countEl.textContent = (textFilter || chipFilter !== 'all') ? `${pages.length} de ${sorted.length}` : `${sorted.length} página(s)`;
 
         container.innerHTML = '';
 
         if (pages.length === 0) {
             container.innerHTML = '<div class="admin-placeholder">Nenhuma página encontrada.</div>';
+            this._syncPagesBulkBar();
             return;
         }
 
         // Drag-and-drop só faz sentido para páginas que aparecem no Acesso Rápido
-        // — a ordem controla os cards na home. Para "Outras páginas" (não-home),
-        // a ordem é irrelevante. Também desligado quando há filtro ativo (índices
-        // visuais não corresponderiam à lista real).
-        const dragEnabled = !filter;
+        // — a ordem controla os cards na home. Também desligado quando há
+        // filtro de texto ou de chip ativo (índices visuais não
+        // corresponderiam à lista real, e um chip específico já mostra uma
+        // lista plana sem a divisão Acesso Rápido/Outras).
+        const dragEnabled = !textFilter && chipFilter === 'all';
+
+        if (chipFilter !== 'all') {
+            // Filtro de chip ativo: lista única, sem a divisão em seções.
+            pages.forEach(page => container.appendChild(this._buildPageRow(page, { draggable: false })));
+            this._syncPagesBulkBar();
+            return;
+        }
 
         const quickAccessPages = pages.filter(p => p.showInHome !== false);
         const otherPages = pages.filter(p => p.showInHome === false);
@@ -307,10 +357,22 @@ window.PortalAdmin = {
         }
 
         if (dragEnabled && quickAccessPages.length > 1) this._initPagesDragDrop(quickList);
+        this._syncPagesBulkBar();
+    },
+
+    _syncPagesBulkBar() {
+        const bulkBar = document.getElementById('pagesBulkBar');
+        const bulkCount = document.getElementById('pagesBulkCount');
+        if (!bulkBar) return;
+        const n = (this._pagesSelected || new Set()).size;
+        bulkBar.hidden = n === 0;
+        if (bulkCount) bulkCount.textContent = n === 1 ? '1 página selecionada' : `${n} páginas selecionadas`;
     },
 
     // Helper que constrói uma linha de página. Extraído para ser usado pelas duas seções.
     _buildPageRow(page, { draggable }) {
+        if (!this._pagesSelected) this._pagesSelected = new Set();
+
         const wrapper = document.createElement('div');
         wrapper.className = 'menu-item-wrapper';
         wrapper.dataset.id = String(page.id);
@@ -318,6 +380,18 @@ window.PortalAdmin = {
 
         const item = document.createElement('div');
         item.className = 'menu-list-item';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'pages-row-check';
+        checkbox.setAttribute('aria-label', `Selecionar ${page.title || 'página'}`);
+        checkbox.checked = this._pagesSelected.has(page.id);
+        checkbox.addEventListener('change', () => {
+            if (checkbox.checked) this._pagesSelected.add(page.id);
+            else this._pagesSelected.delete(page.id);
+            this._syncPagesBulkBar();
+        });
+        item.appendChild(checkbox);
 
         if (draggable) {
             const handle = document.createElement('span');
@@ -332,11 +406,13 @@ window.PortalAdmin = {
 
         let badges = '';
         if (page.icon) badges += '<span class="page-list-badge badge-blue" title="Tem ícone personalizado">🎨</span>';
+        if (page.isHomologation) badges += '<span class="page-list-badge badge-amber" title="Painel em homologação">HOMOLOGAÇÃO</span>';
         if (page.redirectPowerBIUrl && page.redirectEmails) badges += '<span class="page-list-badge badge-purple">REDIRECT</span>';
         // DESATIVADO — badge EMBED (App Owns Data). Descomente se retomar.
         // if (page.useEmbed && page.embedWorkspaceId && page.embedReportId) badges += '<span class="page-list-badge badge-green" title="Renderizado via Power BI Embedded">EMBED</span>';
         const menuLinks = this._countMenuLinksToPage(page.id);
         if (menuLinks > 0) badges += `<span class="page-list-badge badge-green" title="${menuLinks} item(ns) do menu apontam para esta página">${menuLinks}× menu</span>`;
+        else badges += '<span class="page-list-badge badge-gray" title="Nenhum item do menu aponta para esta página">sem menu</span>';
 
         infoDiv.innerHTML = `
             <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:3px;">
@@ -345,6 +421,27 @@ window.PortalAdmin = {
             </div>
             <small style="color:var(--text-secondary);">${this._escHtml(page.subtitle || 'Sem subtítulo')}</small>
         `;
+
+        const togglesDiv = document.createElement('div');
+        togglesDiv.className = 'pages-row-toggles';
+        togglesDiv.style.flexShrink = '0';
+        const quickBtn = document.createElement('button');
+        quickBtn.type = 'button';
+        quickBtn.className = `admin-toggle-pill ${page.showInHome !== false ? 'is-on' : ''}`;
+        quickBtn.textContent = 'Acesso Rápido';
+        quickBtn.title = `Clique para ${page.showInHome !== false ? 'remover do' : 'colocar no'} Acesso Rápido`;
+        quickBtn.addEventListener('click', () => this._quickUpdatePage(page.id, { showInHome: !(page.showInHome !== false) }));
+        const homologBtn = document.createElement('button');
+        homologBtn.type = 'button';
+        homologBtn.className = `admin-toggle-pill ${page.isHomologation ? 'is-on' : ''}`;
+        homologBtn.textContent = 'Homologação';
+        homologBtn.title = `Clique para ${page.isHomologation ? 'remover de' : 'marcar em'} Homologação`;
+        homologBtn.addEventListener('click', () => this._quickUpdatePage(page.id, {
+            isHomologation: !page.isHomologation,
+            homologationStartedAt: (!page.isHomologation && !page.homologationStartedAt) ? this._todayDateString() : page.homologationStartedAt
+        }));
+        togglesDiv.appendChild(quickBtn);
+        togglesDiv.appendChild(homologBtn);
 
         const actionsDiv = document.createElement('div');
         actionsDiv.className = 'menu-list-item-actions';
@@ -365,16 +462,152 @@ window.PortalAdmin = {
         this.addTutorialButtonToPage(page.id, actionsDiv);
 
         wrapper.addEventListener('mousedown', (e) => {
-            if (e.target.closest('button')) {
+            if (e.target.closest('button') || e.target.closest('input')) {
                 wrapper.draggable = false;
                 requestAnimationFrame(() => { if (draggable) wrapper.draggable = true; });
             }
         }, true);
 
         item.appendChild(infoDiv);
+        item.appendChild(togglesDiv);
         item.appendChild(actionsDiv);
         wrapper.appendChild(item);
         return wrapper;
+    },
+
+    _todayDateString() {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    },
+
+    // Atualiza uma página via PUT enviando o objeto completo — o endpoint
+    // /api/pages/:id nao faz COALESCE (exceto "order"), entao qualquer campo
+    // omitido seria zerado. Por isso sempre partimos da pagina em cache
+    // (window.PortalApp.pagesData) e so' sobrescrevemos o que o toggle mudou.
+    async _quickUpdatePage(id, patch) {
+        const page = (window.PortalApp.pagesData || []).find(p => p.id === id);
+        if (!page) return;
+        if (!window.PortalApp.authToken) {
+            await window.adminConfirm({ title: 'Sessão expirada', message: 'Faça login como administrador para editar páginas.', confirmText: 'OK', cancelText: ' ' });
+            return;
+        }
+
+        const body = {
+            title: page.title, subtitle: page.subtitle, description: page.description,
+            powerBIUrl: page.powerbiUrl, redirectPowerBIUrl: page.redirectPowerBIUrl || null,
+            redirectEmails: page.redirectEmails || null, showInHome: page.showInHome !== false,
+            isHomologation: !!page.isHomologation, homologationStartedAt: page.homologationStartedAt || null,
+            icon: page.icon || null, order: page.order,
+            useEmbed: !!page.useEmbed, embedWorkspaceId: page.embedWorkspaceId || null,
+            embedReportId: page.embedReportId || null, embedRoles: page.embedRoles || null,
+            redirectEmbedWorkspaceId: page.redirectEmbedWorkspaceId || null,
+            redirectEmbedReportId: page.redirectEmbedReportId || null,
+            ...patch
+        };
+
+        try {
+            const response = await fetch(`${window.PortalApp.API_URL}/pages/${id}`, {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${window.PortalApp.authToken}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            if (!response.ok) {
+                let bodyText = '';
+                try { const json = await response.json(); bodyText = json.error || JSON.stringify(json); }
+                catch (_) { bodyText = await response.text().catch(() => response.statusText); }
+                throw new Error(bodyText || 'Erro ao atualizar página');
+            }
+            await window.PortalData.loadDataFromAPI();
+            if (window.PortalPages) window.PortalPages.loadQuickAccessCards();
+        } catch (error) {
+            console.error('[Página] atualização rápida falhou:', error);
+            await window.adminConfirm({ title: 'Não foi possível atualizar', message: error.message || 'Erro desconhecido', confirmText: 'OK', cancelText: ' ' });
+        }
+    },
+
+    // Aplica uma ação (Acesso Rápido, Homologação, Excluir) a todas as
+    // páginas selecionadas, sequencialmente, reportando falhas ao final.
+    async _applyPagesBulkAction(action) {
+        const ids = Array.from(this._pagesSelected || []);
+        if (ids.length === 0) return;
+
+        const actionLabels = {
+            'show-home': 'colocar no Acesso Rápido', 'hide-home': 'remover do Acesso Rápido',
+            'mark-homolog': 'marcar em Homologação', 'unmark-homolog': 'remover de Homologação',
+            delete: 'excluir'
+        };
+        const label = actionLabels[action] || action;
+        const ok = await window.adminConfirm({
+            title: 'Confirmar ação em massa',
+            message: action === 'delete'
+                ? `Deseja excluir ${ids.length} página(s)? Itens de menu que apontem para elas ficarão sem destino.`
+                : `Deseja ${label} em ${ids.length} página(s)?`,
+            confirmText: 'Confirmar',
+            destructive: action === 'delete' || action === 'hide-home'
+        });
+        if (!ok) return;
+
+        let okCount = 0;
+        const failures = [];
+
+        for (const id of ids) {
+            const page = (window.PortalApp.pagesData || []).find(p => p.id === id);
+            if (!page) continue;
+            try {
+                if (action === 'delete') {
+                    const response = await fetch(`${window.PortalApp.API_URL}/pages/${id}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${window.PortalApp.authToken}` }
+                    });
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                } else {
+                    let patch = null;
+                    if (action === 'show-home') patch = { showInHome: true };
+                    else if (action === 'hide-home') patch = { showInHome: false };
+                    else if (action === 'mark-homolog') patch = { isHomologation: true, homologationStartedAt: page.homologationStartedAt || this._todayDateString() };
+                    else if (action === 'unmark-homolog') patch = { isHomologation: false };
+                    if (!patch) continue;
+
+                    const body = {
+                        title: page.title, subtitle: page.subtitle, description: page.description,
+                        powerBIUrl: page.powerbiUrl, redirectPowerBIUrl: page.redirectPowerBIUrl || null,
+                        redirectEmails: page.redirectEmails || null, showInHome: page.showInHome !== false,
+                        isHomologation: !!page.isHomologation, homologationStartedAt: page.homologationStartedAt || null,
+                        icon: page.icon || null, order: page.order,
+                        useEmbed: !!page.useEmbed, embedWorkspaceId: page.embedWorkspaceId || null,
+                        embedReportId: page.embedReportId || null, embedRoles: page.embedRoles || null,
+                        redirectEmbedWorkspaceId: page.redirectEmbedWorkspaceId || null,
+                        redirectEmbedReportId: page.redirectEmbedReportId || null,
+                        ...patch
+                    };
+                    const response = await fetch(`${window.PortalApp.API_URL}/pages/${id}`, {
+                        method: 'PUT',
+                        headers: { 'Authorization': `Bearer ${window.PortalApp.authToken}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify(body)
+                    });
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                }
+                okCount++;
+            } catch (error) {
+                failures.push(`${page.title || page.id}: ${error.message || 'erro desconhecido'}`);
+            }
+        }
+
+        this._pagesSelected.clear();
+        await window.PortalData.loadDataFromAPI();
+        if (window.PortalPages) window.PortalPages.loadQuickAccessCards();
+
+        if (failures.length > 0) {
+            await window.adminConfirm({
+                title: `${okCount} de ${ids.length} atualizadas`,
+                message: `Falhas:\n${failures.join('\n')}`,
+                confirmText: 'OK',
+                cancelText: ' '
+            });
+        }
     },
 
     _escHtml(str) {
@@ -669,6 +902,7 @@ window.PortalAdmin = {
         if (view === 'chatbot')        return { label: 'Chatbot', icon: 'robot' };
         if (view === 'excel')          return { label: 'Sistema de Carga (Excel)', icon: 'table' };
         if (view === 'fatura')         return { label: 'Fatura', icon: 'file-invoice' };
+        if (view === 'chamados')       return { label: 'Kanban de Chamados', icon: 'tasks' };
         if (view === 'mapdb')          return { label: 'MapDB', icon: 'project-diagram' };
         if (view === 'tutorial')       return { label: 'Tutorial', icon: 'graduation-cap' };
 
@@ -789,138 +1023,78 @@ window.PortalAdmin = {
                     </div>
                     <div class="form-group">
                         <label for="pageDescInput">Descrição</label>
-                        <textarea id="pageDescInput" rows="3" placeholder="Descrição detalhada da página…"></textarea>
+                        <textarea id="pageDescInput" rows="2" placeholder="Descrição detalhada da página…"></textarea>
                     </div>
                 </fieldset>
 
                 <fieldset class="admin-fieldset">
                     <legend class="admin-legend">Power BI</legend>
-                    <p class="admin-fieldset-hint">URL do report no Power BI Service (formato <code>/reportEmbed?reportId=…&groupId=…</code>).</p>
                     <div class="form-group">
                         <label for="powerbiUrlInput">URL do Power BI Embed</label>
                         <input type="text" id="powerbiUrlInput" placeholder="https://app.powerbi.com/reportEmbed?reportId=…&groupId=…">
-                    </div>
-                </fieldset>
-
-                <!--
-                    ============================================================
-                    DESATIVADO — Power BI Embedded (App Owns Data)
-                    ------------------------------------------------------------
-                    Projeto de migracao para App Owns Data foi suspenso. Toda a
-                    AACD continua usando user-owns-data via /reportEmbed (SDK
-                    powerbi-client com token AAD do proprio usuario, ver
-                    pages.js -> renderUserOwnsData).
-
-                    Os campos abaixo (useEmbedCheckbox, embedUrlPasteInput,
-                    embedWorkspaceIdInput, embedReportIdInput, embedRlsCheckbox)
-                    e o handler do paste de URL ficam comentados pra reduzir
-                    ruido no modal de criar/editar pagina. Os valores ja
-                    gravados no banco (UseEmbed/EmbedWorkspaceId/EmbedReportId/
-                    EmbedRoles) sao preservados — savePage le do pagesData
-                    em vez de ler do DOM. Pra retomar a feature: descomentar
-                    este fieldset, descomentar o preenchimento em "Preencher
-                    campos se editando", e voltar savePage a ler do DOM.
-                    ============================================================
-                <fieldset class="admin-fieldset">
-                    <legend class="admin-legend">Power BI Embedded <span class="admin-legend-tag">(App Owns Data)</span></legend>
-                    <p class="admin-fieldset-hint">Quando ligado, o portal gera embed token via Service Principal em vez de usar a URL iframe acima. Permissoes refletem o "Manage access" do workspace/report.</p>
-                    <div class="form-group">
-                        <label class="admin-checkbox-row">
-                            <input type="checkbox" id="useEmbedCheckbox">
-                            <span><strong>Usar Power BI Embedded</strong></span>
-                        </label>
-                    </div>
-                    <div class="form-group">
-                        <label for="embedUrlPasteInput">Cole URL do Power BI Service (auto-extrai IDs)</label>
-                        <input type="text" id="embedUrlPasteInput" placeholder="https://app.fabric.microsoft.com/groups/{workspaceId}/reports/{reportId}?…">
-                    </div>
-                    <div class="form-group">
-                        <label for="embedWorkspaceIdInput">Workspace ID (GUID)</label>
-                        <input type="text" id="embedWorkspaceIdInput" placeholder="00000000-0000-0000-0000-000000000000">
-                    </div>
-                    <div class="form-group">
-                        <label for="embedReportIdInput">Report ID (GUID)</label>
-                        <input type="text" id="embedReportIdInput" placeholder="00000000-0000-0000-0000-000000000000">
-                    </div>
-                    <div class="form-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="embedRlsCheckbox">
-                            <span><strong>Ativar Row-Level Security (RLS)</strong></span>
-                        </label>
-                        <small class="admin-help">Marque se o dataset usa RLS. O portal vai enviar o email do usuário (MSAL) com o role <code>AcessoAvancado</code> ao Power BI ao gerar o embed token.</small>
-                    </div>
-                </fieldset>
-                    -->
-
-
-                <fieldset class="admin-fieldset">
-                    <legend class="admin-legend">Redirecionamento condicional <span class="admin-legend-tag">(opcional)</span></legend>
-                    <p class="admin-fieldset-hint">URL alternativa usada quando o usuário Microsoft logado estiver na lista de e-mails abaixo.</p>
-                    <div class="form-group">
-                        <label for="redirectPowerbiUrlInput">URL alternativa (iframe)</label>
-                        <input type="text" id="redirectPowerbiUrlInput" placeholder="https://app.powerbi.com/view?r=…">
-                    </div>
-                    <!--
-                        DESATIVADO — campos de redirect via App Owns Data.
-                        Mesma justificativa do fieldset "Power BI Embedded" acima.
-                        Valores ja gravados (RedirectEmbedWorkspaceId/RedirectEmbedReportId)
-                        sao preservados pelo savePage via pagesData.
-                    <div class="form-group">
-                        <label for="redirectEmbedUrlPasteInput">URL alternativa (Power BI Embedded)</label>
-                        <input type="text" id="redirectEmbedUrlPasteInput" placeholder="https://app.fabric.microsoft.com/groups/{workspaceId}/reports/{reportId}?…">
-                        <small class="admin-help">Cole a URL do report alternativo. Os IDs são extraídos automaticamente.</small>
-                    </div>
-                    <div class="form-group">
-                        <label for="redirectEmbedWorkspaceIdInput">Workspace ID alternativo (GUID)</label>
-                        <input type="text" id="redirectEmbedWorkspaceIdInput" placeholder="00000000-0000-0000-0000-000000000000">
-                    </div>
-                    <div class="form-group">
-                        <label for="redirectEmbedReportIdInput">Report ID alternativo (GUID)</label>
-                        <input type="text" id="redirectEmbedReportIdInput" placeholder="00000000-0000-0000-0000-000000000000">
-                    </div>
-                    -->
-                    <div class="form-group">
-                        <label for="redirectEmailsInput">E-mails Microsoft</label>
-                        <textarea id="redirectEmailsInput" rows="3" placeholder="usuario1@aacd.org.br&#10;usuario2@aacd.org.br"></textarea>
-                        <small class="admin-help">Um e-mail por linha. Aceita vírgula ou ponto e vírgula. O redirecionamento vale apenas para usuários nesta lista.</small>
+                        <small class="admin-help">URL do report no Power BI Service (formato <code>/reportEmbed?reportId=…&groupId=…</code>).</small>
                     </div>
                 </fieldset>
 
                 <fieldset class="admin-fieldset">
-                    <legend class="admin-legend">Aparência e visibilidade</legend>
-                    <div class="form-group">
-                        <label class="admin-checkbox-row">
-                            <input type="checkbox" id="showInHomeCheckbox">
-                            <span>Mostrar na tela inicial (Acesso Rápido)</span>
-                        </label>
-                    </div>
-                    <div class="form-group">
-                        <label class="admin-checkbox-row">
-                            <input type="checkbox" id="isHomologationCheckbox">
-                            <span>Painel em Homologação (aparece em <code>/homologa</code>)</span>
-                        </label>
-                        <small class="admin-help">Quando marcado, este painel aparece na rota <code>/homologa</code> para validação. Não afeta a home padrão.</small>
-                    </div>
-                    <div class="form-group" id="homologationStartedAtGroup">
-                        <label for="homologationStartedAtInput">Data de publicação em homologação</label>
-                        <input type="date" id="homologationStartedAtInput">
-                        <small class="admin-help">Usada para exibir nos cards de <code>/homologa</code> há quanto tempo o painel está em homologação. Auto-preenche para hoje ao marcar o checkbox.</small>
-                    </div>
+                    <legend class="admin-legend">Aparência</legend>
                     <div class="form-group">
                         <label for="pageIconInput">Ícone do card</label>
-                        <div class="admin-inline-row">
-                            <input type="text" id="pageIconInput" placeholder="Ex: 📊 ou escolha abaixo" class="admin-flex-1">
+                        <div class="admin-icon-field">
                             <div id="pageIconPreview" class="icon-preview" title="Preview do ícone"></div>
-                        </div>
-                        <div id="pageIconDropdown" class="admin-dropdown">
-                            <div id="pageIconDropdownToggle" class="admin-dropdown-toggle">
-                                <span id="pageIconDropdownSelected" class="admin-inline-row"><span class="admin-muted">Selecione um ícone…</span></span>
-                                <span class="admin-dropdown-caret">›</span>
+                            <div id="pageIconDropdown" class="admin-dropdown admin-icon-picker-wrap">
+                                <div id="pageIconDropdownToggle" class="admin-dropdown-toggle">
+                                    <span id="pageIconDropdownSelected" class="admin-inline-row"><span class="admin-muted">Selecione um ícone…</span></span>
+                                    <span class="admin-dropdown-caret">›</span>
+                                </div>
+                                <div id="pageIconDropdownMenu" class="admin-dropdown-menu" style="display:none;"></div>
                             </div>
-                            <div id="pageIconDropdownMenu" class="admin-dropdown-menu" style="display:none;"></div>
                         </div>
+                        <input type="text" id="pageIconInput" class="admin-icon-code" placeholder="Ou digite: 📊 / fas fa-chart-bar">
+                        <small class="admin-help">Escolha um ícone na lista ou digite um emoji / classe Font Awesome.</small>
                     </div>
                 </fieldset>
+
+                <fieldset class="admin-fieldset">
+                    <legend class="admin-legend">Visibilidade</legend>
+                    <label class="admin-toggle-row">
+                        <span class="admin-toggle-row-text">
+                            <strong>Mostrar na tela inicial</strong>
+                            <small>Aparece como card no Acesso Rápido da home.</small>
+                        </span>
+                        <input type="checkbox" id="showInHomeCheckbox">
+                    </label>
+                    <label class="admin-toggle-row">
+                        <span class="admin-toggle-row-text">
+                            <strong>Painel em Homologação</strong>
+                            <small>Aparece em <code>/homologa</code> para validação. Não afeta a home padrão.</small>
+                        </span>
+                        <input type="checkbox" id="isHomologationCheckbox">
+                    </label>
+                    <div class="form-group admin-conditional" id="homologationStartedAtGroup" hidden>
+                        <label for="homologationStartedAtInput">Data de publicação em homologação</label>
+                        <input type="date" id="homologationStartedAtInput">
+                        <small class="admin-help">Exibida nos cards de <code>/homologa</code>. Auto-preenche para hoje ao ligar o painel em homologação.</small>
+                    </div>
+                </fieldset>
+
+                <details class="admin-details" id="redirectDetails">
+                    <summary class="admin-details-summary">
+                        <span><i class="fa-solid fa-code-branch" aria-hidden="true"></i> Redirecionamento condicional</span>
+                        <small>Opcional — abre uma URL alternativa para e-mails específicos</small>
+                    </summary>
+                    <div class="admin-details-body">
+                        <div class="form-group">
+                            <label for="redirectPowerbiUrlInput">URL alternativa (iframe)</label>
+                            <input type="text" id="redirectPowerbiUrlInput" placeholder="https://app.powerbi.com/view?r=…">
+                        </div>
+                        <div class="form-group">
+                            <label for="redirectEmailsInput">E-mails Microsoft</label>
+                            <textarea id="redirectEmailsInput" rows="3" placeholder="usuario1@aacd.org.br&#10;usuario2@aacd.org.br"></textarea>
+                            <small class="admin-help">Um e-mail por linha. Aceita vírgula ou ponto e vírgula. O redirecionamento vale apenas para usuários nesta lista.</small>
+                        </div>
+                    </div>
+                </details>
             </div>
             <div class="admin-modal-actions">
                 <button class="btn" onclick="closeAdminModal()">Cancelar</button>
@@ -946,62 +1120,32 @@ window.PortalAdmin = {
             const homologDateInput = document.getElementById('homologationStartedAtInput');
             if (homologDateInput) homologDateInput.value = page.homologationStartedAt || '';
             document.getElementById('pageIconInput').value = (window.PortalIcons ? window.PortalIcons.svgToKey(page.icon) : page.icon) || '';
-            // DESATIVADO — preenchimento dos campos de App Owns Data. Os
-            // elementos useEmbedCheckbox/embedWorkspaceIdInput/etc nao
-            // existem mais no DOM (ver fieldset comentado acima). Os
-            // valores no banco continuam la' e sao preservados pelo
-            // savePage via window.PortalApp.pagesData. Pra retomar a
-            // feature: descomentar este bloco junto com o fieldset.
-            // document.getElementById('useEmbedCheckbox').checked = !!page.useEmbed;
-            // document.getElementById('embedWorkspaceIdInput').value = page.embedWorkspaceId || '';
-            // document.getElementById('embedReportIdInput').value = page.embedReportId || '';
-            // // Convencao AACD: todo dataset com RLS usa o role "AcessoAvancado".
-            // // Checkbox liga se a page tem qualquer valor em EmbedRoles.
-            // document.getElementById('embedRlsCheckbox').checked = !!(page.embedRoles && String(page.embedRoles).trim());
-            // document.getElementById('redirectEmbedWorkspaceIdInput').value = page.redirectEmbedWorkspaceId || '';
-            // document.getElementById('redirectEmbedReportIdInput').value = page.redirectEmbedReportId || '';
+
+            // Abre a seção de redirecionamento já expandida quando a página
+            // tem um redirect configurado — senão fica escondido e o admin
+            // pode nem perceber que existe.
+            if ((page.redirectPowerBIUrl && page.redirectPowerBIUrl.trim()) || (page.redirectEmails && page.redirectEmails.trim())) {
+                const details = document.getElementById('redirectDetails');
+                if (details) details.open = true;
+            }
         }
 
-        // Auto-extrair IDs ao colar URL do Power BI Service
-        const pasteInput = document.getElementById('embedUrlPasteInput');
-        if (pasteInput) {
-            pasteInput.addEventListener('input', () => {
-                const m = pasteInput.value.match(/groups\/([0-9a-fA-F-]{36})\/reports\/([0-9a-fA-F-]{36})/);
-                if (m) {
-                    document.getElementById('embedWorkspaceIdInput').value = m[1];
-                    document.getElementById('embedReportIdInput').value = m[2];
-                }
-            });
-        }
-
-        // Auto-extrair IDs do redirect (URL alternativa embed)
-        const redirectPasteInput = document.getElementById('redirectEmbedUrlPasteInput');
-        if (redirectPasteInput) {
-            redirectPasteInput.addEventListener('input', () => {
-                const m = redirectPasteInput.value.match(/groups\/([0-9a-fA-F-]{36})\/reports\/([0-9a-fA-F-]{36})/);
-                if (m) {
-                    document.getElementById('redirectEmbedWorkspaceIdInput').value = m[1];
-                    document.getElementById('redirectEmbedReportIdInput').value = m[2];
-                }
-            });
-        }
-
-        // Auto-preencher data de publicacao em homologacao quando o admin
-        // marca o checkbox e o campo de data ainda esta vazio. Nao altera
-        // datas ja' preenchidas (admin pode ter colocado manualmente). Ao
-        // desmarcar, mantemos a data — se remarcar depois, o valor original
-        // volta naturalmente.
+        // A data de publicação em homologação só faz sentido quando o painel
+        // está em homologação — mostra/esconde o campo conforme o checkbox e
+        // auto-preenche para hoje ao ligar (se ainda estiver vazio).
         const homologCheckEl = document.getElementById('isHomologationCheckbox');
         const homologDateEl = document.getElementById('homologationStartedAtInput');
+        const homologDateGroup = document.getElementById('homologationStartedAtGroup');
+        const syncHomologDateVisibility = () => {
+            if (homologDateGroup) homologDateGroup.hidden = !homologCheckEl.checked;
+        };
         if (homologCheckEl && homologDateEl) {
+            syncHomologDateVisibility();
             homologCheckEl.addEventListener('change', () => {
                 if (homologCheckEl.checked && !homologDateEl.value) {
-                    const today = new Date();
-                    const yyyy = today.getFullYear();
-                    const mm = String(today.getMonth() + 1).padStart(2, '0');
-                    const dd = String(today.getDate()).padStart(2, '0');
-                    homologDateEl.value = `${yyyy}-${mm}-${dd}`;
+                    homologDateEl.value = this._todayDateString();
                 }
+                syncHomologDateVisibility();
             });
         }
 
@@ -1052,17 +1196,18 @@ window.PortalAdmin = {
                     <legend class="admin-legend">Aparência</legend>
                     <div class="form-group">
                         <label for="menuIconInput">Ícone</label>
-                        <div class="admin-inline-row">
-                            <input type="text" id="menuIconInput" placeholder="Ex: 📊 ou fas fa-chart" class="admin-flex-1">
+                        <div class="admin-icon-field">
                             <div id="menuIconPreview" class="icon-preview" title="Preview do ícone"></div>
-                        </div>
-                        <div id="iconDropdown" class="admin-dropdown">
-                            <div id="iconDropdownToggle" class="admin-dropdown-toggle">
-                                <span id="iconDropdownSelected" class="admin-inline-row"><span class="admin-muted">Selecione um ícone…</span></span>
-                                <span class="admin-dropdown-caret">›</span>
+                            <div id="iconDropdown" class="admin-dropdown admin-icon-picker-wrap">
+                                <div id="iconDropdownToggle" class="admin-dropdown-toggle">
+                                    <span id="iconDropdownSelected" class="admin-inline-row"><span class="admin-muted">Selecione um ícone…</span></span>
+                                    <span class="admin-dropdown-caret">›</span>
+                                </div>
+                                <div id="iconDropdownMenu" class="admin-dropdown-menu" style="display:none;"></div>
                             </div>
-                            <div id="iconDropdownMenu" class="admin-dropdown-menu" style="display:none;"></div>
                         </div>
+                        <input type="text" id="menuIconInput" class="admin-icon-code" placeholder="Ou digite: 📊 / fas fa-chart-bar">
+                        <small class="admin-help">Escolha um ícone na lista ou digite um emoji / classe Font Awesome.</small>
                     </div>
                 </fieldset>
 
@@ -1076,13 +1221,13 @@ window.PortalAdmin = {
                         <small class="admin-help">Deixe em branco para colocar no nível principal do menu.</small>
                     </div>
                     <div class="form-group" id="pageSelectGroup">
-                        <label for="pageSearchInput">Página associada</label>
+                        <label for="pageSearchInput">Página associada <span aria-hidden="true">*</span></label>
                         <input type="hidden" id="pageSelect" value="">
                         <div class="page-search-select" id="pageSearchSelect">
                             <input type="text" id="pageSearchInput" class="page-search-input" placeholder="Buscar página…" autocomplete="off">
                             <div id="pageSearchResults" class="page-search-results"></div>
                         </div>
-                        <small class="admin-help">Categorias não têm página associada — agrupam subitens.</small>
+                        <small class="admin-help">Item simples precisa de uma página — é para onde ele leva ao ser clicado. Categorias apenas agrupam subitens e não têm página.</small>
                     </div>
                 </fieldset>
             </div>
@@ -1181,6 +1326,11 @@ window.PortalAdmin = {
     _closeAdminModal() {
         const overlay = document.getElementById('adminModalOverlay');
         if (overlay) overlay.remove();
+        // O picker de ícone e a lista de páginas movem seus menus para
+        // document.body enquanto abertos (pra não serem cortados pelo overflow
+        // do modal). Se o modal fechar com um deles aberto, ficariam órfãos e
+        // visíveis no body — removemos.
+        document.querySelectorAll('body > .icon-picker-menu, body > .page-search-results').forEach(m => m.remove());
         window.PortalApp.editingPageId = null;
         window.PortalApp.editingMenuId = null;
     },
@@ -1204,6 +1354,7 @@ window.PortalAdmin = {
         }
 
         // Injeta barra de busca uma vez (mesmo padrão da lista de páginas).
+        // Fica no topo da coluna do editor, acima da barra de expandir/retrair.
         if (!document.getElementById('menuSearchBar')) {
             const bar = document.createElement('div');
             bar.id = 'menuSearchBar';
@@ -1213,7 +1364,9 @@ window.PortalAdmin = {
                 <input type="text" id="menuSearchInput" placeholder="Filtrar itens do menu..." autocomplete="off" aria-label="Filtrar itens do menu">
                 <span id="menuSearchCount" class="pages-search-count"></span>
             `;
-            container.parentNode.insertBefore(bar, container);
+            const editorCol = container.closest('.menu-editor-col') || container.parentNode;
+            const anchor = document.getElementById('menuExpandCollapseBar') || container;
+            editorCol.insertBefore(bar, anchor);
             document.getElementById('menuSearchInput').addEventListener('input', () => this.loadMenuStructure());
         }
 
@@ -1260,6 +1413,7 @@ window.PortalAdmin = {
         this._renderMenuItems(container, rootItems, 0);
         if (parentSelect) this._populateParentSelect(parentSelect, [...window.PortalApp.menuData], 0);
         this._initMenuDragDrop(container);
+        this._renderMenuPreview();
     },
 
     _renderMenuItems(container, items, level) {
@@ -1323,6 +1477,36 @@ window.PortalAdmin = {
                 </div>
             `;
 
+            // Sublinha com o vínculo de página — o "coração" desta tela é ligar
+            // item ⇄ página, então mostramos isso direto na árvore (antes só dava
+            // pra ver abrindo o modal). Categorias não têm página. Itens simples:
+            //   • página existe  → chip clicável que abre a página
+            //   • página removida → aviso vermelho
+            //   • sem página      → aviso âmbar (item que não navega pra lugar nenhum)
+            if (!isCategory) {
+                let linkEl;
+                if (item.pageId) {
+                    const linkedPage = (window.PortalApp.pagesData || []).find(p => p.id === item.pageId);
+                    if (linkedPage) {
+                        linkEl = document.createElement('button');
+                        linkEl.type = 'button';
+                        linkEl.className = 'menu-item-link';
+                        linkEl.title = 'Abrir a página vinculada';
+                        linkEl.innerHTML = `<i class="fa-solid fa-arrow-turn-down fa-rotate-90" aria-hidden="true"></i> <span>${this._escHtml(linkedPage.title || ('Página ' + linkedPage.id))}</span>`;
+                        linkEl.addEventListener('click', (e) => { e.stopPropagation(); this.editPage(item.pageId); });
+                    } else {
+                        linkEl = document.createElement('span');
+                        linkEl.className = 'menu-item-link is-broken';
+                        linkEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Página #${item.pageId} não encontrada`;
+                    }
+                } else {
+                    linkEl = document.createElement('span');
+                    linkEl.className = 'menu-item-link is-empty';
+                    linkEl.innerHTML = `<i class="fa-solid fa-link-slash" aria-hidden="true"></i> Sem página vinculada`;
+                }
+                infoDiv.appendChild(linkEl);
+            }
+
             // Acoes
             const actionsDiv = document.createElement('div');
             actionsDiv.className = 'menu-list-item-actions';
@@ -1368,6 +1552,93 @@ window.PortalAdmin = {
 
             container.appendChild(wrapper);
         });
+    },
+
+    // Preview fiel do menu lateral — espelha window.PortalApp.menuData usando
+    // os mesmos ícones/nome de Home configurados no portal. Categorias abrem/
+    // fecham ao clicar (estado em _menuPreviewOpen, preservado entre renders).
+    // É reconstruído a cada loadMenuStructure(), então reflete edições na hora.
+    _renderMenuPreview() {
+        const host = document.getElementById('menuPreview');
+        if (!host) return;
+        if (!this._menuPreviewOpen) this._menuPreviewOpen = new Set();
+
+        const renderIcon = (icon) => (window.PortalIcons && typeof window.PortalIcons.renderIconHTML === 'function')
+            ? window.PortalIcons.renderIconHTML(icon)
+            : `<span class="menu-icon">${icon ? this._escHtml(icon) : ''}</span>`;
+
+        const pages = Array.isArray(window.PortalApp.pagesData) ? window.PortalApp.pagesData : [];
+        const data = [...(window.PortalApp.menuData || [])].sort((a, b) => {
+            const ao = a.order ?? 0, bo = b.order ?? 0;
+            return ao !== bo ? ao - bo : a.id - b.id;
+        });
+
+        host.innerHTML = '';
+
+        // Home fixo — espelha o botão Home do menu real.
+        const homeName = (window.PortalConfig && window.PortalConfig.homeMenuName) || 'Home';
+        const homeIcon = (window.PortalConfig && window.PortalConfig.homeMenuIcon) || '🏠';
+        const homeRow = document.createElement('div');
+        homeRow.className = 'menu-prev-item is-active';
+        homeRow.innerHTML = `${renderIcon(homeIcon)}<span class="menu-prev-label">${this._escHtml(homeName)}</span><span class="menu-prev-fixed" title="Item fixo do portal">fixo</span>`;
+        host.appendChild(homeRow);
+
+        if (data.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'menu-prev-empty';
+            empty.textContent = 'Nenhum item ainda. Clique em “Novo Item” para começar.';
+            host.appendChild(empty);
+            return;
+        }
+
+        const buildNode = (item, level) => {
+            const frag = document.createDocumentFragment();
+            const isCategory = item.type === 'category';
+            const children = Array.isArray(item.children)
+                ? [...item.children].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+                : [];
+            const indent = 12 + level * 14;
+
+            if (isCategory) {
+                const open = this._menuPreviewOpen.has(item.id);
+                const row = document.createElement('button');
+                row.type = 'button';
+                row.className = 'menu-prev-item is-category';
+                row.style.paddingLeft = indent + 'px';
+                row.innerHTML = `<span class="menu-prev-caret">${open ? '▾' : '▸'}</span>${renderIcon(item.icon)}<span class="menu-prev-label">${this._escHtml(item.name)}</span>`;
+                row.addEventListener('click', () => {
+                    if (this._menuPreviewOpen.has(item.id)) this._menuPreviewOpen.delete(item.id);
+                    else this._menuPreviewOpen.add(item.id);
+                    this._renderMenuPreview();
+                });
+                frag.appendChild(row);
+                if (open) {
+                    if (children.length === 0) {
+                        const sub = document.createElement('div');
+                        sub.className = 'menu-prev-subempty';
+                        sub.style.paddingLeft = (indent + 14) + 'px';
+                        sub.textContent = '(vazio)';
+                        frag.appendChild(sub);
+                    } else {
+                        children.forEach(c => frag.appendChild(buildNode(c, level + 1)));
+                    }
+                }
+            } else {
+                const orphan = item.pageId && !pages.some(p => p.id === item.pageId);
+                const noPage = !item.pageId;
+                const row = document.createElement('div');
+                row.className = 'menu-prev-item';
+                row.style.paddingLeft = indent + 'px';
+                const warn = (orphan || noPage)
+                    ? `<span class="menu-prev-warn" title="${orphan ? 'Página vinculada não existe' : 'Item sem página vinculada'}"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i></span>`
+                    : '';
+                row.innerHTML = `${renderIcon(item.icon)}<span class="menu-prev-label">${this._escHtml(item.name)}</span>${warn}`;
+                frag.appendChild(row);
+            }
+            return frag;
+        };
+
+        data.forEach(item => host.appendChild(buildNode(item, 0)));
     },
 
     _populateParentSelect(parentSelect, items, level) {
@@ -1594,6 +1865,9 @@ window.PortalAdmin = {
             }
             this._updateMenuDataOrders(orderUpdates);
             if (window.PortalMenu) window.PortalMenu.renderMenu();
+            // O drag reordena a árvore no DOM, mas o preview é montado a partir
+            // de menuData — precisa ser reconstruído pra refletir a nova ordem.
+            this._renderMenuPreview();
         } catch (err) {
             console.error('Erro ao salvar ordem do menu:', err);
             await window.adminConfirm({ title: 'Erro ao reordenar', message: err.message || 'Erro desconhecido', confirmText: 'OK', cancelText: ' ' });
@@ -1644,16 +1918,66 @@ window.PortalAdmin = {
             if (current) searchInput.value = current.title || `Página ${current.id}`;
         }
 
+        const anchor = document.getElementById('pageSearchSelect') || searchInput.parentNode;
+
+        // A lista de resultados escapa para o document.body com position:fixed
+        // enquanto aberta — dentro do modal ela era cortada pelo overflow do
+        // corpo (e o campo fica no fim do modal, então a lista mal aparecia).
+        // Fora do modal, reposiciona sob o input e abre pra cima se faltar espaço.
+        const positionResults = () => {
+            const rect = searchInput.getBoundingClientRect();
+            const vh = document.documentElement.clientHeight;
+            const spaceBelow = vh - rect.bottom - 8;
+            const spaceAbove = rect.top - 8;
+            resultsDiv.style.position = 'fixed';
+            resultsDiv.style.left = rect.left + 'px';
+            resultsDiv.style.width = rect.width + 'px';
+            resultsDiv.style.right = 'auto';
+            resultsDiv.style.zIndex = '10060';
+            if (spaceBelow >= 160 || spaceBelow >= spaceAbove) {
+                resultsDiv.style.top = (rect.bottom + 4) + 'px';
+                resultsDiv.style.maxHeight = Math.max(140, Math.min(280, spaceBelow)) + 'px';
+            } else {
+                const mh = Math.max(140, Math.min(280, spaceAbove));
+                resultsDiv.style.top = (rect.top - 4 - mh) + 'px';
+                resultsDiv.style.maxHeight = mh + 'px';
+            }
+        };
+
+        const openResults = () => {
+            if (resultsDiv.parentNode !== document.body) document.body.appendChild(resultsDiv);
+            resultsDiv.style.display = 'block';
+            positionResults();
+            window.addEventListener('scroll', positionResults, true);
+            window.addEventListener('resize', positionResults);
+        };
+
+        const closeResults = () => {
+            resultsDiv.style.display = 'none';
+            resultsDiv.style.position = '';
+            resultsDiv.style.top = '';
+            resultsDiv.style.left = '';
+            resultsDiv.style.width = '';
+            resultsDiv.style.right = '';
+            resultsDiv.style.maxHeight = '';
+            resultsDiv.style.zIndex = '';
+            if (resultsDiv.parentNode !== anchor) anchor.appendChild(resultsDiv);
+            window.removeEventListener('scroll', positionResults, true);
+            window.removeEventListener('resize', positionResults);
+        };
+
         const renderResults = (filter) => {
             resultsDiv.innerHTML = '';
             const term = (filter || '').toLowerCase().trim();
             const filtered = term
-                ? pages.filter(p => (p.title || '').toLowerCase().includes(term))
+                ? pages.filter(p =>
+                    (p.title || '').toLowerCase().includes(term) ||
+                    (p.subtitle || '').toLowerCase().includes(term))
                 : pages;
 
             if (filtered.length === 0) {
                 resultsDiv.innerHTML = '<div class="page-search-item page-search-empty">Nenhuma página encontrada</div>';
-                resultsDiv.style.display = 'block';
+                openResults();
                 return;
             }
 
@@ -1665,33 +1989,50 @@ window.PortalAdmin = {
                 e.preventDefault();
                 hidden.value = '';
                 searchInput.value = '';
-                resultsDiv.style.display = 'none';
+                closeResults();
             });
             resultsDiv.appendChild(clearItem);
 
             filtered.forEach(p => {
                 const item = document.createElement('div');
                 item.className = 'page-search-item';
-                if (String(p.id) === String(hidden.value)) item.classList.add('selected');
-                item.textContent = p.title || `Página ${p.id}`;
+                const isSel = String(p.id) === String(hidden.value);
+                if (isSel) item.classList.add('selected');
+                const title = this._escHtml(p.title || `Página ${p.id}`);
+                const subtitle = p.subtitle ? `<small class="page-search-item-sub">${this._escHtml(p.subtitle)}</small>` : '';
+                item.innerHTML = `
+                    <span class="page-search-item-main">
+                        <span class="page-search-item-title">${title}</span>
+                        ${subtitle}
+                    </span>
+                    ${isSel ? '<i class="fa-solid fa-check page-search-item-check" aria-hidden="true"></i>' : ''}
+                `;
                 item.addEventListener('mousedown', (e) => {
                     e.preventDefault();
                     hidden.value = p.id;
                     searchInput.value = p.title || `Página ${p.id}`;
-                    resultsDiv.style.display = 'none';
+                    closeResults();
                 });
                 resultsDiv.appendChild(item);
             });
-            resultsDiv.style.display = 'block';
+            openResults();
         };
 
         searchInput.addEventListener('focus', () => renderResults(searchInput.value));
         searchInput.addEventListener('input', () => renderResults(searchInput.value));
         searchInput.addEventListener('blur', () => {
-            // Delay para permitir click no item antes de fechar
-            setTimeout(() => { resultsDiv.style.display = 'none'; }, 150);
+            // Delay para permitir o mousedown no item antes de fechar.
+            setTimeout(() => closeResults(), 150);
         });
     },
+
+    // Estado da tela de usuarios: filtro de texto fica no proprio input;
+    // _usersFilter e' o chip ativo (all/admin/active/inactive/app:x/no-app);
+    // _usersSort controla a coluna e direcao da ordenacao; _usersSelected
+    // guarda os ids marcados para acao em massa.
+    _usersFilter: 'all',
+    _usersSort: { key: 'name', dir: 'asc' },
+    _usersSelected: null, // Set<number>, criado lazy
 
     async loadUsersList() {
         const container = document.getElementById('usersList');
@@ -1702,20 +2043,7 @@ window.PortalAdmin = {
             return;
         }
 
-        // Injeta barra de busca uma única vez.
-        if (!document.getElementById('usersSearchBar')) {
-            const bar = document.createElement('div');
-            bar.id = 'usersSearchBar';
-            bar.className = 'pages-search-bar';
-            bar.innerHTML = `
-                <i class="fa fa-search search-icon" aria-hidden="true"></i>
-                <input type="text" id="usersSearchInput" placeholder="Filtrar por nome, usuário ou e-mail..." autocomplete="off" aria-label="Filtrar usuários">
-                <span id="usersSearchCount" class="pages-search-count"></span>
-            `;
-            container.parentNode.insertBefore(bar, container);
-            document.getElementById('usersSearchInput').addEventListener('input', () => this._renderUsersList());
-        }
-
+        this._wireUsersToolbar();
         container.innerHTML = '<div class="admin-placeholder">Carregando usuários...</div>';
 
         try {
@@ -1732,6 +2060,7 @@ window.PortalAdmin = {
 
             const users = await response.json();
             this._usersListCache = Array.isArray(users) ? users : [];
+            if (!this._usersSelected) this._usersSelected = new Set();
             this._renderUsersList();
         } catch (error) {
             console.error('Erro ao carregar usuários:', error);
@@ -1739,70 +2068,361 @@ window.PortalAdmin = {
         }
     },
 
+    // Liga os eventos da toolbar (busca, chips de filtro, ordenacao,
+    // selecionar-todos e barra de acoes em massa) uma unica vez — a secao
+    // de usuarios reusa o mesmo DOM em todo refresh, so o conteudo das
+    // linhas muda.
+    _wireUsersToolbar() {
+        if (this._usersToolbarWired) return;
+        this._usersToolbarWired = true;
+
+        const searchInput = document.getElementById('usersSearchInput');
+        if (searchInput) searchInput.addEventListener('input', () => this._renderUsersList());
+
+        const chips = document.getElementById('usersFilterChips');
+        if (chips) {
+            chips.addEventListener('click', (e) => {
+                const btn = e.target.closest('.admin-chip');
+                if (!btn) return;
+                chips.querySelectorAll('.admin-chip').forEach(c => c.classList.remove('is-active'));
+                btn.classList.add('is-active');
+                this._usersFilter = btn.dataset.filter;
+                this._renderUsersList();
+            });
+        }
+
+        const table = document.getElementById('usersTable');
+        if (table) {
+            table.querySelectorAll('.users-col-sort').forEach(col => {
+                col.addEventListener('click', () => {
+                    const key = col.dataset.sort;
+                    if (this._usersSort.key === key) {
+                        this._usersSort.dir = this._usersSort.dir === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        this._usersSort = { key, dir: 'asc' };
+                    }
+                    this._renderUsersList();
+                });
+            });
+        }
+
+        const selectAll = document.getElementById('usersSelectAll');
+        if (selectAll) {
+            selectAll.addEventListener('change', () => {
+                const visibleIds = (this._usersLastRendered || []).map(u => u.id);
+                if (selectAll.checked) {
+                    visibleIds.forEach(id => this._usersSelected.add(id));
+                } else {
+                    visibleIds.forEach(id => this._usersSelected.delete(id));
+                }
+                this._renderUsersList();
+            });
+        }
+
+        const bulkClear = document.getElementById('usersBulkClear');
+        if (bulkClear) {
+            bulkClear.addEventListener('click', () => {
+                this._usersSelected.clear();
+                this._renderUsersList();
+            });
+        }
+
+        const bulkBar = document.getElementById('usersBulkBar');
+        if (bulkBar) {
+            bulkBar.addEventListener('click', (e) => {
+                const btn = e.target.closest('[data-bulk]');
+                if (!btn) return;
+                this._applyUsersBulkAction(btn.dataset.bulk);
+            });
+        }
+    },
+
     _renderUsersList() {
         const container = document.getElementById('usersList');
         if (!container) return;
         const all = this._usersListCache || [];
+        if (!this._usersSelected) this._usersSelected = new Set();
 
-        const filter = (document.getElementById('usersSearchInput')?.value || '').toLowerCase().trim();
-        const users = filter
+        const textFilter = (document.getElementById('usersSearchInput')?.value || '').toLowerCase().trim();
+        let users = textFilter
             ? all.filter(u =>
-                (u.username || '').toLowerCase().includes(filter) ||
-                (u.fullName || '').toLowerCase().includes(filter) ||
-                (u.email || '').toLowerCase().includes(filter))
-            : all;
+                (u.username || '').toLowerCase().includes(textFilter) ||
+                (u.fullName || '').toLowerCase().includes(textFilter) ||
+                (u.email || '').toLowerCase().includes(textFilter))
+            : all.slice();
 
-        const countEl = document.getElementById('usersSearchCount');
-        if (countEl) countEl.textContent = filter ? `${users.length} de ${all.length}` : `${all.length} usuário(s)`;
-
-        if (users.length === 0) {
-            container.innerHTML = `<div class="admin-placeholder">${filter ? 'Nenhum usuário corresponde ao filtro.' : 'Nenhum usuário encontrado.'}</div>`;
-            return;
+        const chipFilter = this._usersFilter || 'all';
+        if (chipFilter === 'admin') users = users.filter(u => u.isAdmin);
+        else if (chipFilter === 'active') users = users.filter(u => u.isActive);
+        else if (chipFilter === 'inactive') users = users.filter(u => !u.isActive);
+        else if (chipFilter === 'no-app') users = users.filter(u => !Array.isArray(u.apps) || u.apps.length === 0);
+        else if (chipFilter.startsWith('app:')) {
+            const app = chipFilter.slice(4);
+            users = users.filter(u => Array.isArray(u.apps) && u.apps.includes(app));
         }
 
-        container.innerHTML = '';
-        users.forEach((user) => {
-            const item = document.createElement('div');
-            item.className = 'menu-list-item';
-
-            const infoDiv = document.createElement('div');
-            const title = document.createElement('strong');
-            title.textContent = user.fullName || user.username;
-            infoDiv.appendChild(title);
-
-            if (user.isAdmin) {
-                const adminBadge = document.createElement('span');
-                adminBadge.className = 'admin-pill admin-pill--admin';
-                adminBadge.textContent = 'ADMIN';
-                infoDiv.appendChild(adminBadge);
+        const { key, dir } = this._usersSort;
+        const sign = dir === 'desc' ? -1 : 1;
+        users.sort((a, b) => {
+            let av, bv;
+            if (key === 'lastLogin') {
+                av = a.lastLogin ? new Date(a.lastLogin).getTime() : 0;
+                bv = b.lastLogin ? new Date(b.lastLogin).getTime() : 0;
+            } else if (key === 'status') {
+                av = (a.isAdmin ? 2 : 0) + (a.isActive ? 1 : 0);
+                bv = (b.isAdmin ? 2 : 0) + (b.isActive ? 1 : 0);
+            } else {
+                av = (a.fullName || a.username || '').toLowerCase();
+                bv = (b.fullName || b.username || '').toLowerCase();
             }
-
-            if (!user.isActive) {
-                const inactiveBadge = document.createElement('span');
-                inactiveBadge.className = 'admin-pill admin-pill--inactive';
-                inactiveBadge.textContent = 'INATIVO';
-                infoDiv.appendChild(inactiveBadge);
-            }
-
-            infoDiv.appendChild(document.createElement('br'));
-            const details = document.createElement('small');
-            details.style.color = 'var(--text-secondary)';
-            const email = user.email || 'Sem e-mail';
-            const lastLogin = user.lastLogin ? ` • Último login: ${new Date(user.lastLogin).toLocaleString('pt-BR')}` : '';
-            details.textContent = `${user.username} • ${email}${lastLogin}`;
-            infoDiv.appendChild(details);
-
-            const actionsDiv = document.createElement('div');
-            actionsDiv.className = 'menu-list-item-actions';
-            actionsDiv.innerHTML = `
-                <button type="button" class="btn-small btn-edit" onclick="editUser(${user.id})" aria-label="Editar usuário ${user.username}">Editar</button>
-                <button type="button" class="btn-small btn-delete" onclick="deleteUser(${user.id}, '${String(user.username).replace(/'/g, "\\'")}')" aria-label="Excluir usuário ${user.username}">Excluir</button>
-            `;
-
-            item.appendChild(infoDiv);
-            item.appendChild(actionsDiv);
-            container.appendChild(item);
+            if (av < bv) return -1 * sign;
+            if (av > bv) return 1 * sign;
+            return 0;
         });
+
+        this._usersLastRendered = users;
+
+        const countEl = document.getElementById('usersSearchCount');
+        if (countEl) countEl.textContent = (textFilter || chipFilter !== 'all') ? `${users.length} de ${all.length}` : `${all.length} usuário(s)`;
+
+        // Atualiza indicadores de ordenacao nas colunas
+        document.querySelectorAll('#usersTable .users-col-sort').forEach(col => {
+            col.classList.toggle('is-sorted', col.dataset.sort === key);
+            const icon = col.querySelector('i');
+            if (icon) icon.className = col.dataset.sort === key
+                ? (dir === 'asc' ? 'fa-solid fa-sort-up' : 'fa-solid fa-sort-down')
+                : 'fa-solid fa-sort';
+        });
+
+        if (users.length === 0) {
+            container.innerHTML = `<div class="admin-placeholder">${textFilter || chipFilter !== 'all' ? 'Nenhum usuário corresponde ao filtro.' : 'Nenhum usuário encontrado.'}</div>`;
+        } else {
+            container.innerHTML = '';
+            users.forEach(user => container.appendChild(this._buildUserRow(user)));
+        }
+
+        // Sincroniza select-all e a barra de acoes em massa
+        const selectAll = document.getElementById('usersSelectAll');
+        if (selectAll) {
+            const visibleIds = users.map(u => u.id);
+            const selectedVisible = visibleIds.filter(id => this._usersSelected.has(id));
+            selectAll.checked = visibleIds.length > 0 && selectedVisible.length === visibleIds.length;
+            selectAll.indeterminate = selectedVisible.length > 0 && selectedVisible.length < visibleIds.length;
+        }
+        const bulkBar = document.getElementById('usersBulkBar');
+        const bulkCount = document.getElementById('usersBulkCount');
+        if (bulkBar) {
+            const n = this._usersSelected.size;
+            bulkBar.hidden = n === 0;
+            if (bulkCount) bulkCount.textContent = n === 1 ? '1 usuário selecionado' : `${n} usuários selecionados`;
+        }
+    },
+
+    // Constroi uma linha da tabela de usuarios com checkbox de selecao,
+    // interruptores de Admin/Ativo e badges de app clicaveis — tudo isso
+    // dispara _quickUpdateUser direto, sem passar pelo modal.
+    _buildUserRow(user) {
+        const escapeHtml = this._escHtml.bind(this);
+        const row = document.createElement('div');
+        row.className = 'users-row';
+        row.dataset.id = String(user.id);
+        if (!user.isActive) row.classList.add('is-inactive-row');
+
+        const isSelf = window.PortalApp.currentUser && window.PortalApp.currentUser.id === user.id;
+        const email = user.email || 'Sem e-mail';
+        const lastLoginStr = user.lastLogin ? new Date(user.lastLogin).toLocaleString('pt-BR') : 'Nunca';
+        const apps = Array.isArray(user.apps) ? user.apps : [];
+
+        row.innerHTML = `
+            <span class="users-col-check">
+                <input type="checkbox" class="users-row-check" aria-label="Selecionar ${escapeHtml(user.username)}" ${this._usersSelected.has(user.id) ? 'checked' : ''}>
+            </span>
+            <span class="users-col-name">
+                <strong>${escapeHtml(user.fullName || user.username)}</strong>${isSelf ? ' <span class="users-you-tag">(você)</span>' : ''}
+                <small>${escapeHtml(user.username)} • ${escapeHtml(email)}</small>
+            </span>
+            <span class="users-col-status">
+                <label class="users-switch" title="${isSelf ? 'Você não pode alterar seu próprio acesso administrativo' : 'Conceder/revogar acesso administrativo'}">
+                    <input type="checkbox" class="users-toggle-admin" ${user.isAdmin ? 'checked' : ''} ${isSelf ? 'disabled' : ''}>
+                    <span class="users-switch-track"></span>
+                    <span class="users-switch-label">Admin</span>
+                </label>
+                <label class="users-switch" title="${isSelf ? 'Você não pode desativar sua própria conta' : 'Ativar/desativar usuário'}">
+                    <input type="checkbox" class="users-toggle-active" ${user.isActive ? 'checked' : ''} ${isSelf ? 'disabled' : ''}>
+                    <span class="users-switch-track"></span>
+                    <span class="users-switch-label">Ativo</span>
+                </label>
+            </span>
+            <span class="users-col-apps">
+                <button type="button" class="admin-toggle-pill ${apps.includes('fatura') ? 'is-on' : ''}" data-app="fatura" title="Clique para ${apps.includes('fatura') ? 'revogar' : 'liberar'} acesso a /fatura">Fatura</button>
+                <button type="button" class="admin-toggle-pill ${apps.includes('chamados') ? 'is-on' : ''}" data-app="chamados" title="Clique para ${apps.includes('chamados') ? 'revogar' : 'liberar'} acesso a /chamados">Chamados</button>
+            </span>
+            <span class="users-col-login" title="${lastLoginStr}">${lastLoginStr}</span>
+            <span class="users-col-actions">
+                <button type="button" class="btn-small btn-edit" aria-label="Editar usuário ${escapeHtml(user.username)}">Editar</button>
+                <button type="button" class="btn-small btn-delete" aria-label="Excluir usuário ${escapeHtml(user.username)}">Excluir</button>
+            </span>
+        `;
+
+        row.querySelector('.users-row-check').addEventListener('change', (e) => {
+            if (e.target.checked) this._usersSelected.add(user.id);
+            else this._usersSelected.delete(user.id);
+            this._renderUsersList();
+        });
+
+        const adminToggle = row.querySelector('.users-toggle-admin');
+        adminToggle.addEventListener('change', () => {
+            const checked = adminToggle.checked;
+            this._quickUpdateUser(user.id, { isAdmin: checked }, () => { adminToggle.checked = !checked; });
+        });
+
+        const activeToggle = row.querySelector('.users-toggle-active');
+        activeToggle.addEventListener('change', () => {
+            const checked = activeToggle.checked;
+            this._quickUpdateUser(user.id, { isActive: checked }, () => { activeToggle.checked = !checked; });
+        });
+
+        row.querySelectorAll('.admin-toggle-pill').forEach(pill => {
+            pill.addEventListener('click', () => {
+                const appKey = pill.dataset.app;
+                const current = Array.isArray(user.apps) ? user.apps : [];
+                const nextApps = current.includes(appKey)
+                    ? current.filter(a => a !== appKey)
+                    : [...current, appKey];
+                this._quickUpdateUser(user.id, { apps: nextApps });
+            });
+        });
+
+        row.querySelector('.btn-edit').addEventListener('click', () => this.editUser(user.id));
+        row.querySelector('.btn-delete').addEventListener('click', () => this.deleteUser(user.id, user.username));
+
+        return row;
+    },
+
+    // Atualiza um usuario via PUT enviando o objeto completo (o backend
+    // substitui a lista de apps pelo que vier no payload — se `apps` nao
+    // for enviado como array, ele ZERA as permissoes de app existentes).
+    // Por isso sempre partimos do usuario em cache e so' sobrescrevemos os
+    // campos que o toggle/chip realmente mudou.
+    async _quickUpdateUser(id, patch, onError) {
+        const cached = (this._usersListCache || []).find(u => u.id === id);
+        if (!cached) return;
+
+        const body = {
+            username: cached.username,
+            fullName: cached.fullName || null,
+            email: cached.email || null,
+            password: null,
+            isAdmin: cached.isAdmin,
+            isActive: cached.isActive,
+            apps: Array.isArray(cached.apps) ? [...cached.apps] : [],
+            ...patch
+        };
+
+        try {
+            const response = await fetch(`${window.PortalApp.API_URL}/users/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${window.PortalApp.authToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(body)
+            });
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ error: response.statusText }));
+                throw new Error(errorData.error || errorData.message || 'Erro ao atualizar usuário');
+            }
+            const updated = await response.json();
+            const idx = (this._usersListCache || []).findIndex(u => u.id === id);
+            if (idx !== -1) this._usersListCache[idx] = updated;
+            this._renderUsersList();
+        } catch (error) {
+            console.error('[Usuário] atualização rápida falhou:', error);
+            if (typeof onError === 'function') onError();
+            await window.adminConfirm({ title: 'Não foi possível atualizar', message: error.message || 'Erro desconhecido', confirmText: 'OK', cancelText: ' ' });
+        }
+    },
+
+    // Aplica uma acao (ativar/desativar/conceder ou revogar app/excluir)
+    // a todos os usuarios selecionados, sequencialmente, e reporta quantos
+    // falharam (ex: tentativa de desativar o ultimo admin ativo).
+    async _applyUsersBulkAction(action) {
+        const ids = Array.from(this._usersSelected || []);
+        if (ids.length === 0) return;
+
+        const actionLabels = {
+            activate: 'ativar', deactivate: 'desativar',
+            'grant-fatura': 'liberar acesso a Fatura para', 'revoke-fatura': 'revogar acesso a Fatura de',
+            'grant-chamados': 'liberar acesso a Chamados para', 'revoke-chamados': 'revogar acesso a Chamados de',
+            delete: 'excluir'
+        };
+        const label = actionLabels[action] || action;
+        const ok = await window.adminConfirm({
+            title: 'Confirmar ação em massa',
+            message: `Deseja ${label} ${ids.length} usuário(s)?`,
+            confirmText: 'Confirmar',
+            destructive: action === 'delete' || action === 'deactivate'
+        });
+        if (!ok) return;
+
+        let okCount = 0;
+        const failures = [];
+
+        for (const id of ids) {
+            const cached = (this._usersListCache || []).find(u => u.id === id);
+            if (!cached) continue;
+            try {
+                if (action === 'delete') {
+                    const response = await fetch(`${window.PortalApp.API_URL}/users/${id}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${window.PortalApp.authToken}` }
+                    });
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({ error: response.statusText }));
+                        throw new Error(errorData.error || 'Erro ao excluir');
+                    }
+                } else {
+                    let patch = null;
+                    if (action === 'activate') patch = { isActive: true };
+                    else if (action === 'deactivate') patch = { isActive: false };
+                    else if (action === 'grant-fatura') patch = { apps: [...new Set([...(cached.apps || []), 'fatura'])] };
+                    else if (action === 'revoke-fatura') patch = { apps: (cached.apps || []).filter(a => a !== 'fatura') };
+                    else if (action === 'grant-chamados') patch = { apps: [...new Set([...(cached.apps || []), 'chamados'])] };
+                    else if (action === 'revoke-chamados') patch = { apps: (cached.apps || []).filter(a => a !== 'chamados') };
+                    if (!patch) continue;
+
+                    const body = {
+                        username: cached.username, fullName: cached.fullName || null, email: cached.email || null,
+                        password: null, isAdmin: cached.isAdmin, isActive: cached.isActive,
+                        apps: Array.isArray(cached.apps) ? [...cached.apps] : [], ...patch
+                    };
+                    const response = await fetch(`${window.PortalApp.API_URL}/users/${id}`, {
+                        method: 'PUT',
+                        headers: { 'Authorization': `Bearer ${window.PortalApp.authToken}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify(body)
+                    });
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({ error: response.statusText }));
+                        throw new Error(errorData.error || 'Erro ao atualizar');
+                    }
+                }
+                okCount++;
+            } catch (error) {
+                failures.push(`${cached.username}: ${error.message || 'erro desconhecido'}`);
+            }
+        }
+
+        this._usersSelected.clear();
+        await this.loadUsersList();
+
+        if (failures.length > 0) {
+            await window.adminConfirm({
+                title: `${okCount} de ${ids.length} atualizados`,
+                message: `Falhas:\n${failures.join('\n')}`,
+                confirmText: 'OK',
+                cancelText: ' '
+            });
+        }
     },
 
     // Abre modal de criar/editar usuário. Substituiu o card inline em /admin
@@ -1838,6 +2458,9 @@ window.PortalAdmin = {
                     </div>
                 </div>
             </fieldset>
+            ${isEdit ? `
+            <p class="admin-fieldset-hint">Admin, Ativo e acesso a apps são gerenciados direto na lista de usuários (interruptores e badges), não aqui.</p>
+            ` : `
             <fieldset class="admin-fieldset">
                 <legend class="admin-legend">Permissões</legend>
                 <div class="form-group admin-form-spaced">
@@ -1853,8 +2476,13 @@ window.PortalAdmin = {
                         <input type="checkbox" id="userAppFaturaCheckbox">
                         <span>Acesso à aplicação <code>/fatura</code> (OCR de faturas)</span>
                     </label>
+                    <label class="admin-checkbox-row">
+                        <input type="checkbox" id="userAppChamadosCheckbox">
+                        <span>Acesso à aplicação <code>/chamados</code> (Kanban de Chamados)</span>
+                    </label>
                 </div>
             </fieldset>
+            `}
         `;
         const footer = `
             <button type="button" class="btn" data-role="cancel">Cancelar</button>
@@ -1890,9 +2518,6 @@ window.PortalAdmin = {
                     overlay.querySelector('#userFullNameInput').value = user.fullName || '';
                     overlay.querySelector('#userEmailInput').value = user.email || '';
                     overlay.querySelector('#userPasswordInput').value = '';
-                    overlay.querySelector('#userIsAdminCheckbox').checked = !!user.isAdmin;
-                    overlay.querySelector('#userIsActiveCheckbox').checked = !!user.isActive;
-                    overlay.querySelector('#userAppFaturaCheckbox').checked = Array.isArray(user.apps) && user.apps.includes('fatura');
                 } catch (err) {
                     console.error('[Usuário] openUserModal load failed:', err);
                     await window.adminConfirm({ title: 'Erro ao carregar usuário', message: err.message || 'Erro desconhecido', confirmText: 'OK', cancelText: ' ' });
@@ -1916,10 +2541,22 @@ window.PortalAdmin = {
         const fullName = document.getElementById('userFullNameInput').value.trim();
         const email = document.getElementById('userEmailInput').value.trim();
         const password = document.getElementById('userPasswordInput').value;
-        const isAdmin = document.getElementById('userIsAdminCheckbox').checked;
-        const isActive = document.getElementById('userIsActiveCheckbox').checked;
-        const apps = [];
-        if (document.getElementById('userAppFaturaCheckbox').checked) apps.push('fatura');
+
+        // O fieldset de Permissões só existe no modal de criação — na edição,
+        // Admin/Ativo/Apps são geridos pelos toggles da lista, então aqui
+        // preservamos o que já está no cache em vez de zerar tudo.
+        const isEditing = !!window.PortalApp.editingUserId;
+        const cached = isEditing ? (this._usersListCache || []).find(u => u.id === window.PortalApp.editingUserId) : null;
+        const isAdmin = document.getElementById('userIsAdminCheckbox') ? document.getElementById('userIsAdminCheckbox').checked : !!(cached && cached.isAdmin);
+        const isActive = document.getElementById('userIsActiveCheckbox') ? document.getElementById('userIsActiveCheckbox').checked : !!(cached && cached.isActive);
+        let apps;
+        if (document.getElementById('userAppFaturaCheckbox')) {
+            apps = [];
+            if (document.getElementById('userAppFaturaCheckbox').checked) apps.push('fatura');
+            if (document.getElementById('userAppChamadosCheckbox').checked) apps.push('chamados');
+        } else {
+            apps = cached && Array.isArray(cached.apps) ? [...cached.apps] : [];
+        }
 
         if (!username) {
             await window.adminConfirm({ title: 'Usuário obrigatório', message: 'Informe o nome de usuário.', confirmText: 'OK', cancelText: ' ' });
@@ -1931,7 +2568,6 @@ window.PortalAdmin = {
         }
 
         try {
-            const isEditing = !!window.PortalApp.editingUserId;
             const response = await fetch(
                 isEditing ? `${window.PortalApp.API_URL}/users/${window.PortalApp.editingUserId}` : `${window.PortalApp.API_URL}/users`,
                 {
@@ -2138,6 +2774,18 @@ window.PortalAdmin = {
         if (!window.PortalApp.authToken) {
             await window.adminConfirm({ title: 'Sessão expirada', message: 'Faça login como administrador para alterar o menu.', confirmText: 'OK', cancelText: ' ' });
             return;
+        }
+
+        // Aviso suave: item simples sem página não abre nada ao ser clicado.
+        // Não bloqueia (pode ser intencional), mas evita criar item "morto" sem querer.
+        if (type === 'item' && !pageId) {
+            const proceed = await window.adminConfirm({
+                title: 'Item sem página',
+                message: 'Este item não está vinculado a nenhuma página e não abrirá nada ao ser clicado. Deseja salvar mesmo assim?',
+                confirmText: 'Salvar assim mesmo',
+                cancelText: 'Voltar'
+            });
+            if (!proceed) return;
         }
 
         const prepared = {

@@ -1,0 +1,147 @@
+﻿=== distinct (unidade, estabelecimento) pairs ===
+[
+  {
+    "c": 118
+  }
+]
+=== tb_aprovadores sample ===
+[
+  {
+    "id_grupoinvestimento": 1,
+    "id_estabelecimento": 1,
+    "ponto_focal": "pcalmeida",
+    "aprovador_sup": "etoscano",
+    "aprovador_final": "dcesar-conuki-srodrigues",
+    "ID": "1"
+  },
+  {
+    "id_grupoinvestimento": 2,
+    "id_estabelecimento": 1,
+    "ponto_focal": "fbranco",
+    "aprovador_sup": "etoscano",
+    "aprovador_final": "dcesar-conuki-srodrigues",
+    "ID": "2"
+  },
+  {
+    "id_grupoinvestimento": 3,
+    "id_estabelecimento": 1,
+    "ponto_focal": "sinacio",
+    "aprovador_sup": "etoscano",
+    "aprovador_final": "dcesar-conuki-srodrigues",
+    "ID": "3"
+  },
+  {
+    "id_grupoinvestimento": 4,
+    "id_estabelecimento": 1,
+    "ponto_focal": "sinacio",
+    "aprovador_sup": "etoscano",
+    "aprovador_final": "dcesar-conuki-srodrigues",
+    "ID": "4"
+  },
+  {
+    "id_grupoinvestimento": 5,
+    "id_estabelecimento": 1,
+    "ponto_focal": "cachur",
+    "aprovador_sup": "etoscano",
+    "aprovador_final": "dcesar-conuki-srodrigues",
+    "ID": "5"
+  },
+  {
+    "id_grupoinvestimento": 6,
+    "id_estabelecimento": 1,
+    "ponto_focal": "vkaspar",
+    "aprovador_sup": "fmaues",
+    "aprovador_final": "dcesar-conuki-srodrigues",
+    "ID": "6"
+  },
+  {
+    "id_grupoinvestimento": 7,
+    "id_estabelecimento": 1,
+    "ponto_focal": "sinacio",
+    "aprovador_sup": "etoscano",
+    "aprovador_final": "dcesar-conuki-srodrigues",
+    "ID": "7"
+  },
+  {
+    "id_grupoinvestimento": 8,
+    "id_estabelecimento": 1,
+    "ponto_focal": "cachur",
+    "aprovador_sup": "etoscano",
+    "aprovador_final": "dcesar-conuki-srodrigues",
+    "ID": "8"
+  }
+]
+=== tb_aprovadores null check ===
+[
+  {
+    "focal_vazio": 0,
+    "sup_vazio": 0,
+    "final_vazio": 0,
+    "grupo_null": 0,
+    "estab_null": 0,
+    "total": 288
+  }
+]
+=== distinct id_estabelecimento in tb_aprovadores ===
+[
+  {
+    "id_estabelecimento": 1
+  },
+  {
+    "id_estabelecimento": 2
+  },
+  {
+    "id_estabelecimento": 3
+  },
+  {
+    "id_estabelecimento": 4
+  },
+  {
+    "id_estabelecimento": 5
+  },
+  {
+    "id_estabelecimento": 6
+  },
+  {
+    "id_estabelecimento": 56
+  },
+  {
+    "id_estabelecimento": 57
+  },
+  {
+    "id_estabelecimento": 59
+  }
+]
+=== distinct id_grupoinvestimento in tb_aprovadores ===
+[
+  {
+    "id_grupoinvestimento": 1
+  },
+  {
+    "id_grupoinvestimento": 2
+  },
+  {
+    "id_grupoinvestimento": 3
+  },
+  {
+    "id_grupoinvestimento": 4
+  },
+  {
+    "id_grupoinvestimento": 5
+  },
+  {
+    "id_grupoinvestimento": 6
+  },
+  {
+    "id_grupoinvestimento": 7
+  },
+  {
+    "id_grupoinvestimento": 8
+  },
+  {
+    "id_grupoinvestimento": 9
+  },
+  {
+    "id_grupoinvestimento": 10
+  }
+]

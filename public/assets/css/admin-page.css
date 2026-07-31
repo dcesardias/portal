@@ -136,6 +136,18 @@ body.admin-page {
     outline-offset: 2px;
 }
 
+/* Botão "Sair" — invertido (fundo branco, texto vermelho) para se
+   destacar dos demais botões translúcidos do topbar. */
+.admin-topbar-btn--logout {
+    background: #fff;
+    color: var(--aacd-accent, #c8102e);
+    border-color: #fff;
+}
+.admin-topbar-btn--logout:hover {
+    background: #f5f5f5;
+    color: var(--aacd-accent-dark, #a30d25);
+}
+
 /* Indicador "X online" — SSE atualiza em tempo real. Mesmo visual dos
    admin-topbar-btn mas read-only, com bolinha verde pulsando. */
 .admin-online-indicator {
@@ -529,6 +541,12 @@ body.admin-page {
     max-width: 1100px;
     margin: 0 auto;
     animation: adminPageFade 0.18s ease-out;
+}
+/* Seções com conteúdo tabular (ex: Usuários) precisam da largura total da
+   tela para caber colunas sem espremer — o cap de 1100px é só para as
+   seções de formulário (Páginas, Menu, Configurações). */
+.admin-page-section.admin-page-section--wide {
+    max-width: none;
 }
 .admin-page-section.is-active {
     display: block;
@@ -979,10 +997,10 @@ body.admin-page {
 
 /* Modal de "Página" (form longo) — um pouco mais largo que o padrão. */
 .admin-modal--page {
-    max-width: 640px !important;
+    max-width: 620px !important;
 }
 .admin-modal--page .admin-fieldset {
-    margin-bottom: 14px;
+    margin-bottom: 16px;
 }
 .admin-modal--page .admin-fieldset:last-of-type {
     margin-bottom: 0;
@@ -994,6 +1012,176 @@ body.admin-page {
     color: var(--ap-text-muted);
     margin-left: 4px;
 }
+
+/* -----------------------------------------------------------------
+   Modal de Página — layout limpo (toggles, campo de ícone, seção
+   colapsável de redirecionamento e picker de ícone com aparência de
+   campo). Escopado em .admin-modal--page para não afetar outros modais.
+   ----------------------------------------------------------------- */
+
+/* Linha de toggle: texto à esquerda (título + ajuda), switch à direita. */
+.admin-modal--page .admin-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 10px 0;
+    cursor: pointer;
+    border-bottom: 1px dashed var(--ap-border);
+}
+.admin-modal--page .admin-toggle-row:last-of-type {
+    border-bottom: none;
+}
+.admin-modal--page .admin-toggle-row-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+.admin-modal--page .admin-toggle-row-text strong {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ap-text);
+}
+.admin-modal--page .admin-toggle-row-text small {
+    font-size: 12px;
+    color: var(--ap-text-muted);
+    line-height: 1.45;
+}
+/* O checkbox vira um switch pill (mesma linguagem visual dos toggles das listas). */
+.admin-modal--page .admin-toggle-row input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    flex-shrink: 0;
+    position: relative;
+    width: 40px;
+    height: 22px;
+    border-radius: 999px;
+    background: #d7dbe0;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    margin: 0;
+}
+.admin-modal--page .admin-toggle-row input[type="checkbox"]::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+    transition: transform 0.15s ease;
+}
+.admin-modal--page .admin-toggle-row input[type="checkbox"]:checked {
+    background: var(--aacd-accent);
+}
+.admin-modal--page .admin-toggle-row input[type="checkbox"]:checked::after {
+    transform: translateX(18px);
+}
+
+/* Campo condicional (data de homologação) — leve recuo/realce quando visível. */
+.admin-modal--page .admin-conditional {
+    margin-top: 12px;
+    padding: 12px 14px;
+    background: var(--ap-bg);
+    border: 1px solid var(--ap-border);
+    border-radius: var(--ap-radius);
+}
+.admin-modal--page .admin-conditional[hidden] { display: none; }
+
+/* Campo de ícone: preview + trigger do picker lado a lado, código embaixo.
+   Compartilhado pelos modais de Página e de Item de Menu. */
+.admin-modal--page .admin-icon-field {
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+}
+.admin-modal--page .admin-icon-field .icon-preview {
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--ap-border-strong);
+    border-radius: 8px;
+    background: var(--ap-bg);
+}
+.admin-modal--page .admin-icon-picker-wrap {
+    flex: 1 1 auto;
+    margin-top: 0 !important;
+}
+.admin-modal--page .admin-icon-picker-wrap .admin-dropdown-toggle {
+    height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--ap-border-strong);
+    border-radius: 8px;
+    background: #fff;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.admin-modal--page .admin-icon-picker-wrap .admin-dropdown-toggle:hover {
+    border-color: var(--aacd-accent);
+}
+.admin-modal--page .admin-icon-code {
+    margin-top: 8px;
+}
+
+/* Seção colapsável (Redirecionamento condicional). */
+.admin-modal--page .admin-details {
+    border: 1px solid var(--ap-border);
+    border-radius: var(--ap-radius);
+    background: var(--ap-surface);
+    overflow: hidden;
+}
+.admin-modal--page .admin-details-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 12px 16px;
+    cursor: pointer;
+    list-style: none;
+    position: relative;
+    user-select: none;
+}
+.admin-modal--page .admin-details-summary::-webkit-details-marker { display: none; }
+.admin-modal--page .admin-details-summary > span {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ap-text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.admin-modal--page .admin-details-summary > span i { color: var(--aacd-accent); }
+.admin-modal--page .admin-details-summary small {
+    font-size: 12px;
+    color: var(--ap-text-muted);
+}
+/* Chevron indicando aberto/fechado. */
+.admin-modal--page .admin-details-summary::after {
+    content: '\203A'; /* › */
+    position: absolute;
+    right: 16px;
+    top: 14px;
+    font-size: 20px;
+    line-height: 1;
+    color: var(--ap-text-muted);
+    transition: transform 0.15s ease;
+}
+.admin-modal--page .admin-details[open] .admin-details-summary::after {
+    transform: rotate(90deg);
+}
+.admin-modal--page .admin-details[open] .admin-details-summary {
+    border-bottom: 1px solid var(--ap-border);
+}
+.admin-modal--page .admin-details-body {
+    padding: 16px 16px 4px;
+}
+.admin-modal--page .admin-details-body .form-group:last-child { margin-bottom: 12px; }
 
 /* Botões dentro do admin-modal-actions herdam .btn / .btn-admin do portal.css.
    Aqui só garantimos um espaçamento mínimo decente. */
@@ -1261,3 +1449,532 @@ body:has(.admin-modal-overlay) {
         padding-left: 0;
     }
 }
+
+/* =================================================================
+   Toolbar/chips/ações em massa — compartilhado por Usuários e Páginas
+   (qualquer seção com uma lista grande que precise filtrar/selecionar)
+   ================================================================= */
+
+.admin-page .admin-list-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+.admin-page .admin-list-search {
+    position: relative;
+    flex: 1 1 260px;
+    min-width: 220px;
+    max-width: 340px;
+    background: var(--ap-surface);
+    border: 1px solid var(--ap-border);
+    border-radius: var(--ap-radius);
+    padding: 9px 12px 9px 36px;
+    box-shadow: var(--ap-shadow-sm);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.admin-page .admin-list-search:focus-within {
+    border-color: var(--aacd-accent);
+    box-shadow: 0 0 0 3px var(--aacd-accent-ring);
+}
+.admin-page .admin-list-search .search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--ap-text-muted);
+    font-size: 13px;
+}
+.admin-page .admin-list-search input {
+    width: 100%;
+    border: none;
+    outline: none;
+    background: transparent;
+    font: inherit;
+    font-size: 14px;
+    color: var(--ap-text);
+}
+.admin-page .admin-list-search input::placeholder { color: var(--ap-text-muted); }
+
+.admin-page .admin-filter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.admin-page .admin-chip {
+    border: 1px solid var(--ap-border-strong);
+    background: var(--ap-surface);
+    color: var(--ap-text-soft);
+    border-radius: 999px;
+    padding: 6px 13px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+.admin-page .admin-chip:hover {
+    border-color: var(--aacd-accent);
+    color: var(--aacd-accent);
+}
+.admin-page .admin-chip.is-active {
+    background: var(--aacd-accent);
+    border-color: var(--aacd-accent);
+    color: #fff;
+}
+.admin-page .admin-list-count {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--ap-text-soft);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* ---------- Barra de ações em massa ---------- */
+.admin-page .admin-bulk-bar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    background: var(--aacd-accent-soft);
+    border: 1px solid var(--aacd-accent-ring);
+    border-radius: var(--ap-radius);
+    padding: 10px 14px;
+    margin-bottom: 12px;
+}
+.admin-page .admin-bulk-count {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--aacd-accent-dark);
+    white-space: nowrap;
+}
+.admin-page .admin-bulk-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.admin-page .admin-bulk-clear {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: var(--ap-text-soft);
+    font-size: 12px;
+    text-decoration: underline;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.admin-page .admin-bulk-clear:hover { color: var(--ap-text); }
+
+/* =================================================================
+   Usuários — tabela com toggles inline
+   ================================================================= */
+
+/* ---------- Tabela ---------- */
+.admin-page .users-table {
+    background: var(--ap-surface);
+    border: 1px solid var(--ap-border);
+    border-radius: var(--ap-radius);
+    overflow: hidden;
+}
+.admin-page .users-row {
+    display: grid;
+    grid-template-columns: 36px minmax(0, 2fr) minmax(0, 1.3fr) minmax(0, 1.1fr) 130px 120px;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--ap-border);
+}
+.admin-page .users-row:last-child { border-bottom: none; }
+.admin-page .users-row--head {
+    background: #fafbfc;
+    padding: 10px 16px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--ap-text-muted);
+}
+.admin-page .users-row:not(.users-row--head):hover {
+    background: #fafbfc;
+}
+.admin-page .users-row.is-inactive-row {
+    opacity: 0.6;
+}
+.admin-page .users-col-sort {
+    cursor: pointer;
+    user-select: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+.admin-page .users-col-sort:hover { color: var(--aacd-accent); }
+.admin-page .users-col-sort.is-sorted { color: var(--aacd-accent); }
+.admin-page .users-col-sort i { font-size: 10px; }
+.admin-page .users-col-check { display: flex; align-items: center; justify-content: center; }
+.admin-page .users-col-check input,
+.admin-page .users-row-check {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--aacd-accent);
+}
+.admin-page .users-col-name {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+.admin-page .users-col-name strong {
+    font-size: 14px;
+    color: var(--ap-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.admin-page .users-col-name small {
+    font-size: 12px;
+    color: var(--ap-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.admin-page .users-you-tag {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--aacd-accent);
+}
+.admin-page .users-col-status {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.admin-page .users-col-apps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.admin-page .users-col-login {
+    font-size: 12px;
+    color: var(--ap-text-soft);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.admin-page .users-col-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+}
+@media (max-width: 980px) {
+    .admin-page .users-row {
+        grid-template-columns: 28px minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) 90px;
+    }
+    .admin-page .users-col-actions { display: none; }
+    .admin-page .users-row:not(.users-row--head) { cursor: default; }
+}
+
+/* ---------- Interruptor Admin/Ativo ---------- */
+.admin-page .users-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--ap-text-soft);
+    user-select: none;
+}
+.admin-page .users-switch input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+.admin-page .users-switch-track {
+    position: relative;
+    flex-shrink: 0;
+    width: 32px;
+    height: 18px;
+    border-radius: 999px;
+    background: #d7dbe0;
+    transition: background 0.15s ease;
+}
+.admin-page .users-switch-track::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+    transition: transform 0.15s ease;
+}
+.admin-page .users-switch input:checked + .users-switch-track {
+    background: var(--aacd-accent);
+}
+.admin-page .users-switch input:checked + .users-switch-track::after {
+    transform: translateX(14px);
+}
+.admin-page .users-switch input:disabled + .users-switch-track {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+.admin-page .users-switch input:disabled ~ .users-switch-label {
+    opacity: 0.6;
+}
+.admin-page .users-switch:has(input:disabled) {
+    cursor: not-allowed;
+}
+
+/* ---------- Pill de toggle clicável (apps de Usuários, flags de Páginas) ---------- */
+.admin-page .admin-toggle-pill {
+    border: 1px solid var(--ap-border-strong);
+    background: var(--ap-surface);
+    color: var(--ap-text-muted);
+    border-radius: 999px;
+    padding: 4px 11px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+.admin-page .admin-toggle-pill:hover {
+    border-color: var(--aacd-accent);
+}
+.admin-page .admin-toggle-pill.is-on {
+    background: #e8f5e9;
+    border-color: #a5d6a7;
+    color: #1b5e20;
+}
+
+/* =================================================================
+   Páginas — checkbox de seleção e toggles inline (Acesso Rápido/Homologação)
+   ================================================================= */
+.admin-page .pages-row-check {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    cursor: pointer;
+    accent-color: var(--aacd-accent);
+}
+.admin-page .pages-row-toggles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+/* =================================================================
+   Menu — editor em 2 colunas com preview live
+   ================================================================= */
+.admin-page .menu-editor-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 22px;
+    align-items: start;
+}
+@media (max-width: 900px) {
+    .admin-page .menu-editor-layout {
+        grid-template-columns: 1fr;
+    }
+}
+.admin-page .menu-editor-col { min-width: 0; }
+
+/* Coluna do preview — gruda no topo enquanto a árvore rola. */
+.admin-page .menu-preview-col {
+    position: sticky;
+    top: 8px;
+}
+.admin-page .menu-preview-panel {
+    border: 1px solid var(--ap-border);
+    border-radius: var(--ap-radius-lg);
+    overflow: hidden;
+    box-shadow: var(--ap-shadow-sm);
+    background: var(--ap-surface);
+}
+.admin-page .menu-preview-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 11px 14px;
+    background: var(--ap-bg);
+    border-bottom: 1px solid var(--ap-border);
+}
+.admin-page .menu-preview-head span {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ap-text);
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+.admin-page .menu-preview-head span i { color: var(--aacd-accent); }
+.admin-page .menu-preview-head small {
+    font-size: 11px;
+    color: var(--ap-text-muted);
+}
+
+/* Corpo do preview — replica a sidebar escura do portal usando as cores
+   configuradas (com fallback pro cinza padrão). */
+.admin-page .menu-preview-body {
+    background: var(--menu-bg-color, #4A4A4A);
+    padding: 8px 0;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+.admin-page .menu-prev-item {
+    width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 14px;
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.88);
+    font-size: 13px;
+    font-family: inherit;
+    text-align: left;
+    cursor: default;
+    line-height: 1.3;
+}
+.admin-page .menu-prev-item.is-category { cursor: pointer; }
+.admin-page .menu-prev-item.is-category:hover,
+.admin-page .menu-prev-item.is-active {
+    background: var(--menu-hover-color, rgba(255,255,255,0.12));
+    color: #fff;
+}
+.admin-page .menu-prev-item .menu-icon,
+.admin-page .menu-prev-item .menu-prev-caret {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.admin-page .menu-prev-item .menu-icon {
+    width: 18px;
+    height: 18px;
+    font-size: 14px;
+}
+.admin-page .menu-prev-item .menu-icon i { font-size: 14px; }
+.admin-page .menu-prev-item .menu-icon svg { width: 15px; height: 15px; }
+.admin-page .menu-prev-caret {
+    width: 12px;
+    font-size: 10px;
+    color: rgba(255,255,255,0.6);
+}
+.admin-page .menu-prev-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.admin-page .menu-prev-fixed {
+    flex-shrink: 0;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.16);
+    color: rgba(255,255,255,0.7);
+}
+.admin-page .menu-prev-warn {
+    flex-shrink: 0;
+    color: #ffca63;
+    font-size: 11px;
+}
+.admin-page .menu-prev-empty,
+.admin-page .menu-prev-subempty {
+    padding: 12px 16px;
+    color: rgba(255,255,255,0.55);
+    font-size: 12px;
+    font-style: italic;
+}
+.admin-page .menu-prev-empty { text-align: center; }
+
+/* Chip de vínculo página↔item na árvore do editor. */
+.admin-page .menu-item-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    max-width: 100%;
+    padding: 2px 9px 2px 7px;
+    border-radius: 999px;
+    border: 1px solid #c3def0;
+    background: #e3f1fb;
+    color: #0b5fa3;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: filter 0.15s ease;
+}
+.admin-page button.menu-item-link:hover { filter: brightness(0.96); }
+.admin-page .menu-item-link > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.admin-page .menu-item-link i { font-size: 10px; flex-shrink: 0; }
+.admin-page .menu-item-link.is-broken {
+    background: #fdecea;
+    border-color: #f5c6c0;
+    color: #b3261e;
+    cursor: default;
+}
+.admin-page .menu-item-link.is-empty {
+    background: #fff4e0;
+    border-color: #ffe0a3;
+    color: #b26a00;
+    cursor: default;
+}
+
+/* Resultados do picker de página no modal (título + subtítulo + check). */
+.admin-page .page-search-item-main,
+.admin-modal .page-search-item-main {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+.admin-page .page-search-item,
+.admin-modal .page-search-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+.admin-page .page-search-item-title,
+.admin-modal .page-search-item-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.admin-page .page-search-item-sub,
+.admin-modal .page-search-item-sub {
+    font-size: 11px;
+    color: var(--ap-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.admin-page .page-search-item-check,
+.admin-modal .page-search-item-check {
+    flex-shrink: 0;
+    color: var(--aacd-accent);
+    font-size: 12px;
+}
+/* Os itens "limpar"/"vazio" só têm texto — o flex acima os alinharia à
+   esquerda; devolvemos o comportamento normal. */
+.admin-page .page-search-item.page-search-empty,
+.admin-modal .page-search-item.page-search-empty { justify-content: center; }
+.admin-page .page-search-item.page-search-clear,
+.admin-modal .page-search-item.page-search-clear { justify-content: flex-start; }

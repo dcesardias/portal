@@ -7,16 +7,25 @@
 <link rel="icon" href="/assets/img/favicon.ico">
 <style>
     :root {
-        --bg: #f4f6fb;
+        --bg: #f3f5fa;
         --panel: #ffffff;
-        --border: #e1e6f0;
+        --panel-alt: #f8faff;
+        --border: #e4e8f2;
+        --border-strong: #d3dae8;
         --text: #1f2a44;
         --muted: #6b7494;
+        --faint: #9aa2bd;
         --primary: #2b5fcc;
         --primary-dark: #1f4ba8;
+        --primary-soft: #eef3fc;
         --danger: #c0392b;
         --success: #2e7d32;
+        --warn: #b56500;
+        --shadow-sm: 0 1px 2px rgba(31, 42, 68, .06);
         --shadow: 0 8px 24px rgba(31, 42, 68, .08);
+        --shadow-lg: 0 20px 60px rgba(15, 23, 42, .25);
+        --radius: 12px;
+        --radius-sm: 8px;
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; }
@@ -25,310 +34,327 @@
         background: var(--bg);
         color: var(--text);
         min-height: 100vh;
+        -webkit-font-smoothing: antialiased;
     }
+
+    /* ---------- Topbar ---------- */
     .topbar {
         background: var(--panel);
         border-bottom: 1px solid var(--border);
-        padding: 14px 24px;
+        padding: 12px 24px;
         display: flex;
         align-items: center;
         justify-content: space-between;
+        position: sticky;
+        top: 0;
+        z-index: 50;
     }
-    .topbar h1 { margin: 0; font-size: 18px; font-weight: 600; }
-    .topbar .user { font-size: 13px; color: var(--muted); }
+    .topbar .brand { display: flex; align-items: center; gap: 10px; }
+    .topbar .brand .logo {
+        width: 34px; height: 34px; border-radius: 9px;
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        color: #fff; display: flex; align-items: center; justify-content: center;
+        font-size: 17px; flex: none;
+    }
+    .topbar h1 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -.2px; }
+    .topbar .brand .sub { font-size: 11.5px; color: var(--muted); }
+    .topbar .user { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 12px; }
     .topbar .user button {
-        margin-left: 12px;
         background: transparent;
-        border: 1px solid var(--border);
+        border: 1px solid var(--border-strong);
         color: var(--text);
-        padding: 4px 12px;
+        padding: 5px 12px;
         border-radius: 6px;
         cursor: pointer;
         font-size: 12px;
     }
     .topbar .user button:hover { background: var(--bg); }
 
-    .container { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
-    /* Layout: Upload (full) > Fornecedores | Categorias (2 col) > Historico (full).
-       Em telas estreitas (<1100px) tudo empilha em coluna unica.
-       minmax(0, …) impede que tabelas com overflow-x estourem o grid. */
-    .grid-2col {
-        display: grid;
-        grid-template-columns: 1fr;
-        column-gap: 22px;
-        row-gap: 0;
-    }
-    .grid-2col > .card { margin-bottom: 22px; }
-    @media (min-width: 1100px) {
-        .container { max-width: min(1700px, 96vw); padding: 0 24px; }
-        .grid-2col {
-            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-            align-items: start;
-        }
-        /* Upload e Historico ocupam a linha inteira no desktop. */
-        .card-upload, .card-historico { grid-column: 1 / -1; }
-    }
+    .container { max-width: min(1280px, 95vw); margin: 24px auto 60px; padding: 0 20px; }
+
+    /* ---------- Cards / section ---------- */
     .card {
         background: var(--panel);
         border: 1px solid var(--border);
-        border-radius: 10px;
-        box-shadow: var(--shadow);
-        padding: 24px;
-        margin-bottom: 20px;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-sm);
+        padding: 22px 24px;
     }
-    .card h2 { margin: 0 0 12px; font-size: 16px; font-weight: 600; }
-    .card .muted { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
+    .section { margin-bottom: 22px; }
+    .card h2 { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: -.1px; }
+    .card .muted { color: var(--muted); font-size: 12.5px; margin: 4px 0 0; line-height: 1.45; }
+    .card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+    .card-head .titles { min-width: 0; }
 
-    /* Login */
+    /* ---------- KPIs ---------- */
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 14px;
+        margin-bottom: 22px;
+    }
+    @media (max-width: 780px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+    .kpi {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-sm);
+        padding: 16px 18px;
+        position: relative;
+        overflow: hidden;
+    }
+    .kpi::before {
+        content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+        background: var(--accent, var(--primary));
+    }
+    .kpi .kpi-label {
+        font-size: 11px; text-transform: uppercase; letter-spacing: .6px;
+        color: var(--muted); font-weight: 600; margin-bottom: 8px;
+    }
+    .kpi .kpi-value { font-size: 24px; font-weight: 700; letter-spacing: -.5px; font-variant-numeric: tabular-nums; }
+    .kpi .kpi-hint { font-size: 11.5px; color: var(--faint); margin-top: 3px; }
+    .kpi.k-gasto { --accent: var(--primary); }
+    .kpi.k-ti { --accent: var(--warn); }
+    .kpi.k-faturas { --accent: var(--success); }
+    .kpi.k-itens { --accent: #7048c4; }
+
+    /* ---------- Login ---------- */
     .login-wrapper {
-        min-height: calc(100vh - 60px);
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        min-height: 100vh;
+        display: flex; align-items: center; justify-content: center;
         padding: 24px;
     }
-    .login-card { width: 100%; max-width: 380px; }
+    .login-card { width: 100%; max-width: 380px; box-shadow: var(--shadow); }
     .login-card h2 { font-size: 18px; }
+    .login-card .muted { margin-bottom: 16px; }
     .form-group { margin-bottom: 14px; }
-    .form-group label {
-        display: block;
-        font-size: 13px;
-        font-weight: 500;
-        margin-bottom: 6px;
-        color: var(--text);
-    }
+    .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
     .form-group input[type="text"],
     .form-group input[type="password"],
     .form-group input[type="email"] {
-        width: 100%;
-        padding: 9px 12px;
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        font-size: 14px;
-        font-family: inherit;
+        width: 100%; padding: 10px 12px;
+        border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+        font-size: 14px; font-family: inherit;
     }
     .form-group input:focus { outline: 2px solid var(--primary); outline-offset: -1px; border-color: transparent; }
 
+    /* ---------- Buttons ---------- */
     .btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 9px 18px;
-        border: 1px solid var(--border);
-        background: var(--panel);
-        color: var(--text);
-        border-radius: 6px;
-        font-size: 14px;
-        font-weight: 500;
-        cursor: pointer;
-        font-family: inherit;
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 9px 16px;
+        border: 1px solid var(--border-strong);
+        background: var(--panel); color: var(--text);
+        border-radius: var(--radius-sm);
+        font-size: 13.5px; font-weight: 600; cursor: pointer; font-family: inherit;
+        transition: background .12s, border-color .12s;
     }
     .btn:hover { background: var(--bg); }
+    .btn-sm { padding: 5px 11px; font-size: 12.5px; }
     .btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
     .btn-primary:hover { background: var(--primary-dark); border-color: var(--primary-dark); }
-    .btn-primary:disabled { opacity: .6; cursor: not-allowed; }
+    .btn-primary:disabled { opacity: .55; cursor: not-allowed; }
 
-    .alert { padding: 10px 14px; border-radius: 6px; font-size: 13px; margin-bottom: 12px; display: none; }
+    .alert { padding: 10px 14px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 12px; display: none; }
     .alert-error { background: #fdecea; color: var(--danger); border: 1px solid #f5c6c0; }
     .alert-success { background: #e7f5e9; color: var(--success); border: 1px solid #b9dcbd; }
     .alert.show { display: block; }
 
-    /* Upload */
+    /* ---------- Upload ---------- */
+    .upload-row { display: grid; grid-template-columns: 1fr auto; gap: 20px; align-items: stretch; }
+    @media (max-width: 720px) { .upload-row { grid-template-columns: 1fr; } }
     .drop-zone {
-        display: block;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
         width: 100%;
-        border: 2px dashed var(--border);
-        border-radius: 8px;
-        padding: 36px 20px;
+        border: 2px dashed var(--border-strong);
+        border-radius: var(--radius-sm);
+        padding: 22px 20px;
         text-align: center;
-        background: #fbfcfe;
+        background: var(--panel-alt);
         cursor: pointer;
         transition: all .15s ease;
     }
-    .drop-zone.dragover { border-color: var(--primary); background: #eef3fc; }
-    .drop-zone p { margin: 6px 0; color: var(--muted); font-size: 13px; }
-    .drop-zone .filename { font-weight: 600; color: var(--text); margin-top: 10px; }
+    .drop-zone:hover { border-color: var(--primary); }
+    .drop-zone.dragover { border-color: var(--primary); background: var(--primary-soft); }
+    .drop-zone .dz-icon { font-size: 26px; margin-bottom: 6px; }
+    .drop-zone p { margin: 3px 0; color: var(--muted); font-size: 12.5px; }
+    .drop-zone .filename { font-weight: 700; color: var(--primary-dark); margin-top: 8px; font-size: 13px; }
     .drop-zone input[type="file"] {
-        position: absolute;
-        width: 1px; height: 1px;
-        opacity: 0;
-        pointer-events: none;
-        clip: rect(0 0 0 0);
-        overflow: hidden;
+        position: absolute; width: 1px; height: 1px; opacity: 0;
+        pointer-events: none; clip: rect(0 0 0 0); overflow: hidden;
     }
-
-    .upload-actions { margin-top: 14px; display: flex; gap: 10px; }
-    .progress { margin-top: 14px; font-size: 13px; color: var(--muted); display: none; }
+    .upload-side { display: flex; flex-direction: column; justify-content: center; gap: 10px; min-width: 200px; }
+    .upload-side .btn { justify-content: center; width: 100%; }
+    .progress { font-size: 13px; color: var(--muted); display: none; }
     .progress.show { display: flex; align-items: center; gap: 10px; }
     .spinner {
-        width: 14px; height: 14px;
-        border: 2px solid var(--border);
-        border-top-color: var(--primary);
-        border-radius: 50%;
-        animation: spin 0.8s linear infinite;
+        width: 15px; height: 15px;
+        border: 2px solid var(--border-strong); border-top-color: var(--primary);
+        border-radius: 50%; animation: spin 0.8s linear infinite; flex: none;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* Resultado */
-    .result-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-        gap: 14px;
-        margin-top: 12px;
+    /* ---------- Tabs ---------- */
+    .tabs {
+        display: flex; gap: 4px;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 0;
     }
-    .result-grid .field {
-        background: #f8faff;
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        padding: 10px 12px;
+    .tab {
+        appearance: none; background: transparent; border: none;
+        padding: 11px 16px; font-size: 13.5px; font-weight: 600; cursor: pointer;
+        color: var(--muted); font-family: inherit;
+        border-bottom: 2.5px solid transparent; margin-bottom: -1px;
+        display: inline-flex; align-items: center; gap: 8px;
     }
-    .result-grid .field label {
-        display: block;
-        font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: .5px;
-        color: var(--muted);
-        margin-bottom: 4px;
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+    .tab .count-pill {
+        background: var(--primary-soft); color: var(--primary-dark);
+        font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 10px;
     }
-    .result-grid .field .value { font-size: 14px; font-weight: 500; word-break: break-word; }
-    .result-grid .field .value.empty { color: var(--muted); font-style: italic; font-weight: 400; }
+    .tab.active .count-pill { background: var(--primary); color: #fff; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .tab-body { padding-top: 20px; }
+    .tab-body .muted { color: var(--muted); font-size: 12.5px; margin: 0 0 14px; line-height: 1.45; }
 
-    /* Tabela */
+    /* ---------- Tabelas ---------- */
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
     table th, table td {
-        padding: 9px 10px;
-        text-align: left;
-        border-bottom: 1px solid var(--border);
-        vertical-align: top;
+        padding: 10px 12px; text-align: left;
+        border-bottom: 1px solid var(--border); vertical-align: middle;
     }
     table th {
-        background: #f8faff;
-        font-weight: 600;
-        color: var(--text);
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: .5px;
+        background: var(--panel-alt); font-weight: 700; color: var(--muted);
+        font-size: 11px; text-transform: uppercase; letter-spacing: .5px;
+        position: sticky; top: 0; z-index: 1;
     }
-    table tbody tr:hover { background: #fbfcfe; }
-    table .num { text-align: right; font-variant-numeric: tabular-nums; }
+    table tbody tr:last-child td { border-bottom: none; }
+    table tbody tr:hover { background: var(--panel-alt); }
+    table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .table-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+    .table-scroll table th:first-child, .table-scroll table td:first-child { padding-left: 16px; }
+    .table-scroll table th:last-child, .table-scroll table td:last-child { padding-right: 16px; }
 
-    .empty-state { text-align: center; padding: 30px; color: var(--muted); font-size: 13px; }
-    .table-scroll { overflow-x: auto; }
+    .empty-state { text-align: center; padding: 34px; color: var(--muted); font-size: 13px; }
 
-    .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; background: #eef3fc; color: var(--primary-dark); }
+    /* Linhas clicáveis (drill-down) */
+    tr.clickable { cursor: pointer; }
+    tr.clickable:hover { background: var(--primary-soft); }
+    .drill-name { display: flex; align-items: center; gap: 6px; }
+    .drill-name .name-text { font-weight: 600; color: var(--primary-dark); }
+    tr.clickable:hover .drill-name .name-text { text-decoration: underline; }
+    .chev { color: var(--faint); font-size: 15px; line-height: 1; }
+    tr.clickable:hover .chev { color: var(--primary); }
+
+    /* ---------- Badges / pills ---------- */
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; background: var(--primary-soft); color: var(--primary-dark); }
     .block-title {
-        margin: 22px 0 8px;
-        font-size: 13px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: .5px;
-        color: var(--muted);
+        margin: 22px 0 8px; font-size: 12px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: .5px; color: var(--muted);
     }
     .tipo-pill {
-        display: inline-block;
-        padding: 1px 7px;
-        border-radius: 8px;
-        font-size: 11px;
-        background: #eef3fc;
-        color: var(--primary-dark);
-        white-space: nowrap;
+        display: inline-block; padding: 1px 8px; border-radius: 8px;
+        font-size: 11px; background: var(--primary-soft); color: var(--primary-dark); white-space: nowrap;
     }
     .tipo-pill.tipo-pagamento { background: #e7f5e9; color: var(--success); }
-    .tipo-pill.tipo-internacional { background: #fff4e6; color: #b56500; }
-    .tipo-pill.tipo-saque { background: #fdecea; color: var(--danger); }
-    .tipo-pill.tipo-encargo { background: #fdecea; color: var(--danger); }
+    .tipo-pill.tipo-internacional { background: #fff4e6; color: var(--warn); }
+    .tipo-pill.tipo-saque, .tipo-pill.tipo-encargo { background: #fdecea; color: var(--danger); }
     .fornecedor-cell { line-height: 1.25; }
     .fornecedor-cell .fornecedor-nome { font-weight: 600; color: var(--text); }
     .fornecedor-cell .fornecedor-cat { display: block; font-size: 11px; color: var(--muted); margin-top: 1px; }
     .fornecedor-cell .fornecedor-prod { display: block; font-size: 11px; color: var(--primary-dark); margin-top: 1px; }
     .fornecedor-cell.empty { color: var(--muted); font-style: italic; font-weight: 400; }
-
-    /* Modal de detalhes */
-    .modal-overlay {
-        position: fixed; inset: 0;
-        background: rgba(15, 23, 42, .55);
-        z-index: 1000;
-        display: flex;
-        align-items: flex-start;
-        justify-content: center;
-        overflow-y: auto;
-        padding: 24px;
-    }
-    .modal-box {
-        background: var(--panel);
-        border-radius: 10px;
-        box-shadow: 0 20px 60px rgba(0,0,0,.25);
-        width: 100%;
-        max-width: 1200px;
-        margin: 24px auto;
-        padding: 24px;
-        position: relative;
-    }
-    .modal-close {
-        position: absolute;
-        top: 12px; right: 14px;
-        background: transparent;
-        border: none;
-        font-size: 22px;
-        cursor: pointer;
-        color: var(--muted);
-        line-height: 1;
-    }
-    .modal-close:hover { color: var(--text); }
-
-    /* Cards de fornecedor / categoria */
-    .switch { position: relative; display: inline-block; width: 36px; height: 20px; }
-    .switch input { opacity: 0; width: 0; height: 0; }
-    .switch .slider {
-        position: absolute; cursor: pointer;
-        top: 0; left: 0; right: 0; bottom: 0;
-        background-color: #cbd2de;
-        border-radius: 20px;
-        transition: .15s;
-    }
-    .switch .slider:before {
-        position: absolute; content: "";
-        height: 14px; width: 14px;
-        left: 3px; top: 3px;
-        background-color: white;
-        border-radius: 50%;
-        transition: .15s;
-    }
-    .switch input:checked + .slider { background-color: var(--primary); }
-    .switch input:checked + .slider:before { transform: translateX(16px); }
-
-    table.master-table input[type="text"] {
-        width: 100%;
-        padding: 5px 8px;
-        border: 1px solid var(--border);
-        border-radius: 5px;
-        font-size: 12px;
-        font-family: inherit;
-    }
-    table.master-table tr.row-novo { background: #fff8e1; }
-    table.master-table tr.row-novo:hover { background: #fff3c4; }
     .badge-novo {
         display: inline-block; padding: 1px 7px; margin-left: 6px;
-        border-radius: 8px; font-size: 11px; font-weight: 600;
+        border-radius: 8px; font-size: 11px; font-weight: 700;
         background: #fdcd02; color: #4a3500;
     }
     .badge-ti {
         display: inline-block; padding: 1px 7px; margin-left: 6px;
-        border-radius: 8px; font-size: 11px; font-weight: 600;
+        border-radius: 8px; font-size: 11px; font-weight: 700;
         background: #dcebff; color: var(--primary-dark);
     }
-    .row-action button {
-        font-size: 12px; padding: 4px 10px;
+    .val-neg { color: var(--success); }
+
+    /* ---------- Result grid (modal fatura) ---------- */
+    .result-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 10px; }
+    .result-grid .field { background: var(--panel-alt); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; }
+    .result-grid .field label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin-bottom: 4px; }
+    .result-grid .field .value { font-size: 14px; font-weight: 600; word-break: break-word; }
+    .result-grid .field .value.empty { color: var(--muted); font-style: italic; font-weight: 400; }
+
+    /* ---------- Switch ---------- */
+    .switch { position: relative; display: inline-block; width: 38px; height: 21px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .switch .slider {
+        position: absolute; cursor: pointer; inset: 0;
+        background-color: #cbd2de; border-radius: 21px; transition: .15s;
     }
+    .switch .slider:before {
+        position: absolute; content: ""; height: 15px; width: 15px;
+        left: 3px; top: 3px; background-color: #fff; border-radius: 50%; transition: .15s;
+    }
+    .switch input:checked + .slider { background-color: var(--primary); }
+    .switch input:checked + .slider:before { transform: translateX(17px); }
+
+    table.master-table input[type="text"] {
+        width: 100%; padding: 6px 9px;
+        border: 1px solid var(--border-strong); border-radius: 6px;
+        font-size: 12.5px; font-family: inherit;
+    }
+    table.master-table input[type="text"]:focus { outline: 2px solid var(--primary); outline-offset: -1px; border-color: transparent; }
+    table.master-table tr.row-novo { background: #fff8e1; }
+    table.master-table tr.row-novo:hover { background: #fff3c4; }
+    /* impede que os controles disparem o drill-down da linha */
+    .no-drill { cursor: default; }
+
+    /* ---------- Modais ---------- */
+    .modal-overlay {
+        position: fixed; inset: 0;
+        background: rgba(15, 23, 42, .55);
+        z-index: 1000;
+        display: flex; align-items: flex-start; justify-content: center;
+        overflow-y: auto; padding: 24px;
+    }
+    .modal-box {
+        background: var(--panel); border-radius: var(--radius);
+        box-shadow: var(--shadow-lg);
+        width: 100%; max-width: 1200px; margin: 24px auto;
+        position: relative;
+    }
+    .modal-box.narrow { max-width: 1000px; }
+    .modal-header {
+        position: sticky; top: 0; background: var(--panel); z-index: 2;
+        padding: 20px 24px 14px; border-bottom: 1px solid var(--border);
+        border-radius: var(--radius) var(--radius) 0 0;
+        display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+    }
+    .modal-header h2 { margin: 0; font-size: 17px; font-weight: 700; }
+    .modal-header .sub { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+    .modal-body { padding: 6px 24px 24px; }
+    .modal-close {
+        background: transparent; border: none; font-size: 24px; cursor: pointer;
+        color: var(--muted); line-height: 1; flex: none;
+    }
+    .modal-close:hover { color: var(--text); }
+    /* Faixa de resumo dentro do drill-down */
+    .drill-summary { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0 4px; }
+    .drill-summary .stat {
+        flex: 1 1 150px; background: var(--panel-alt);
+        border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px;
+    }
+    .drill-summary .stat .l { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); font-weight: 600; }
+    .drill-summary .stat .v { font-size: 19px; font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; }
+
+    /* ---------- Toast ---------- */
     .toast {
         position: fixed; right: 18px; bottom: 18px;
         background: var(--text); color: #fff;
-        padding: 10px 16px; border-radius: 6px;
-        font-size: 13px; box-shadow: 0 8px 24px rgba(0,0,0,.2);
-        z-index: 1100;
-        opacity: 0; transform: translateY(8px);
-        transition: opacity .15s, transform .15s;
-        pointer-events: none;
+        padding: 11px 18px; border-radius: var(--radius-sm);
+        font-size: 13px; box-shadow: var(--shadow);
+        z-index: 1100; opacity: 0; transform: translateY(8px);
+        transition: opacity .15s, transform .15s; pointer-events: none;
     }
     .toast.show { opacity: 1; transform: translateY(0); }
     .toast.success { background: var(--success); }
@@ -362,7 +388,13 @@
 <!-- APP -->
 <div id="appScreen" class="hidden">
     <div class="topbar">
-        <h1>Fatura — OCR via IA</h1>
+        <div class="brand">
+            <div class="logo">📄</div>
+            <div>
+                <h1>Fatura — OCR via IA</h1>
+                <div class="sub">Extração e classificação de faturas Itaú</div>
+            </div>
+        </div>
         <div class="user">
             <span id="userLabel"></span>
             <button id="logoutBtn">Sair</button>
@@ -370,143 +402,216 @@
     </div>
 
     <div class="container">
-      <div class="grid-2col">
-        <!-- Upload (linha 1, esquerda) -->
-        <div class="card card-upload">
-            <h2>Enviar fatura em PDF</h2>
-            <p class="muted">Selecione ou arraste um PDF. A IA extrai os campos e grava em <code>Fonte.dbo.OCR_FATURA_ITAU</code>.</p>
 
+        <!-- KPIs -->
+        <div class="kpi-grid" id="kpiGrid">
+            <div class="kpi k-gasto">
+                <div class="kpi-label">Total processado</div>
+                <div class="kpi-value" id="kpiGasto">—</div>
+                <div class="kpi-hint">soma dos lançamentos (gastos)</div>
+            </div>
+            <div class="kpi k-ti">
+                <div class="kpi-label">Despesa de TI</div>
+                <div class="kpi-value" id="kpiTi">—</div>
+                <div class="kpi-hint" id="kpiTiHint">classificado como TI</div>
+            </div>
+            <div class="kpi k-faturas">
+                <div class="kpi-label">Faturas</div>
+                <div class="kpi-value" id="kpiFaturas">—</div>
+                <div class="kpi-hint">processadas no total</div>
+            </div>
+            <div class="kpi k-itens">
+                <div class="kpi-label">Lançamentos</div>
+                <div class="kpi-value" id="kpiItens">—</div>
+                <div class="kpi-hint">linhas extraídas</div>
+            </div>
+        </div>
+
+        <!-- Upload -->
+        <div class="card section card-upload">
+            <div class="card-head">
+                <div class="titles">
+                    <h2>Enviar fatura em PDF</h2>
+                    <p class="muted">A IA extrai os campos, normaliza fornecedores/categorias e grava em <code>Fonte.dbo.OCR_FATURA_ITAU</code>.</p>
+                </div>
+            </div>
             <div id="uploadAlert" class="alert"></div>
-
-            <label class="drop-zone" id="dropZone">
-                <input type="file" id="fileInput" accept="application/pdf,.pdf">
-                <p style="font-size: 14px; color: var(--text);"><strong>Clique para escolher</strong> ou arraste um PDF aqui</p>
-                <p>Tamanho máximo: 50 MB</p>
-                <p class="filename" id="filenameLabel"></p>
-            </label>
-
-            <div class="upload-actions">
-                <button class="btn btn-primary" id="uploadBtn" disabled>Processar fatura</button>
-                <button class="btn" id="clearBtn" type="button">Limpar</button>
-            </div>
-
-            <div class="progress" id="uploadProgress">
-                <div class="spinner"></div>
-                <span id="progressLabel">Enviando PDF para a IA…</span>
-            </div>
-        </div>
-
-        <!-- Fornecedores normalizados (linha 1, direita) -->
-        <div class="card card-fornecedor">
-            <h2>Fornecedores normalizados</h2>
-            <p class="muted">Marque <strong>Despesa de TI</strong> em fornecedores específicos para que essa classificação valha em todas as faturas (passadas e futuras).</p>
-            <div class="table-scroll">
-                <table class="master-table" id="fornecedoresTable">
-                    <thead><tr>
-                        <th>Fornecedor</th>
-                        <th class="num">Lançamentos</th>
-                        <th class="num">Total R$</th>
-                        <th>Despesa de TI</th>
-                        <th>Observação</th>
-                    </tr></thead>
-                    <tbody>
-                        <tr><td colspan="5" class="empty-state">Carregando…</td></tr>
-                    </tbody>
-                </table>
+            <div class="upload-row">
+                <label class="drop-zone" id="dropZone">
+                    <input type="file" id="fileInput" accept="application/pdf,.pdf">
+                    <div class="dz-icon">⬆️</div>
+                    <p style="font-size: 13.5px; color: var(--text);"><strong>Clique para escolher</strong> ou arraste um PDF aqui</p>
+                    <p>Tamanho máximo: 50 MB</p>
+                    <p class="filename" id="filenameLabel"></p>
+                </label>
+                <div class="upload-side">
+                    <button class="btn btn-primary" id="uploadBtn" disabled>Processar fatura</button>
+                    <button class="btn" id="clearBtn" type="button">Limpar</button>
+                    <div class="progress" id="uploadProgress">
+                        <div class="spinner"></div>
+                        <span id="progressLabel">Enviando PDF para a IA…</span>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- Categorias normalizadas (linha 2, direita) -->
-        <div class="card card-categoria">
-            <h2>Categorias normalizadas</h2>
-            <p class="muted">A flag <strong>Despesa de TI</strong> aplicada a uma categoria abrange todos os fornecedores enquadrados nela.</p>
-            <div class="table-scroll">
-                <table class="master-table" id="categoriasTable">
-                    <thead><tr>
-                        <th>Categoria</th>
-                        <th class="num">Lançamentos</th>
-                        <th class="num">Total R$</th>
-                        <th>Despesa de TI</th>
-                        <th>Observação</th>
-                    </tr></thead>
-                    <tbody>
-                        <tr><td colspan="5" class="empty-state">Carregando…</td></tr>
-                    </tbody>
-                </table>
+        <!-- Abas -->
+        <div class="card section">
+            <div class="tabs" role="tablist">
+                <button class="tab active" data-tab="fornecedores" role="tab">
+                    Fornecedores <span class="count-pill" id="tabCountFornecedores">0</span>
+                </button>
+                <button class="tab" data-tab="categorias" role="tab">
+                    Categorias <span class="count-pill" id="tabCountCategorias">0</span>
+                </button>
+                <button class="tab" data-tab="historico" role="tab">
+                    Histórico <span class="count-pill" id="tabCountHistorico">0</span>
+                </button>
+            </div>
+
+            <!-- Fornecedores -->
+            <div class="tab-panel active tab-body" data-panel="fornecedores">
+                <p class="muted">Clique em um fornecedor para ver todos os lançamentos que compõem o total. Marque <strong>Despesa de TI</strong> para que a classificação valha em todas as faturas (passadas e futuras).</p>
+                <div class="table-scroll">
+                    <table class="master-table" id="fornecedoresTable">
+                        <thead><tr>
+                            <th>Fornecedor</th>
+                            <th class="num">Lançamentos</th>
+                            <th class="num">Total R$</th>
+                            <th>Despesa de TI</th>
+                            <th>Observação</th>
+                        </tr></thead>
+                        <tbody>
+                            <tr><td colspan="5" class="empty-state">Carregando…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Categorias -->
+            <div class="tab-panel tab-body" data-panel="categorias">
+                <p class="muted">Clique em uma categoria para ver os lançamentos. A flag <strong>Despesa de TI</strong> aplicada a uma categoria abrange todos os fornecedores enquadrados nela.</p>
+                <div class="table-scroll">
+                    <table class="master-table" id="categoriasTable">
+                        <thead><tr>
+                            <th>Categoria</th>
+                            <th class="num">Lançamentos</th>
+                            <th class="num">Total R$</th>
+                            <th>Despesa de TI</th>
+                            <th>Observação</th>
+                        </tr></thead>
+                        <tbody>
+                            <tr><td colspan="5" class="empty-state">Carregando…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Histórico -->
+            <div class="tab-panel tab-body" data-panel="historico">
+                <p class="muted">Últimas faturas processadas (mais recentes primeiro). Clique em <strong>Detalhes</strong> para ver os dados completos.</p>
+                <div class="table-scroll">
+                    <table id="historyTable">
+                        <thead><tr>
+                            <th>#</th>
+                            <th>Enviado em</th>
+                            <th>Empresa / Pagador</th>
+                            <th>Emissor</th>
+                            <th>Nº fatura</th>
+                            <th>Vencimento</th>
+                            <th class="num">Total</th>
+                            <th class="num">Repasse IOF</th>
+                            <th class="num">Itens</th>
+                            <th></th>
+                        </tr></thead>
+                        <tbody>
+                            <tr><td colspan="10" class="empty-state">Carregando…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
-        <!-- Histórico (linha 3, full width) -->
-        <div class="card card-historico">
-            <h2>Histórico</h2>
-            <p class="muted">Últimas faturas processadas (mais recentes primeiro). Clique em <strong>Detalhes</strong> para ver os dados completos.</p>
-            <div class="table-scroll">
-                <table id="historyTable">
-                    <thead><tr>
-                        <th>#</th>
-                        <th>Enviado em</th>
-                        <th>Empresa / Pagador</th>
-                        <th>Emissor</th>
-                        <th>Nº fatura</th>
-                        <th>Vencimento</th>
-                        <th class="num">Total</th>
-                        <th class="num">Repasse IOF</th>
-                        <th class="num">Itens</th>
-                        <th></th>
-                    </tr></thead>
-                    <tbody>
-                        <tr><td colspan="10" class="empty-state">Carregando…</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-      </div><!-- /grid-2col -->
     </div>
 </div>
 
-<!-- Modal de detalhes da fatura -->
+<!-- Modal: detalhamento por fornecedor/categoria -->
+<div id="drillModal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <div class="modal-box narrow">
+        <div class="modal-header">
+            <div>
+                <h2 id="drillTitle">Lançamentos</h2>
+                <div class="sub" id="drillSub"></div>
+            </div>
+            <button class="modal-close" id="drillClose" aria-label="Fechar">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="drill-summary" id="drillSummary"></div>
+            <div class="table-scroll" style="margin-top: 14px;">
+                <table id="drillItens">
+                    <thead><tr>
+                        <th>Data</th>
+                        <th>Tipo</th>
+                        <th>Estabelecimento</th>
+                        <th id="drillCol6">Categoria</th>
+                        <th>Portador</th>
+                        <th>Cidade</th>
+                        <th>Fatura</th>
+                        <th class="num">Valor R$</th>
+                    </tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: detalhes completos da fatura -->
 <div id="detalhesModal" class="modal-overlay hidden" role="dialog" aria-modal="true">
     <div class="modal-box">
-        <button class="modal-close" id="detalhesClose" aria-label="Fechar">×</button>
-        <h2>Detalhes da fatura <span class="badge" id="detalhesModel"></span></h2>
+        <div class="modal-header">
+            <h2>Detalhes da fatura <span class="badge" id="detalhesModel"></span></h2>
+            <button class="modal-close" id="detalhesClose" aria-label="Fechar">×</button>
+        </div>
+        <div class="modal-body">
+            <h3 class="block-title">Identificação</h3>
+            <div class="result-grid" id="detIdent"></div>
 
-        <h3 class="block-title">Identificação</h3>
-        <div class="result-grid" id="detIdent"></div>
+            <h3 class="block-title">Resumo</h3>
+            <div class="result-grid" id="detResumo"></div>
 
-        <h3 class="block-title">Resumo</h3>
-        <div class="result-grid" id="detResumo"></div>
+            <h3 class="block-title">Limites</h3>
+            <div class="result-grid" id="detLimites"></div>
 
-        <h3 class="block-title">Limites</h3>
-        <div class="result-grid" id="detLimites"></div>
+            <h3 class="block-title">Encargos cobrados</h3>
+            <div class="result-grid" id="detEncargos"></div>
 
-        <h3 class="block-title">Encargos cobrados</h3>
-        <div class="result-grid" id="detEncargos"></div>
+            <h3 class="block-title">Próximo período</h3>
+            <div class="result-grid" id="detProximo"></div>
 
-        <h3 class="block-title">Próximo período</h3>
-        <div class="result-grid" id="detProximo"></div>
+            <h3 class="block-title">Totalizadores</h3>
+            <div class="result-grid" id="detTotais"></div>
 
-        <h3 class="block-title">Totalizadores</h3>
-        <div class="result-grid" id="detTotais"></div>
-
-        <h3 class="block-title">Lançamentos</h3>
-        <div class="table-scroll">
-            <table id="detItens">
-                <thead><tr>
-                    <th>Data</th>
-                    <th>Tipo</th>
-                    <th>Portador</th>
-                    <th>Cartão</th>
-                    <th>Estabelecimento</th>
-                    <th>Fornecedor / Categoria</th>
-                    <th>Cidade</th>
-                    <th>CCS</th>
-                    <th>Moeda orig.</th>
-                    <th class="num">Vlr orig.</th>
-                    <th class="num">Câmbio</th>
-                    <th class="num">Valor R$</th>
-                </tr></thead>
-                <tbody></tbody>
-            </table>
+            <h3 class="block-title">Lançamentos</h3>
+            <div class="table-scroll">
+                <table id="detItens">
+                    <thead><tr>
+                        <th>Data</th>
+                        <th>Tipo</th>
+                        <th>Portador</th>
+                        <th>Cartão</th>
+                        <th>Estabelecimento</th>
+                        <th>Fornecedor / Categoria</th>
+                        <th>Cidade</th>
+                        <th>CCS</th>
+                        <th>Moeda orig.</th>
+                        <th class="num">Vlr orig.</th>
+                        <th class="num">Câmbio</th>
+                        <th class="num">Valor R$</th>
+                    </tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>

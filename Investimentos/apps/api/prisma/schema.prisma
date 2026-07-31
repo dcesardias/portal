@@ -1,0 +1,417 @@
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+  schemas  = ["investimentos"]
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ─── Auth / Usuários ────────────────────────────────────────────────────────
+model User {
+  id            String   @id @default(uuid()) @db.UniqueIdentifier
+  login         String   @unique @db.VarChar(64)
+  nome          String   @db.NVarChar(255)
+  email         String   @unique @db.VarChar(255)
+  senhaHash     String   @db.NVarChar(512)
+  ativo         Boolean  @default(true)
+  mustChangePwd Boolean  @default(false)
+  dtCriacao     DateTime @default(now())
+
+  refreshTokens RefreshToken[]
+  perfis        UserPerfil[]
+  solicitacoes  Solicitacao[]          @relation("solicitante")
+  aprovacoes    Aprovacao[]            @relation("aprovador")
+  restricoes    RestricaoSolicitante[]
+  itensSuprimentos SolicitacaoItem[]   @relation("suprimentosPor")
+
+  @@schema("investimentos")
+}
+
+// Restrição opcional do que um solicitante pode pedir (centro de custo / conta contábil).
+// Sem linhas para um usuário = sem restrição (pode pedir qualquer CC/conta). Gerenciável via tela admin.
+model RestricaoSolicitante {
+  id                String   @id @default(uuid()) @db.UniqueIdentifier
+  userId            String   @db.UniqueIdentifier
+  centroCustoCodigo String?  @db.VarChar(20)
+  contaContabil     String?  @db.VarChar(60)
+  criadoEm          DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@schema("investimentos")
+}
+
+model RefreshToken {
+  id           String    @id @default(uuid()) @db.UniqueIdentifier
+  userId       String    @db.UniqueIdentifier
+  tokenHash    String    @unique @db.Char(64)
+  familyId     String    @db.UniqueIdentifier
+  parentId     String?   @db.UniqueIdentifier
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  replacedById String?   @db.UniqueIdentifier
+  createdAt    DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, familyId])
+  @@schema("investimentos")
+}
+
+// ─── RBAC ───────────────────────────────────────────────────────────────────
+model Perfil {
+  id         String            @id @default(uuid()) @db.UniqueIdentifier
+  nome       String            @unique @db.VarChar(60)
+  descricao  String?           @db.NVarChar(255)
+  usuarios   UserPerfil[]
+  permissoes PerfilPermissao[]
+
+  @@schema("investimentos")
+}
+
+model Permissao {
+  id     String            @id @default(uuid()) @db.UniqueIdentifier
+  chave  String            @unique @db.VarChar(80) // ex: SOLICITACAO_APROVAR
+  perfis PerfilPermissao[]
+
+  @@schema("investimentos")
+}
+
+model UserPerfil {
+  userId   String @db.UniqueIdentifier
+  perfilId String @db.UniqueIdentifier
+  user     User   @relation(fields: [userId], references: [id])
+  perfil   Perfil @relation(fields: [perfilId], references: [id])
+
+  @@id([userId, perfilId])
+  @@schema("investimentos")
+}
+
+model PerfilPermissao {
+  perfilId    String    @db.UniqueIdentifier
+  permissaoId String    @db.UniqueIdentifier
+  perfil      Perfil    @relation(fields: [perfilId], references: [id])
+  permissao   Permissao @relation(fields: [permissaoId], references: [id])
+
+  @@id([perfilId, permissaoId])
+  @@schema("investimentos")
+}
+
+// ─── Catálogos ──────────────────────────────────────────────────────────────
+model Estabelecimento {
+  id    Int     @id
+  nome  String  @db.NVarChar(120)
+  ativo Boolean @default(true)
+
+  unidades     UnidadeNegocio[]
+  solicitacoes Solicitacao[]
+  regrasAlcada RegraAlcada[]
+  regrasFluxo  RegraFluxo[]
+
+  @@schema("investimentos")
+}
+
+model UnidadeNegocio {
+  id                Int             @id
+  nome              String          @db.NVarChar(120)
+  estabelecimentoId Int
+  ativo             Boolean         @default(true)
+  estabelecimento   Estabelecimento @relation(fields: [estabelecimentoId], references: [id])
+  centrosCusto      CentroCusto[]
+  solicitacoes      Solicitacao[]
+
+  @@schema("investimentos")
+}
+
+model CentroCusto {
+  codigo       String         @id @db.VarChar(20)
+  descricao    String         @db.NVarChar(255)
+  unidadeId    Int
+  ativo        Boolean        @default(true)
+  unidade      UnidadeNegocio @relation(fields: [unidadeId], references: [id])
+  solicitacoes Solicitacao[]
+
+  @@schema("investimentos")
+}
+
+model GrupoInvestimento {
+  id            Int     @id
+  nome          String  @db.NVarChar(120)
+  categoria     String  @db.VarChar(20) // ITEM | OBRA | INSTRUMENTAL
+  contaContabil String? @db.VarChar(60)
+  ativo         Boolean @default(true)
+
+  itens          ItemCatalogo[]
+  solicitacoesIt SolicitacaoItem[]
+  regrasAlcada   RegraAlcada[]
+  regrasFluxo    RegraFluxo[]
+
+  @@schema("investimentos")
+}
+
+model ItemCatalogo {
+  id              Int      @id @default(autoincrement())
+  nome            String   @db.NVarChar(500)
+  grupoId         Int
+  agrupamento     String?  @db.NVarChar(120)
+  classificacao   String?  @db.NVarChar(120)
+  definicao       String?  @db.NVarChar(1000)
+  especificacao   String?  @db.NVarChar(Max)
+  valorReferencia Decimal? @db.Decimal(14, 2) // exibido como "Valor Renem"
+  valorMin        Decimal? @db.Decimal(14, 2) // "Valor Mínimo"
+  valorMax        Decimal? @db.Decimal(14, 2) // "Valor Máximo"
+  movimentoContabil String? @db.VarChar(20) // "Despesa" | "Investimento"
+  dolarizadoRenem Boolean  @default(false) // RENEM dolarizado (S/N)
+  ativo           Boolean  @default(true)
+  idRenem         String?  @db.VarChar(40)
+  dsRenem         String?  @db.NVarChar(255)
+  // Discriminador de tipo de catálogo (decisão: reaproveitar ItemCatalogo em vez de tabela separada)
+  tipo            String   @default("ITEM") @db.VarChar(20) // ITEM | INSTRUMENTAL
+  tipoVerba       String?  @db.VarChar(30) // só instrumentais: "Verba Própria" / "Verba Pública"
+  legadoId        Int? // id de origem no legado (tb_itens.id_item / tb_instrumentaiscirurgicos.id_instrumentalcirurgico)
+  // Vínculo 1-para-1 com material do Tasy (view dbo.vw_materiais_tasy). Unicidade
+  // garantida por índice único FILTRADO no banco (UX_ItemCatalogo_cdMaterialTasy,
+  // WHERE cdMaterialTasy IS NOT NULL) — não usar @unique (só permitiria 1 NULL).
+  cdMaterialTasy  String?  @db.VarChar(40)
+  dsMaterialTasy  String?  @db.NVarChar(255) // snapshot da descrição p/ exibição
+  // Vínculo à conta contábil (view dbo.VW_CONTA_CONTABIL_PESSOAL). Não é 1-para-1:
+  // vários itens podem apontar para a mesma conta. Guarda a descrição como snapshot.
+  cdContaContabil String?  @db.VarChar(20)
+  dsContaContabil String?  @db.NVarChar(255)
+
+  grupo            GrupoInvestimento @relation(fields: [grupoId], references: [id])
+  solicitacoesItem SolicitacaoItem[]
+
+  @@index([tipo])
+  @@schema("investimentos")
+}
+
+model Motivo {
+  id    Int     @id @default(autoincrement())
+  nome  String  @db.NVarChar(120)
+  ativo Boolean @default(true)
+
+  solicitacoesItem SolicitacaoItem[]
+
+  @@schema("investimentos")
+}
+
+// ─── Motor de Fluxo ─────────────────────────────────────────────────────────
+model Fluxo {
+  id        String  @id @default(uuid()) @db.UniqueIdentifier
+  nome      String  @unique @db.NVarChar(120)
+  descricao String? @db.NVarChar(500)
+  ativo     Boolean @default(true)
+
+  etapas       EtapaFluxo[]
+  regras       RegraFluxo[]
+  solicitacoes Solicitacao[]
+
+  @@schema("investimentos")
+}
+
+model EtapaFluxo {
+  id                String  @id @default(uuid()) @db.UniqueIdentifier
+  fluxoId           String  @db.UniqueIdentifier
+  ordem             Int
+  nome              String  @db.NVarChar(120)
+  fonteAprovador    String  @db.VarChar(20) // ALCADA_FOCAL | ALCADA_SUP | ALCADA_FINAL | PERFIL | USUARIO
+  perfilAlvo        String? @db.VarChar(60) // quando fonte=PERFIL
+  usuarioAlvoId     String? @db.UniqueIdentifier // quando fonte=USUARIO
+  obrigatoria       Boolean @default(true)
+  permiteRevisao    Boolean @default(true)
+  aprovacaoParalela Boolean @default(false)
+
+  fluxo      Fluxo       @relation(fields: [fluxoId], references: [id])
+  aprovacoes Aprovacao[]
+
+  @@unique([fluxoId, ordem])
+  @@schema("investimentos")
+}
+
+model RegraFluxo {
+  id                String   @id @default(uuid()) @db.UniqueIdentifier
+  prioridade        Int
+  estabelecimentoId Int?
+  grupoId           Int?
+  tipoVerba         String?  @db.VarChar(4) // RP | VP
+  vlMin             Decimal? @db.Decimal(14, 2)
+  vlMax             Decimal? @db.Decimal(14, 2)
+  fluxoId           String   @db.UniqueIdentifier
+  isDefault         Boolean  @default(false)
+
+  fluxo           Fluxo              @relation(fields: [fluxoId], references: [id])
+  estabelecimento Estabelecimento?   @relation(fields: [estabelecimentoId], references: [id])
+  grupo           GrupoInvestimento? @relation(fields: [grupoId], references: [id])
+
+  @@index([prioridade])
+  @@schema("investimentos")
+}
+
+model RegraAlcada {
+  id                String @id @default(uuid()) @db.UniqueIdentifier
+  estabelecimentoId Int
+  grupoId           Int
+  nivel             String @db.VarChar(20) // FOCAL | SUP | FINAL
+  usuarioLogin      String @db.VarChar(64)
+
+  estabelecimento Estabelecimento   @relation(fields: [estabelecimentoId], references: [id])
+  grupo           GrupoInvestimento @relation(fields: [grupoId], references: [id])
+
+  @@unique([estabelecimentoId, grupoId, nivel, usuarioLogin])
+  @@schema("investimentos")
+}
+
+// ─── Solicitação ───────────────────────────────────────────────────────────
+model Solicitacao {
+  id                String    @id @default(uuid()) @db.UniqueIdentifier
+  numero            Int       @unique @default(autoincrement())
+  solicitanteId     String    @db.UniqueIdentifier
+  estabelecimentoId Int
+  unidadeNegocioId  Int
+  centroCustoCodigo String    @db.VarChar(20)
+  dtSolicitacao     DateTime  @default(now())
+  dtRecurso         DateTime?
+  tipoVerba         String?   @db.VarChar(4) // RP | VP
+  // Status da verba pública (só admin, só quando tipoVerba = VP):
+  // PROPOSICAO | SUBMETIDO | CAPTACAO | CONVENIAMENTO | EXECUCAO | CONCLUIDO | ALOCAR
+  statusVerbaPublica String?  @db.VarChar(20)
+  projeto           String?   @db.NVarChar(255)
+  status            String    @db.VarChar(30) // RASCUNHO | EM_APROVACAO | APROVADO | REPROVADO | EM_REVISAO | CANCELADO
+  fluxoId           String?   @db.UniqueIdentifier
+  etapaAtualOrdem   Int?
+  // Carry-over de prorrogação: quando != null, esta solicitação (Aprovada, ano
+  // seguinte) foi criada ao prorrogar itens da solicitação de origem apontada.
+  origemProrrogacaoId String? @db.UniqueIdentifier
+  // Anotações por papel (visíveis "do Gestor Focal pra frente")
+  obsGF             String?   @db.NVarChar(2000) // Observação Gestor Focal (aprovador/aprovador final)
+  obsGPE            String?   @db.NVarChar(2000) // Observação GPE (admin)
+  validacao         String?   @db.NVarChar(500)  // Validação (classificação do admin/GPE)
+  revisaoAnual      String?   @db.NVarChar(2000) // Revisão Anual — anotações livres (só GPE/admin)
+  // Auditoria de simulação: != null quando a solicitação foi CRIADA por um admin
+  // agindo em modo simulação — guarda o id do admin real (o solicitanteId é o usuário simulado).
+  simuladoPorId     String?   @db.UniqueIdentifier
+
+  solicitante     User              @relation("solicitante", fields: [solicitanteId], references: [id])
+  estabelecimento Estabelecimento   @relation(fields: [estabelecimentoId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+  unidade         UnidadeNegocio    @relation(fields: [unidadeNegocioId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+  centroCusto     CentroCusto       @relation(fields: [centroCustoCodigo], references: [codigo], onUpdate: NoAction, onDelete: NoAction)
+  fluxo           Fluxo?            @relation(fields: [fluxoId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+  itens           SolicitacaoItem[]
+  aprovacoes      Aprovacao[]
+
+  @@index([solicitanteId])
+  @@index([status])
+  @@schema("investimentos")
+}
+
+model SolicitacaoItem {
+  id               String  @id @default(uuid()) @db.UniqueIdentifier
+  solicitacaoId    String  @db.UniqueIdentifier
+  tipo             String  @default("ITEM") @db.VarChar(20) // ITEM | INSTRUMENTAL | OBRA
+  grupoId          Int
+  itemCatalogoId   Int?
+  descricao        String  @db.NVarChar(2000) // "Descrição e Especificação" (ITEM) / "Nome do Projeto/Intervenção" (OBRA)
+  especificacao    String? @db.NVarChar(2000) // ITEM: "Fabricantes"
+  modelosReferencia String? @db.NVarChar(2000) // ITEM: "Modelos de Referência"
+  motivoId         Int
+  justificativa    String  @db.NVarChar(2000)
+  quantidade       Int
+  valorUnitario    Decimal @db.Decimal(14, 2)
+  valorTotal       Decimal @db.Decimal(14, 2)
+  dataPrevista     DateTime? // data prevista de aquisição/entrega deste item (opcional)
+  // Escopo de obra (só grupo=OBRA)
+  ieDemolicoes     Boolean @default(false)
+  iePiso           Boolean @default(false)
+  ieForro          Boolean @default(false)
+  ieArCondicionado Boolean @default(false)
+  ieMarcenaria     Boolean @default(false)
+  ieCaixilhos      Boolean @default(false)
+
+  // Contexto do projeto (opcional, todos os tipos)
+  justificativaPeriodo String? @db.NVarChar(500)
+  publicoAlvo           String? @db.NVarChar(2000)
+  volumePessoas         String? @db.NVarChar(2000)
+
+  // Só OBRA
+  subtipoObra       String? @db.VarChar(40) // NOVA_CONSTRUCAO | REFORMA_ESTRUTURAL | REVITALIZACAO | MANUTENCAO_CORRETIVA | OUTROS
+  subtipoObraOutros String? @db.NVarChar(255)
+  escopoInicial     String? @db.NVarChar(2000)
+  beneficiosProjeto String? @db.NVarChar(2000)
+  impactoRdc50      String? @db.NVarChar(500)
+
+  // Só ITEM
+  justificativaClinica String? @db.NVarChar(2000)
+  // "Necessita de Infraestrutura Especial?" (múltipla escolha)
+  infraAguaEsgoto       Boolean @default(false)
+  infraEletricaRegulada Boolean @default(false)
+  infraBlindagem        Boolean @default(false)
+  infraClimatizacao     Boolean @default(false)
+  infraGasesMedicinais  Boolean @default(false)
+  infraPlugAndPlay      Boolean @default(false) // "Não necessita / Equipamento plug-and-play"
+
+  // Só ITEM de grupos de equipamentos — "(Se aplicável)"
+  manutencaoPreventiva  String? @db.VarChar(30) // SIM_CALIBRACAO | NAO_COMPLEXA | NAO_SEI
+  manutPeriodMensal     Boolean @default(false)
+  manutPeriodTrimestral Boolean @default(false)
+  manutPeriodSemestral  Boolean @default(false)
+  manutPeriodAnual      Boolean @default(false)
+
+  // Prorrogação: no item ORIGINAL, ano-alvo para onde foi prorrogado (!= null = prorrogado).
+  // No item CLONE (na solicitação do ano seguinte), aponta para o item de origem.
+  prorrogadoParaAno Int?
+  origemItemId      String? @db.UniqueIdentifier
+
+  // Gestão de Suprimentos: valor ajustado sobre o valorUnitario informado pelo
+  // solicitante. `valorUnitario` original é preservado (auditoria). Nulo = sem
+  // ajuste de suprimentos.
+  valorSuprimentos Decimal?  @db.Decimal(14, 2)
+  suprimentosPorId String?   @db.UniqueIdentifier
+  suprimentosEm    DateTime?
+
+  solicitacao  Solicitacao       @relation(fields: [solicitacaoId], references: [id], onDelete: Cascade)
+  grupo        GrupoInvestimento @relation(fields: [grupoId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+  itemCatalogo ItemCatalogo?     @relation(fields: [itemCatalogoId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+  motivo       Motivo            @relation(fields: [motivoId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+  suprimentosPor User?           @relation("suprimentosPor", fields: [suprimentosPorId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+
+  @@schema("investimentos")
+}
+
+// ─── Aprovação ─────────────────────────────────────────────────────────────
+model Aprovacao {
+  id            String   @id @default(uuid()) @db.UniqueIdentifier
+  solicitacaoId String   @db.UniqueIdentifier
+  etapaId       String   @db.UniqueIdentifier
+  aprovadorId   String   @db.UniqueIdentifier
+  decisao       String   @db.VarChar(20) // APROVADO | REPROVADO | REVISAO
+  justificativa String?  @db.NVarChar(2000)
+  data          DateTime @default(now())
+  // Auditoria de simulação: != null quando a decisão foi registrada por um admin
+  // agindo em modo simulação — guarda o id do admin real (aprovadorId = usuário simulado).
+  simuladoPorId String?  @db.UniqueIdentifier
+
+  solicitacao Solicitacao @relation(fields: [solicitacaoId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+  etapa       EtapaFluxo  @relation(fields: [etapaId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+  aprovador   User        @relation("aprovador", fields: [aprovadorId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+
+  @@index([solicitacaoId])
+  @@schema("investimentos")
+}
+
+// ─── Auditoria ─────────────────────────────────────────────────────────────
+model EventoAuditoria {
+  id         BigInt   @id @default(autoincrement())
+  entidade   String   @db.VarChar(60)
+  entidadeId String   @db.VarChar(60)
+  usuarioId  String?  @db.UniqueIdentifier
+  acao       String   @db.VarChar(40)
+  dadosJson  String?  @db.NVarChar(Max)
+  data       DateTime @default(now())
+
+  @@index([entidade, entidadeId])
+  @@schema("investimentos")
+}

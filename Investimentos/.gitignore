@@ -1,0 +1,41 @@
+# Secrets — NUNCA commitar
+.env
+.env.local
+.env.*.local
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+.next/
+.turbo/
+
+# Prisma
+# (migrations são versionadas propositalmente — necessárias para `prisma migrate deploy`)
+
+# Dados sensíveis gerados por scripts de migração pontual (nunca commitar)
+migration-temp-passwords*.json
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Test coverage
+coverage/

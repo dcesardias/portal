@@ -39,6 +39,517 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use('/vendor/msal-browser', express.static(path.join(__dirname, 'node_modules', '@azure', 'msal-browser', 'lib')));
 app.use('/vendor/powerbi-client', express.static(path.join(__dirname, 'node_modules', 'powerbi-client', 'dist')));
 
+// ==================== Kanban de Chamados — proxy com autenticação ====================
+const { createProxyMiddleware } = require('http-proxy-middleware');
+const KANBAN_URL = process.env.KANBAN_API_URL || 'http://localhost:8000';
+const KANBAN_COOKIE = 'kanban_sess';
+
+// Lê um cookie específico do header sem depender de cookie-parser
+function getKanbanCookie(req) {
+    const header = req.headers.cookie || '';
+    for (const part of header.split(';')) {
+        const eq = part.indexOf('=');
+        if (eq < 0) continue;
+        if (part.slice(0, eq).trim() === KANBAN_COOKIE)
+            return decodeURIComponent(part.slice(eq + 1).trim());
+    }
+    return null;
+}
+
+// Exige cookie de sessão kanban_sess (emitido por POST /api/kanban/session)
+function requireKanbanAccess(req, res, next) {
+    const token = getKanbanCookie(req);
+    const isApi = req.originalUrl.startsWith('/api/');
+    if (!token) {
+        return isApi
+            ? res.status(401).json({ error: 'Não autenticado. Acesse via portal.' })
+            : res.redirect('/chamados/login');
+    }
+    const secret = process.env.JWT_SECRET || 'seu_secret_key_aqui';
+    jwt.verify(token, secret, (err, user) => {
+        if (err) {
+            res.setHeader('Set-Cookie', `${KANBAN_COOKIE}=; Max-Age=0; Path=/; HttpOnly`);
+            return isApi
+                ? res.status(401).json({ error: 'Sessão expirada. Acesse via portal.' })
+                : res.redirect('/chamados/login');
+        }
+        req.kanbanUsername = user.username; // propagado como X-Kanban-User ao FastAPI
+        next();
+    });
+}
+
+// Restaura o path completo após o Express strip o prefixo de montagem
+function kanbanPathRewrite(mountPath) {
+    return (path) => {
+        const qi = path.indexOf('?');
+        const pn = qi >= 0 ? path.slice(0, qi) : path;
+        const qs = qi >= 0 ? path.slice(qi) : '';
+        return mountPath + (pn === '/' ? '' : pn) + qs;
+    };
+}
+
+// Emite cookie kanban_sess. Aceita JWT do portal (Authorization header)
+// OU id_token MSAL (body.idToken) — cobre todos os cenários de login do portal.
+app.post('/api/kanban/session', async (req, res) => {
+    const secret = process.env.JWT_SECRET || 'seu_secret_key_aqui';
+
+    async function issueKanbanCookie(userId, username, isAdmin) {
+        const sessionToken = jwt.sign({ id: userId, username, isAdmin }, secret, { expiresIn: '8h' });
+        const secure = !!process.env.IISNODE_VERSION;
+        res.setHeader('Set-Cookie',
+            `${KANBAN_COOKIE}=${encodeURIComponent(sessionToken)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${8 * 3600}${secure ? '; Secure' : ''}`
+        );
+        return res.json({ ok: true });
+    }
+
+    // Caminho 1: JWT do portal via Authorization: Bearer
+    const authHeader = req.headers['authorization'];
+    const portalToken = authHeader && authHeader.split(' ')[1];
+    if (portalToken) {
+        jwt.verify(portalToken, secret, async (err, user) => {
+            if (err) return res.status(401).json({ error: 'Token expirado ou inválido.' });
+            const allowed = await userHasAppPermission(user.id, 'chamados');
+            if (!allowed) return res.status(403).json({ error: 'Você não tem permissão para acessar o Kanban de Chamados.' });
+            return issueKanbanCookie(user.id, user.username, user.isAdmin);
+        });
+        return;
+    }
+
+    // Caminho 2: MSAL id_token via body (usuários que autenticam com Microsoft)
+    const idToken = req.body && req.body.idToken;
+    if (idToken) {
+        try {
+            const payload = await msalVerify.verify(idToken);
+            const email = (msalVerify.extractEmail(payload) || '').toLowerCase().trim();
+            if (!email) return res.status(401).json({ error: 'E-mail não encontrado no token Microsoft.' });
+            if (!pool || !pool.connected) return res.status(503).json({ error: 'Banco de dados indisponível.' });
+
+            const result = await pool.request()
+                .input('email', sql.NVarChar, email)
+                .query('SELECT TOP 1 Id, Username, IsAdmin FROM dbo.Users WHERE LOWER(Email) = @email AND IsActive = 1');
+
+            if (result.recordset.length === 0) {
+                return res.status(403).json({ error: 'Sua conta Microsoft não está cadastrada no portal. Contate o administrador.' });
+            }
+
+            const user = result.recordset[0];
+            const allowed = await userHasAppPermission(user.Id, 'chamados');
+            if (!allowed) return res.status(403).json({ error: 'Você não tem permissão para acessar o Kanban de Chamados.' });
+
+            return issueKanbanCookie(user.Id, user.Username, !!user.IsAdmin);
+        } catch (e) {
+            return res.status(401).json({ error: 'Token Microsoft inválido ou expirado.' });
+        }
+    }
+
+    return res.status(401).json({ error: 'Credenciais não fornecidas.' });
+});
+
+// Página ponte: tenta JWT do portal (usuários locais) e cai pro MSAL (usuários Microsoft)
+// Retorna dados do usuário logado a partir do kanban_sess cookie
+app.get('/api/kanban/me', async (req, res) => {
+    const token = getKanbanCookie(req);
+    if (!token) return res.status(401).json({ error: 'Não autenticado.' });
+    const secret = process.env.JWT_SECRET || 'seu_secret_key_aqui';
+    let user;
+    try { user = jwt.verify(token, secret); } catch (e) { return res.status(401).json({ error: 'Sessão expirada.' }); }
+    let fullName = user.username;
+    try {
+        if (pool && pool.connected) {
+            const r = await pool.request()
+                .input('id', sql.Int, user.id)
+                .query('SELECT TOP 1 FullName FROM dbo.Users WHERE Id = @id');
+            if (r.recordset.length > 0 && r.recordset[0].FullName) fullName = r.recordset[0].FullName;
+        }
+    } catch {}
+    return res.json({ username: user.username, fullName, isAdmin: !!user.isAdmin });
+});
+
+app.get('/chamados/login', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(`<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kanban de Chamados</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0f1117;color:#9ca3af}
+    .card{text-align:center;padding:2.5rem;max-width:380px}
+    .logo{font-size:2.8rem;margin-bottom:1.2rem;display:block}
+    h2{color:#f3f4f6;font-size:1.2rem;margin-bottom:.35rem}
+    .sub{font-size:.85rem;margin-bottom:1.5rem}
+    #msg{font-size:.85rem;min-height:1.4em;line-height:1.6}
+    .spinner{display:inline-block;width:16px;height:16px;border:2px solid #374151;border-top-color:#6366f1;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:5px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <span class="logo">⛬</span>
+    <h2>Kanban de Chamados</h2>
+    <p class="sub">Portal de Dados · TI</p>
+    <p id="msg"><span class="spinner"></span>Verificando acesso…</p>
+  </div>
+  <script>
+  (function () {
+    var msgEl = document.getElementById('msg');
+
+    function showErr(text) {
+      msgEl.innerHTML = text;
+      setTimeout(function () { window.location.href = '/'; }, 4000);
+    }
+
+    // Tenta com JWT do portal (usuários com login local)
+    function tryPortalJWT(token) {
+      fetch('/api/kanban/session', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token }
+      }).then(function (r) {
+        var status = r.status;
+        return r.json().then(function (d) { return { status: status, d: d }; });
+      }).then(function (res) {
+        if (res.d && res.d.ok) {
+          sessionStorage.setItem('kanban_tab_auth', '1');
+          window.location.href = '/chamados/?_kauth=1';
+        } else if (res.status === 401) {
+          // Token expirado/inválido — tenta autenticação Microsoft
+          tryMSAL();
+        } else {
+          showErr((res.d && res.d.error) || 'Sem permissão de acesso.');
+        }
+      }).catch(function () { tryMSAL(); });
+    }
+
+    // Cria sessão kanban a partir de um idToken MSAL e redireciona para o SPA
+    function doKanbanSession(idToken) {
+      return fetch('/api/kanban/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken: idToken })
+      }).then(function (r) {
+        var status = r.status;
+        return r.json().then(function (d) { return { status: status, d: d }; });
+      }).then(function (res) {
+        if (res.d && res.d.ok) {
+          sessionStorage.setItem('kanban_tab_auth', '1');
+          window.location.href = '/chamados/?_kauth=1';
+        } else {
+          showErr((res.d && res.d.error) || 'Sem permissão de acesso.');
+        }
+      });
+    }
+
+    // Tenta com conta Microsoft (fluxo principal do portal)
+    function tryMSAL() {
+      msgEl.innerHTML = '<span class="spinner"></span>Verificando conta Microsoft…';
+      var script = document.createElement('script');
+      script.src = '/vendor/msal-browser/msal-browser.min.js';
+      script.onerror = function () {
+        showErr('Biblioteca MSAL não carregada. Acesse o portal e tente novamente.');
+      };
+      script.onload = function () {
+        fetch('/api/microsoft-auth/config?cb=' + Date.now(), { cache: 'no-store' })
+          .then(function (r) { return r.json(); })
+          .then(function (cfg) {
+            if (!cfg.enabled) {
+              showErr('Autenticação Microsoft não habilitada. Faça login com usuário/senha no portal.');
+              return;
+            }
+            var instance = new window.msal.PublicClientApplication({
+              auth: {
+                clientId: cfg.clientId,
+                authority: cfg.authority,
+                redirectUri: window.location.origin + '/',
+                navigateToLoginRequestUrl: false
+              },
+              cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: false }
+            });
+            var initP = typeof instance.initialize === 'function'
+              ? instance.initialize() : Promise.resolve();
+            initP
+              .then(function () { return instance.handleRedirectPromise(); })
+              .then(function () {
+                var accounts = instance.getAllAccounts();
+                if (!accounts || accounts.length === 0) {
+                  // Sem conta na aba atual: exibe botão de login Microsoft (igual ao portal de dados)
+                  msgEl.innerHTML =
+                    '<button id="btn-ms" style="background:#0f6cbd;color:#fff;border:none;border-radius:4px;' +
+                    'padding:.6rem 1.2rem;font-size:.9rem;cursor:pointer;font-family:inherit">' +
+                    'Entrar com conta Microsoft</button>';
+                  document.getElementById('btn-ms').onclick = function () {
+                    msgEl.innerHTML = '<span class="spinner"></span>Autenticando com Microsoft…';
+                    instance.loginPopup({ scopes: ['openid', 'profile', 'email'] })
+                      .then(function (tokenResp) { return doKanbanSession(tokenResp.idToken); })
+                      .catch(function (e) {
+                        console.warn('[kanban-login] popup:', e && e.message);
+                        showErr('Login cancelado ou não foi possível autenticar.');
+                      });
+                  };
+                  return;
+                }
+                // Já tem conta na aba: acquireTokenSilent
+                return instance.acquireTokenSilent({
+                  scopes: ['openid', 'profile', 'email'],
+                  account: accounts[0]
+                }).then(function (tokenResp) {
+                  return doKanbanSession(tokenResp.idToken);
+                });
+              })
+              .catch(function (e) {
+                console.warn('[kanban-login] MSAL:', e && e.message);
+                showErr('Não foi possível autenticar. Tente novamente.');
+              });
+          })
+          .catch(function () { showErr('Erro ao carregar configuração de autenticação.'); });
+      };
+      document.head.appendChild(script);
+    }
+
+    // Início: JWT do portal primeiro, MSAL como fallback
+    var portalToken = sessionStorage.getItem('authToken') || localStorage.getItem('authToken');
+    if (portalToken) {
+      tryPortalJWT(portalToken);
+    } else {
+      tryMSAL();
+    }
+  }());
+  </script>
+</body>
+</html>`);
+});
+
+// Proxy frontend: /chamados/* → FastAPI /
+// Checkpoint por aba: a raiz (/chamados ou /chamados/) só carrega o SPA se:
+//   a) _kauth=1 estiver na URL (bridge de login acabou de autenticar) → proxy direto
+//   b) sessionStorage.kanban_tab_auth estiver marcado              → proxy via cookie
+//   c) nenhum dos dois                                             → checkpoint HTML
+// Sub-rotas e assets sempre passam por requireKanbanAccess (cookie).
+const _kanbanProxy = createProxyMiddleware({
+    target: KANBAN_URL,
+    changeOrigin: true,
+    on: {
+        error: (err, req, res) => {
+            console.error('[kanban-proxy]', err.code, err.message);
+            if (!res.headersSent) res.status(502).send('Kanban de Chamados indisponível.');
+        }
+    }
+});
+app.use('/chamados',
+    async (req, res, next) => {
+        if (req.path !== '/' && req.path !== '') return next(); // sub-rotas → requireKanbanAccess
+
+        const _clearAndLogin = () => {
+            res.setHeader('Set-Cookie', `${KANBAN_COOKIE}=; Max-Age=0; Path=/; HttpOnly`);
+            res.setHeader('Cache-Control', 'no-store');
+            return res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body><script>
+sessionStorage.removeItem('kanban_tab_auth');
+window.location.replace('/chamados/login');
+</script></body></html>`);
+        };
+
+        if (req.query._kauth === '1') {
+            // Verifica cookie + permissão atual no banco (re-checa cadastro a cada abertura de aba)
+            const tok = getKanbanCookie(req);
+            if (!tok) return _clearAndLogin();
+            const sec = process.env.JWT_SECRET || 'seu_secret_key_aqui';
+            let user;
+            try { user = jwt.verify(tok, sec); } catch (e) { return _clearAndLogin(); }
+            const allowed = await userHasAppPermission(user.id, 'chamados');
+            if (!allowed) return _clearAndLogin();
+            return _kanbanProxy(req, res, next);
+        }
+
+        res.setHeader('Cache-Control', 'no-store');
+        return res.send(`<!DOCTYPE html>
+<html lang="pt-br"><head><meta charset="UTF-8"><title>Kanban de Chamados</title></head>
+<body>
+<script>
+if (sessionStorage.getItem('kanban_tab_auth')) {
+  window.location.replace('/chamados/?_kauth=1');
+} else {
+  window.location.replace('/chamados/login');
+}
+</script>
+</body>
+</html>`);
+    },
+    requireKanbanAccess,
+    _kanbanProxy
+);
+
+// Proxy APIs do Kanban: pathRewrite restaura o prefixo que o Express stripa
+// X-Kanban-User injeta o login do usuário logado para o FastAPI gravar em nm_usuario
+const KANBAN_API_PATHS = ['/api/chamados', '/api/usuarios', '/api/grupos', '/api/estagios', '/api/meta', '/api/meus-grupos'];
+for (const mountPath of KANBAN_API_PATHS) {
+    app.use(mountPath, requireKanbanAccess, createProxyMiddleware({
+        target: KANBAN_URL,
+        changeOrigin: true,
+        pathRewrite: kanbanPathRewrite(mountPath),
+        on: {
+            proxyReq: (proxyReq, req) => {
+                if (req.kanbanUsername) proxyReq.setHeader('X-Kanban-User', req.kanbanUsername);
+                // express.json() consome o stream do body antes do proxy — re-envia manualmente
+                if (req.body && Object.keys(req.body).length > 0) {
+                    const raw = JSON.stringify(req.body);
+                    proxyReq.setHeader('Content-Type', 'application/json');
+                    proxyReq.setHeader('Content-Length', Buffer.byteLength(raw));
+                    proxyReq.write(raw);
+                }
+            },
+            error: (err, req, res) => {
+                console.error('[kanban-api-proxy]', err.code, err.message);
+                if (!res.headersSent) res.status(502).json({ error: 'Kanban de Chamados indisponível.' });
+            }
+        }
+    }));
+}
+// ======================================================================================
+
+// ==================== AACD Investe (Solicitação de Investimentos) — SSO + proxy ==========
+// App full-stack: API NestJS (:3000) + SPA React, servido sob /investfacil.
+// Autenticação por bridge de SSO: o Portal autentica o usuário e afirma a identidade
+// (por e-mail) ao endpoint /api/v1/auth/sso do NestJS usando um segredo compartilhado.
+// Só o Portal (server-side) chama o /auth/sso; o browser nunca vê o segredo.
+const INVEST_URL = process.env.INVEST_API_URL || 'http://localhost:3000';
+const INVEST_SSO_SECRET = process.env.INVEST_SSO_SECRET || '';
+const INVEST_DIST = path.join(__dirname, 'Investimentos', 'apps', 'web', 'dist');
+
+// Restaura o prefixo /api após o Express strip do mount /investfacil/api.
+// (Express entrega req.url como /v1/... → NestJS espera /api/v1/...)
+function investPathRewrite(reqPath) {
+    const qi = reqPath.indexOf('?');
+    const pn = qi >= 0 ? reqPath.slice(0, qi) : reqPath;
+    const qs = qi >= 0 ? reqPath.slice(qi) : '';
+    return '/api' + (pn === '/' ? '' : pn) + qs;
+}
+
+// Resolve o e-mail do usuário autenticado no Portal (JWT local OU id_token MSAL).
+async function resolveInvestEmail(req) {
+    const secret = process.env.JWT_SECRET || 'seu_secret_key_aqui';
+    // Caminho 1: JWT do portal (Authorization: Bearer)
+    const authHeader = req.headers['authorization'];
+    const portalToken = authHeader && authHeader.split(' ')[1];
+    if (portalToken) {
+        const user = jwt.verify(portalToken, secret); // lança se inválido/expirado
+        let email = (user.email || '').toLowerCase().trim();
+        if (!email && pool && pool.connected && user.id) {
+            const r = await pool.request()
+                .input('id', sql.Int, user.id)
+                .query('SELECT TOP 1 Email FROM dbo.Users WHERE Id = @id AND IsActive = 1');
+            if (r.recordset.length) email = (r.recordset[0].Email || '').toLowerCase().trim();
+        }
+        if (!email) { const e = new Error('email_not_found'); e.status = 401; throw e; }
+        return email;
+    }
+    // Caminho 2: id_token MSAL (usuários Microsoft).
+    // A autoridade de acesso é o investimentos.User (o /auth/sso valida por email
+    // e retorna 401 se não existir/estiver inativo). NÃO exigimos cadastro em
+    // dbo.Users do portal — usuários do app podem não ser usuários do portal.
+    const idToken = req.body && req.body.idToken;
+    if (idToken) {
+        const payload = await msalVerify.verify(idToken);
+        const email = (msalVerify.extractEmail(payload) || '').toLowerCase().trim();
+        if (!email) { const e = new Error('email_not_found'); e.status = 401; throw e; }
+        return email;
+    }
+    const e = new Error('no_credentials'); e.status = 401; throw e;
+}
+
+// POST /api/aacdinveste/session — troca a identidade do Portal por tokens do Investimentos.
+// Chama o /auth/sso do NestJS (server-side, com o segredo) e relaia o cookie de refresh
+// reescrevendo o Path para o prefixo /aacdinveste. (Alias legado: /api/investfacil/session.)
+const investSessionHandler = async (req, res) => {
+    if (!INVEST_SSO_SECRET) {
+        return res.status(503).json({ error: 'SSO do AACD Investe não configurado no Portal.' });
+    }
+    let email;
+    try {
+        email = await resolveInvestEmail(req);
+    } catch (e) {
+        return res.status(e.status || 401).json({ error: 'Não autenticado no Portal.' });
+    }
+    try {
+        const r = await fetchFn(`${INVEST_URL}/api/v1/auth/sso`, {
+            method: 'POST',
+            headers: { 'x-sso-secret': INVEST_SSO_SECRET, 'x-portal-email': email },
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) {
+            return res.status(r.status).json({
+                error: data.message || 'Seu usuário não está habilitado no AACD Investe.',
+            });
+        }
+        const cookies = (typeof r.headers.getSetCookie === 'function')
+            ? r.headers.getSetCookie()
+            : [r.headers.get('set-cookie')].filter(Boolean);
+        if (cookies.length) {
+            res.setHeader('Set-Cookie', cookies.map((c) =>
+                c.replace('Path=/api/v1/auth', 'Path=/aacdinveste/api/v1/auth')));
+        }
+        return res.json({ accessToken: data.accessToken });
+    } catch (e) {
+        console.error('[aacdinveste-sso]', e.message || e);
+        return res.status(502).json({ error: 'AACD Investe indisponível.' });
+    }
+};
+app.post('/api/aacdinveste/session', investSessionHandler);
+app.post('/api/investfacil/session', investSessionHandler); // alias legado (compat.)
+
+// Proxy da API do Investimentos: /investfacil/api/* → NestJS :3000/api/*.
+// Bloqueia /auth/sso vindo do browser (só o Portal server-side pode chamá-lo).
+const _investApiProxy = createProxyMiddleware({
+    target: INVEST_URL,
+    changeOrigin: true,
+    pathRewrite: (p) => investPathRewrite(p),
+    cookiePathRewrite: { '/api/v1/auth': '/aacdinveste/api/v1/auth' },
+    on: {
+        proxyReq: (proxyReq, req) => {
+            // express.json() (global) já consumiu o stream do body — sem isto,
+            // POST/PUT com corpo travam esperando um body que nunca chega.
+            if (req.body && Object.keys(req.body).length > 0) {
+                const raw = JSON.stringify(req.body);
+                proxyReq.setHeader('Content-Type', 'application/json');
+                proxyReq.setHeader('Content-Length', Buffer.byteLength(raw));
+                proxyReq.write(raw);
+            }
+        },
+        error: (err, req, res) => {
+            console.error('[investfacil-proxy]', err.code, err.message);
+            if (res && !res.headersSent && res.status) {
+                res.status(502).json({ error: 'AACD Investe indisponível.' });
+            }
+        },
+    },
+});
+// Guard de /auth/sso (browser não pode chamar) + proxy. Montado no prefixo novo
+// (/aacdinveste/api) e no legado (/investfacil/api) — o pathRewrite ignora o
+// prefixo, então o mesmo proxy serve os dois.
+const investApiGuard = (req, res, next) => {
+    if (/^\/v1\/auth\/sso\b/.test(req.url)) {
+        return res.status(404).json({ error: 'Not found' });
+    }
+    return _investApiProxy(req, res, next);
+};
+app.use('/aacdinveste/api', investApiGuard);
+app.use('/investfacil/api', investApiGuard); // alias legado (compat.)
+
+// (A tela de login agora é a própria SPA em /aacdinveste/login — servida pelo fallback abaixo.)
+
+// SPA estática do AACD Investe + fallback de rotas client-side (React Router).
+app.use('/aacdinveste', express.static(INVEST_DIST));
+app.get(/^\/aacdinveste(?:\/.*)?$/, (req, res) => {
+    res.sendFile(path.join(INVEST_DIST, 'index.html'));
+});
+
+// Redirect legado: qualquer /investfacil (app) → /aacdinveste, preservando o resto
+// do caminho e a query. A API legada (/investfacil/api) já foi tratada acima.
+app.get(/^\/investfacil(?:\/.*)?$/, (req, res) => {
+    res.redirect(302, req.originalUrl.replace(/^\/investfacil/, '/aacdinveste'));
+});
+// ======================================================================================
+
 // Versão da aplicação — usada para cache-busting de assets estáticos.
 // Combina pkg.version com o mtime mais recente de QUALQUER asset do front
 // (varredura recursiva de public/assets, public/excel e dos HTMLs servidos
@@ -3676,6 +4187,176 @@ async function ensurePoolFonte() {
     return poolFonte;
 }
 
+// ==================== Atualização Data Warehouse (delete + recarga por período) ====================
+// Mesma instância do banco Fonte (SERVER55\DW), banco DataWarehouse.
+const configDW = {
+    user: process.env.DB_USER || 'servicedw',
+    password: process.env.DB_PASS || '@aacdservice',
+    server: process.env.DB_SERVER || 'SERVER55\\DW',
+    database: process.env.DB_DW_NAME || 'DataWarehouse',
+    options: {
+        encrypt: false,
+        trustServerCertificate: true,
+        requestTimeout: 90000,
+        useUTC: false
+    }
+};
+
+let poolDW;
+
+async function ensurePoolDW() {
+    if (poolDW && poolDW.connected) return poolDW;
+    if (poolDW) {
+        try { await poolDW.close(); } catch (_) {}
+        poolDW = null;
+    }
+    poolDW = await new sql.ConnectionPool(configDW).connect();
+    console.log('[poolDW] Reconectado ao banco DataWarehouse');
+    return poolDW;
+}
+
+// Tipos de atualização suportados: cada um mapeia para uma stored procedure existente
+// (delete + insert por range de data) e para a view que passa a conter os dados novos.
+const DW_UPDATE_TYPES = {
+    custo_centro_custo: {
+        label: 'Custo por Centro de Custo',
+        proc: 'sp_AtualizarCustoCentroCusto',
+        view: 'VW_TB_CUSTO_CENTRO_CUSTO',
+        dateColumn: 'dt_mes_referencia'
+    },
+    custo_exames: {
+        label: 'Custo de Exames',
+        proc: 'sp_AtualizarCustoExames',
+        view: 'VW_TB_CUSTO_EXAMES',
+        dateColumn: 'dt_mes_referencia'
+    }
+};
+
+// Mantém a data como string YYYY-MM-DD (não converte para Date object) para
+// evitar deslocamento de fuso horário na conversão local/UTC feita pelo driver.
+function parseDwDate(value) {
+    if (!value || typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+    return value;
+}
+
+// Cache das colunas reais de cada view (usado para validar sortColumn e barrar injection,
+// já que o nome da coluna não dá pra parametrizar num ORDER BY).
+const dwViewColumnsCache = {};
+async function getDwViewColumns(dw, viewName) {
+    if (dwViewColumnsCache[viewName]) return dwViewColumnsCache[viewName];
+    const result = await dw.request()
+        .input('ViewName', sql.NVarChar(128), viewName)
+        .query(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = @ViewName ORDER BY ORDINAL_POSITION`);
+    const cols = result.recordset.map(r => r.COLUMN_NAME);
+    dwViewColumnsCache[viewName] = cols;
+    return cols;
+}
+
+app.post('/api/dw/atualizar/:tipo', authenticateToken, async (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Acesso negado' });
+
+    const tipoInfo = DW_UPDATE_TYPES[req.params.tipo];
+    if (!tipoInfo) return res.status(404).json({ error: 'Tipo de atualização desconhecido' });
+
+    const dataInicial = parseDwDate(req.body.dataInicial);
+    const dataFinal = parseDwDate(req.body.dataFinal);
+    if (!dataInicial || !dataFinal) return res.status(400).json({ error: 'Informe dataInicial e dataFinal no formato YYYY-MM-DD' });
+    if (dataInicial > dataFinal) return res.status(400).json({ error: 'dataInicial não pode ser maior que dataFinal' });
+
+    try {
+        const dw = await ensurePoolDW();
+        await dw.request()
+            .input('DataInicial', sql.Date, dataInicial)
+            .input('DataFinal', sql.Date, dataFinal)
+            .input('Usuario', sql.NVarChar(100), req.user.username)
+            .execute(tipoInfo.proc);
+
+        const countResult = await dw.request()
+            .input('DataInicial', sql.Date, dataInicial)
+            .input('DataFinal', sql.Date, dataFinal)
+            .query(`SELECT COUNT(*) AS total FROM [${tipoInfo.view}] WHERE [${tipoInfo.dateColumn}] BETWEEN @DataInicial AND @DataFinal`);
+
+        res.json({ success: true, totalRegistros: countResult.recordset[0].total });
+    } catch (err) {
+        console.error(`[DW] Erro ao executar ${tipoInfo.proc}:`, err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/dw/atualizar/:tipo/preview', authenticateToken, async (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Acesso negado' });
+
+    const tipoInfo = DW_UPDATE_TYPES[req.params.tipo];
+    if (!tipoInfo) return res.status(404).json({ error: 'Tipo de atualização desconhecido' });
+
+    // Range de datas é opcional aqui: sem ele, mostra a tabela inteira (paginada).
+    const dataInicial = parseDwDate(req.query.dataInicial);
+    const dataFinal = parseDwDate(req.query.dataFinal);
+    if ((req.query.dataInicial || req.query.dataFinal) && (!dataInicial || !dataFinal)) {
+        return res.status(400).json({ error: 'Informe dataInicial e dataFinal no formato YYYY-MM-DD' });
+    }
+    const hasRange = !!(dataInicial && dataFinal);
+
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const pageSize = Math.min(200, Math.max(1, parseInt(req.query.pageSize, 10) || 50));
+    const offset = (page - 1) * pageSize;
+
+    try {
+        const dw = await ensurePoolDW();
+
+        // Nome de coluna não dá pra parametrizar em ORDER BY, então valida contra o schema real da view.
+        const validColumns = await getDwViewColumns(dw, tipoInfo.view);
+        let sortColumn = tipoInfo.dateColumn;
+        if (req.query.sortColumn && validColumns.includes(req.query.sortColumn)) {
+            sortColumn = req.query.sortColumn;
+        }
+        const sortDir = String(req.query.sortDir).toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+
+        const request = dw.request()
+            .input('Offset', sql.Int, offset)
+            .input('PageSize', sql.Int, pageSize);
+        let whereClause = '';
+        if (hasRange) {
+            request.input('DataInicial', sql.Date, dataInicial).input('DataFinal', sql.Date, dataFinal);
+            whereClause = `WHERE t.[${tipoInfo.dateColumn}] BETWEEN @DataInicial AND @DataFinal`;
+        }
+
+        const result = await request.query(`
+            SELECT COUNT(*) OVER() AS TotalRows_, t.*
+            FROM [${tipoInfo.view}] t
+            ${whereClause}
+            ORDER BY t.[${sortColumn}] ${sortDir}
+            OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+        `);
+
+        const rows = result.recordset;
+        const total = rows.length > 0 ? rows[0].TotalRows_ : 0;
+        const columns = Object.keys(result.recordset.columns || {}).filter(c => c !== 'TotalRows_');
+        rows.forEach(r => delete r.TotalRows_);
+
+        res.json({ total, page, pageSize, columns, rows, sortColumn, sortDir: sortDir.toLowerCase() });
+    } catch (err) {
+        console.error(`[DW] Erro ao consultar ${tipoInfo.view}:`, err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/dw/atualizar/:tipo/count', authenticateToken, async (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Acesso negado' });
+
+    const tipoInfo = DW_UPDATE_TYPES[req.params.tipo];
+    if (!tipoInfo) return res.status(404).json({ error: 'Tipo de atualização desconhecido' });
+
+    try {
+        const dw = await ensurePoolDW();
+        const result = await dw.request().query(`SELECT COUNT(*) AS total FROM [${tipoInfo.view}]`);
+        res.json({ total: result.recordset[0].total });
+    } catch (err) {
+        console.error(`[DW] Erro ao contar ${tipoInfo.view}:`, err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 async function initDB() {
     try {
         pool = await sql.connect(config);
@@ -3695,6 +4376,15 @@ async function initDB() {
     } catch (err) {
         console.error('Erro ao conectar ao banco Fonte:', err);
         poolFonte = null;
+    }
+
+    // Conecta ao banco DataWarehouse para atualização de custos por período
+    try {
+        poolDW = await new sql.ConnectionPool(configDW).connect();
+        console.log('Conectado ao SQL Server (DataWarehouse)');
+    } catch (err) {
+        console.error('Erro ao conectar ao banco DataWarehouse:', err);
+        poolDW = null;
     }
 }
 
@@ -7614,6 +8304,81 @@ app.patch('/api/fatura/categorias/:id', requireAppPermission('fatura'), async (r
     } catch (err) {
         console.error('[FATURA] Falha ao atualizar categoria:', err);
         return res.status(500).json({ error: 'Erro ao atualizar categoria' });
+    }
+});
+
+// GET /api/fatura/stats — numeros agregados para os KPIs do topo do front.
+// total_gasto_brl / total_ti_brl consideram apenas valores positivos (gasto),
+// excluindo pagamentos e creditos (valor_brl < 0). "Despesa de TI" vale se o
+// fornecedor OU a categoria do lancamento estiver marcado.
+app.get('/api/fatura/stats', requireAppPermission('fatura'), async (req, res) => {
+    try {
+        if (!poolFonte || !poolFonte.connected) return res.status(503).json({ error: 'Banco Fonte indisponivel' });
+        const r = await poolFonte.request().query(`
+            SELECT
+                (SELECT COUNT(*) FROM dbo.OCR_FATURA_ITAU)        AS total_faturas,
+                (SELECT COUNT(*) FROM dbo.OCR_FATURA_ITAU_ITENS)  AS total_itens,
+                (SELECT SUM(valor_brl) FROM dbo.OCR_FATURA_ITAU_ITENS WHERE valor_brl > 0) AS total_gasto_brl,
+                (SELECT SUM(i.valor_brl)
+                   FROM dbo.OCR_FATURA_ITAU_ITENS i
+                   LEFT JOIN dbo.OCR_FORNECEDORES fo ON fo.Id = i.fornecedor_id
+                   LEFT JOIN dbo.OCR_CATEGORIAS   ca ON ca.Id = i.categoria_id
+                   WHERE i.valor_brl > 0 AND (fo.despesa_ti = 1 OR ca.despesa_ti = 1)) AS total_ti_brl
+        `);
+        return res.json(r.recordset[0] || { total_faturas: 0, total_itens: 0, total_gasto_brl: 0, total_ti_brl: 0 });
+    } catch (err) {
+        console.error('[FATURA] Falha ao calcular stats:', err);
+        return res.status(500).json({ error: 'Erro ao calcular estatisticas' });
+    }
+});
+
+// GET /api/fatura/fornecedores/:id/itens — detalhamento: todos os lancamentos
+// (de todas as faturas) atribuidos a este fornecedor normalizado. Alimenta o
+// modal de drill-down quando o usuario clica numa linha da tabela mestra.
+app.get('/api/fatura/fornecedores/:id/itens', requireAppPermission('fatura'), async (req, res) => {
+    if (!/^\d+$/.test(req.params.id)) return res.status(404).json({ error: 'Fornecedor nao encontrado' });
+    try {
+        if (!poolFonte || !poolFonte.connected) return res.status(503).json({ error: 'Banco Fonte indisponivel' });
+        const r = await poolFonte.request()
+            .input('id', sql.Int, parseInt(req.params.id, 10))
+            .query(`
+                SELECT i.Id, i.fatura_id, i.data, i.tipo, i.estabelecimento, i.descricao,
+                       i.cidade, i.portador_nome, i.portador_cartao_final,
+                       i.produto_servico, i.categoria_normalizada, i.valor_brl,
+                       f.numero_fatura, f.empresa, f.uploaded_at
+                FROM dbo.OCR_FATURA_ITAU_ITENS i
+                JOIN dbo.OCR_FATURA_ITAU f ON f.Id = i.fatura_id
+                WHERE i.fornecedor_id = @id
+                ORDER BY i.data DESC, i.Id DESC
+            `);
+        return res.json(r.recordset);
+    } catch (err) {
+        console.error('[FATURA] Falha ao detalhar fornecedor:', err);
+        return res.status(500).json({ error: 'Erro ao carregar lancamentos do fornecedor' });
+    }
+});
+
+// GET /api/fatura/categorias/:id/itens — mesmo detalhamento, por categoria.
+app.get('/api/fatura/categorias/:id/itens', requireAppPermission('fatura'), async (req, res) => {
+    if (!/^\d+$/.test(req.params.id)) return res.status(404).json({ error: 'Categoria nao encontrada' });
+    try {
+        if (!poolFonte || !poolFonte.connected) return res.status(503).json({ error: 'Banco Fonte indisponivel' });
+        const r = await poolFonte.request()
+            .input('id', sql.Int, parseInt(req.params.id, 10))
+            .query(`
+                SELECT i.Id, i.fatura_id, i.data, i.tipo, i.estabelecimento, i.descricao,
+                       i.cidade, i.portador_nome, i.portador_cartao_final,
+                       i.produto_servico, i.fornecedor_normalizado, i.valor_brl,
+                       f.numero_fatura, f.empresa, f.uploaded_at
+                FROM dbo.OCR_FATURA_ITAU_ITENS i
+                JOIN dbo.OCR_FATURA_ITAU f ON f.Id = i.fatura_id
+                WHERE i.categoria_id = @id
+                ORDER BY i.data DESC, i.Id DESC
+            `);
+        return res.json(r.recordset);
+    } catch (err) {
+        console.error('[FATURA] Falha ao detalhar categoria:', err);
+        return res.status(500).json({ error: 'Erro ao carregar lancamentos da categoria' });
     }
 });
 

@@ -5,6 +5,14 @@ let tabelas = {};
 
 const ORCAMENTO_FLUXO_CAIXA_TABLE = 'VW_ORCAMENTO_FLUXO_CAIXA_AJUSTADO';
 
+// Atualização Data Warehouse: delete + recarga por período (sem upload de Excel).
+// As chaves (custo_centro_custo, custo_exames) espelham DW_UPDATE_TYPES no server.js.
+const DW_UPDATE_GROUP_INFO = { nome: 'Custos', descricao: 'Delete e recarga de dados por período', icone: '🏭' };
+const DW_UPDATE_TABLES = {
+    'DW::custo_centro_custo': { nome: 'Custo por Centro de Custo', descricao: 'Recarrega VW_TB_CUSTO_CENTRO_CUSTO no período informado', icone: '💰' },
+    'DW::custo_exames': { nome: 'Custo de Exames', descricao: 'Recarrega VW_TB_CUSTO_EXAMES no período informado', icone: '🧪' }
+};
+
 const tablesList = document.getElementById('tablesList');
 const uploadArea = document.getElementById('uploadArea');
 
@@ -141,6 +149,7 @@ async function loadTables() {
 
         renderTablesList();
         for (const key of Object.keys(tabelas)) loadTableCount(key);
+        for (const key of Object.keys(DW_UPDATE_TABLES)) loadDwTableCount(key);
     } catch (error) {
         console.error('Erro ao carregar tabelas:', error);
     }
@@ -210,6 +219,8 @@ function renderTablesList() {
         descricao: 'Criar nova tabela temporária',
         icone: '🆕'
     }));
+
+    tablesList.appendChild(createTableGroup('dw_update', DW_UPDATE_GROUP_INFO, DW_UPDATE_TABLES));
 
     if (window.groups) {
         Object.keys(window.groups).forEach(gk => {
@@ -313,6 +324,9 @@ function selectTable(key, info) {
 
     if (key === 'TABELA_TEMPORARIA') {
         renderTempTableUpload(info);
+    } else if (key.startsWith('DW::')) {
+        renderDwUpdatePanel(key, info);
+        return;
     } else {
         renderStandardUpload(key, info);
     }
@@ -327,6 +341,7 @@ function selectTable(key, info) {
 
 function renderStandardUpload(key, info) {
     const allowFullLoad = info && info.allowFullLoad !== undefined ? !!info.allowFullLoad : true;
+    uploadArea.classList.remove('sc-main-dw');
 
     uploadArea.innerHTML = `
         <div class="sc-panel">
@@ -433,6 +448,7 @@ function renderStandardUpload(key, info) {
 }
 
 function renderTempTableUpload(info) {
+    uploadArea.classList.remove('sc-main-dw');
     uploadArea.innerHTML = `
         <div class="sc-panel">
             <div id="alertBox" class="sc-alert"></div>
@@ -874,4 +890,259 @@ function downloadModel(tableName) {
             showAlert('Modelo baixado com sucesso!', 'success');
         })
         .catch(err => showAlert('Erro ao baixar modelo: ' + err.message, 'error'));
+}
+
+// ==================== Atualização Data Warehouse (delete + recarga por período) ====================
+
+function getAuthToken() {
+    return sessionStorage.getItem('authToken') || localStorage.getItem('authToken') || '';
+}
+
+let dwState = null;
+
+function renderDwUpdatePanel(key, info) {
+    const tipo = key.slice('DW::'.length);
+    uploadArea.classList.add('sc-main-dw');
+    dwState = { tipo, dataInicial: '', dataFinal: '', page: 1, pageSize: 50, sortColumn: null, sortDir: 'desc' };
+
+    uploadArea.innerHTML = `
+        <div class="sc-panel sc-dw-panel">
+            <div id="alertBox" class="sc-alert"></div>
+
+            <div class="sc-dw-form-wrap">
+                <div class="sc-panel-hdr">
+                    <div class="sc-panel-glyph">${info.icone}</div>
+                    <div class="sc-panel-text">
+                        <div class="sc-panel-title">${info.nome}</div>
+                        <div class="sc-panel-desc">${info.descricao}</div>
+                    </div>
+                </div>
+
+                <div class="sc-section">
+                    <div class="sc-section-hd"><span class="sc-lbl">Período a atualizar</span></div>
+                    <div class="sc-dw-daterow">
+                        <div>
+                            <label class="sc-dw-date-lbl" for="dwDataInicial">Data início</label>
+                            <input type="date" id="dwDataInicial" class="sc-input">
+                        </div>
+                        <div>
+                            <label class="sc-dw-date-lbl" for="dwDataFinal">Data fim</label>
+                            <input type="date" id="dwDataFinal" class="sc-input">
+                        </div>
+                        <button class="sc-btn-up danger" id="dwUpdateBtn">
+                            <i class="fas fa-sync"></i> Atualizar dados
+                        </button>
+                    </div>
+                    <div class="sc-warn-chip" style="margin-left:0">
+                        <i class="fas fa-exclamation-triangle"></i> Exclui e recarrega os dados existentes nesse período
+                    </div>
+                </div>
+            </div>
+
+            <div class="sc-section" id="dwResultSection" style="margin-top:28px;">
+                <div class="sc-section-hd">
+                    <span class="sc-lbl">Dados da tabela</span>
+                    <span class="sc-dw-total" id="dwResultTotal"></span>
+                </div>
+                <div class="sc-dw-table-wrap" id="dwTableWrap"></div>
+                <div class="sc-dw-pager" id="dwPager"></div>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('dwUpdateBtn').addEventListener('click', () => runDwUpdate(tipo));
+    loadDwPreview();
+}
+
+async function loadDwTableCount(key) {
+    const tipo = key.slice('DW::'.length);
+    const item = document.querySelector(`[data-table="${key}"]`);
+    const meta = item?.querySelector('.sc-item-meta');
+    const fallback = item?.dataset.desc || '';
+
+    try {
+        const r = await fetch(`/api/dw/atualizar/${tipo}/count`, {
+            headers: { 'Authorization': `Bearer ${getAuthToken()}` }
+        });
+        if (!r.ok) { if (meta) meta.textContent = fallback; return; }
+        const data = await r.json();
+        if (meta) meta.textContent = `${formatNumber(data.total)} registros`;
+    } catch (err) {
+        console.error(`loadDwTableCount(${key}):`, err);
+        if (meta) meta.textContent = fallback;
+    }
+}
+
+async function runDwUpdate(tipo) {
+    const dataInicial = document.getElementById('dwDataInicial').value;
+    const dataFinal = document.getElementById('dwDataFinal').value;
+
+    if (!dataInicial || !dataFinal) {
+        showAlert('Informe a data início e a data fim.', 'error');
+        return;
+    }
+    if (dataInicial > dataFinal) {
+        showAlert('A data início não pode ser depois da data fim.', 'error');
+        return;
+    }
+    if (!confirm(`Isso vai excluir e recarregar os dados de ${formatDateBR(dataInicial)} até ${formatDateBR(dataFinal)}. Confirma?`)) {
+        return;
+    }
+
+    const btn = document.getElementById('dwUpdateBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Atualizando...';
+
+    try {
+        const res = await fetch(`/api/dw/atualizar/${tipo}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${getAuthToken()}`
+            },
+            body: JSON.stringify({ dataInicial, dataFinal })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Falha ao atualizar dados.');
+
+        showAlert(`Atualização concluída: ${formatNumber(data.totalRegistros)} registros no período.`, 'success');
+        if (dwState && dwState.tipo === tipo) {
+            dwState.dataInicial = dataInicial;
+            dwState.dataFinal = dataFinal;
+            dwState.page = 1;
+            await loadDwPreview();
+        }
+    } catch (err) {
+        showAlert(err.message || 'Erro ao atualizar dados.', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-sync"></i> Atualizar dados';
+    }
+}
+
+async function loadDwPreview() {
+    if (!dwState) return;
+    const { tipo, dataInicial, dataFinal, page, pageSize, sortColumn, sortDir } = dwState;
+
+    const section = document.getElementById('dwResultSection');
+    const wrap = document.getElementById('dwTableWrap');
+    const pager = document.getElementById('dwPager');
+    const totalEl = document.getElementById('dwResultTotal');
+    if (!section) return;
+
+    wrap.innerHTML = '<div class="sc-dw-empty"><i class="fas fa-spinner fa-spin"></i> Carregando...</div>';
+    pager.innerHTML = '';
+
+    try {
+        const params = new URLSearchParams({ page, pageSize });
+        if (dataInicial) params.set('dataInicial', dataInicial);
+        if (dataFinal) params.set('dataFinal', dataFinal);
+        if (sortColumn) { params.set('sortColumn', sortColumn); params.set('sortDir', sortDir); }
+
+        const res = await fetch(`/api/dw/atualizar/${tipo}/preview?${params}`, {
+            headers: { 'Authorization': `Bearer ${getAuthToken()}` }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Falha ao consultar dados.');
+
+        // Sincroniza com o default do servidor (ex.: primeira carga, sem sortColumn escolhido ainda).
+        dwState.sortColumn = data.sortColumn;
+        dwState.sortDir = data.sortDir;
+
+        totalEl.textContent = `${formatNumber(data.total)} registros`;
+
+        if (!data.rows.length) {
+            wrap.innerHTML = '<div class="sc-dw-empty">Nenhum registro encontrado.</div>';
+            renderDwPager(0, page, pageSize);
+            return;
+        }
+
+        const thead = `<thead><tr>${data.columns.map(c => {
+            const active = c === dwState.sortColumn;
+            const arrow = active ? (dwState.sortDir === 'asc' ? ' <i class="fas fa-caret-up"></i>' : ' <i class="fas fa-caret-down"></i>') : '';
+            return `<th class="sc-dw-th${active ? ' sc-dw-th-active' : ''}" data-col="${escapeHtml(c)}">${escapeHtml(c)}${arrow}</th>`;
+        }).join('')}</tr></thead>`;
+        const tbody = `<tbody>${data.rows.map(r => `<tr>${data.columns.map(c => `<td>${escapeHtml(formatCellValue(r[c]))}</td>`).join('')}</tr>`).join('')}</tbody>`;
+        wrap.innerHTML = `<table class="sc-dw-table">${thead}${tbody}</table>`;
+
+        wrap.querySelectorAll('.sc-dw-th').forEach(th => {
+            th.addEventListener('click', () => {
+                const col = th.dataset.col;
+                if (dwState.sortColumn === col) {
+                    dwState.sortDir = dwState.sortDir === 'asc' ? 'desc' : 'asc';
+                } else {
+                    dwState.sortColumn = col;
+                    dwState.sortDir = 'asc';
+                }
+                dwState.page = 1;
+                loadDwPreview();
+            });
+        });
+
+        renderDwPager(data.total, page, pageSize);
+    } catch (err) {
+        wrap.innerHTML = `<div class="sc-dw-empty">${escapeHtml(err.message || 'Erro ao carregar dados.')}</div>`;
+        pager.innerHTML = '';
+    }
+}
+
+function renderDwPager(total, page, pageSize) {
+    const pager = document.getElementById('dwPager');
+    if (!pager) return;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    if (totalPages <= 1) { pager.innerHTML = ''; return; }
+
+    const pageBtn = (p, label, disabled, active) =>
+        `<button class="sc-dw-pg-btn${active ? ' active' : ''}" data-page="${p}" ${disabled ? 'disabled' : ''}>${label}</button>`;
+
+    let nav = '';
+    nav += pageBtn(1, '<i class="fas fa-angle-double-left"></i>', page <= 1, false);
+    nav += pageBtn(Math.max(1, page - 1), '<i class="fas fa-angle-left"></i>', page <= 1, false);
+    buildDwPageList(page, totalPages).forEach(p => {
+        nav += (p === '...') ? '<span class="sc-dw-pg-ellipsis">…</span>' : pageBtn(p, p, false, p === page);
+    });
+    nav += pageBtn(Math.min(totalPages, page + 1), '<i class="fas fa-angle-right"></i>', page >= totalPages, false);
+    nav += pageBtn(totalPages, '<i class="fas fa-angle-double-right"></i>', page >= totalPages, false);
+
+    pager.innerHTML = `
+        <div class="sc-dw-pg-info">Página ${page} de ${totalPages} · ${formatNumber(total)} registros</div>
+        <div class="sc-dw-pg-nav">${nav}</div>
+    `;
+    pager.querySelectorAll('.sc-dw-pg-btn:not([disabled])').forEach(b => {
+        b.addEventListener('click', () => {
+            if (!dwState) return;
+            dwState.page = parseInt(b.dataset.page, 10);
+            loadDwPreview();
+        });
+    });
+}
+
+// Lista de páginas com reticências (ex.: 1 ... 4 5 [6] 7 8 ... 39)
+function buildDwPageList(current, total) {
+    const delta = 2;
+    const range = [];
+    for (let i = Math.max(1, current - delta); i <= Math.min(total, current + delta); i++) range.push(i);
+    if (range[0] > 1) {
+        if (range[0] > 2) range.unshift('...');
+        range.unshift(1);
+    }
+    if (range[range.length - 1] < total) {
+        if (range[range.length - 1] < total - 1) range.push('...');
+        range.push(total);
+    }
+    return range;
+}
+
+function formatCellValue(v) {
+    if (v == null) return '';
+    if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(v)) {
+        const d = new Date(v);
+        if (!isNaN(d.getTime())) return d.toLocaleDateString('pt-BR');
+    }
+    return String(v);
+}
+
+function formatDateBR(iso) {
+    const [y, m, d] = iso.split('-');
+    return `${d}/${m}/${y}`;
 }

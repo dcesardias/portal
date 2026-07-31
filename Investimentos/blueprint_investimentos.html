@@ -1,0 +1,481 @@
+<title>Investimentos AACD — Radiografia & Blueprint</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{
+  --bg:#f6f8fa; --surface:#ffffff; --surface-2:#eef2f6; --ink:#16202b; --ink-2:#4a5b6b;
+  --line:#dbe3ea; --accent:#0e7490; --accent-ink:#0e7490; --accent-soft:#d7eef2;
+  --rp:#b45309; --rp-soft:#f6e6d2; --vp:#6d28d9; --vp-soft:#e9e1fb;
+  --good:#15803d; --warn:#b45309; --crit:#b91c1c; --crit-soft:#f7dcda;
+  --mono:ui-monospace,"Cascadia Code","Consolas","SFMono-Regular",monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --r:14px; --r-s:9px; --shadow:0 1px 2px rgba(16,32,43,.06),0 6px 20px rgba(16,32,43,.05);
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#0e141a; --surface:#151d25; --surface-2:#1c2731; --ink:#e7eef4; --ink-2:#9db0c0;
+    --line:#273441; --accent:#38bdc9; --accent-ink:#5fd3dd; --accent-soft:#12323a;
+    --rp:#e0a35a; --rp-soft:#3a2c17; --vp:#b79bf0; --vp-soft:#2a2140;
+    --good:#4ade80; --warn:#e0a35a; --crit:#f87171; --crit-soft:#3a1d1d;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 26px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="light"]{
+  --bg:#f6f8fa; --surface:#ffffff; --surface-2:#eef2f6; --ink:#16202b; --ink-2:#4a5b6b;
+  --line:#dbe3ea; --accent:#0e7490; --accent-ink:#0e7490; --accent-soft:#d7eef2;
+  --rp:#b45309; --rp-soft:#f6e6d2; --vp:#6d28d9; --vp-soft:#e9e1fb;
+  --good:#15803d; --warn:#b45309; --crit:#b91c1c; --crit-soft:#f7dcda;
+  --shadow:0 1px 2px rgba(16,32,43,.06),0 6px 20px rgba(16,32,43,.05);
+}
+:root[data-theme="dark"]{
+  --bg:#0e141a; --surface:#151d25; --surface-2:#1c2731; --ink:#e7eef4; --ink-2:#9db0c0;
+  --line:#273441; --accent:#38bdc9; --accent-ink:#5fd3dd; --accent-soft:#12323a;
+  --rp:#e0a35a; --rp-soft:#3a2c17; --vp:#b79bf0; --vp-soft:#2a2140;
+  --good:#4ade80; --warn:#e0a35a; --crit:#f87171; --crit-soft:#3a1d1d;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 26px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.6;
+  -webkit-font-smoothing:antialiased;font-size:16px}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+h1,h2,h3{text-wrap:balance;line-height:1.18;margin:0}
+a{color:var(--accent-ink);text-decoration:none}
+.mono{font-family:var(--mono)}
+.tnum{font-variant-numeric:tabular-nums}
+
+/* top bar */
+.top{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;gap:18px;height:56px}
+.brand{font-weight:700;letter-spacing:-.01em;font-size:15px;white-space:nowrap}
+.brand b{color:var(--accent-ink)}
+.nav{display:flex;gap:4px;overflow-x:auto;flex:1;scrollbar-width:none}
+.nav::-webkit-scrollbar{display:none}
+.nav a{color:var(--ink-2);font-size:13px;padding:6px 10px;border-radius:8px;white-space:nowrap}
+.nav a:hover{background:var(--surface-2);color:var(--ink)}
+.tgl{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;
+  padding:6px 10px;font-size:13px;cursor:pointer;white-space:nowrap}
+.tgl:hover{border-color:var(--accent)}
+
+/* hero */
+.hero{padding:56px 0 30px}
+.eyebrow{font-size:12px;letter-spacing:.13em;text-transform:uppercase;color:var(--accent-ink);font-weight:700}
+.hero h1{font-size:clamp(30px,5vw,46px);letter-spacing:-.02em;margin:14px 0 12px}
+.hero p{color:var(--ink-2);font-size:18px;max-width:64ch;margin:0}
+.meta{margin-top:18px;display:flex;flex-wrap:wrap;gap:8px}
+.tag{font-size:12.5px;padding:4px 11px;border-radius:999px;background:var(--surface-2);
+  border:1px solid var(--line);color:var(--ink-2)}
+
+/* stat band */
+.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin:28px 0 8px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-s);padding:14px 14px;box-shadow:var(--shadow)}
+.stat .n{font-size:23px;font-weight:750;letter-spacing:-.02em}
+.stat .l{font-size:12px;color:var(--ink-2);margin-top:2px}
+@media(max-width:860px){.stats{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:460px){.stats{grid-template-columns:repeat(2,1fr)}}
+
+section{padding:34px 0;border-top:1px solid var(--line)}
+.sec-h{display:flex;align-items:baseline;gap:12px;margin-bottom:6px}
+.sec-h .k{font-family:var(--mono);font-size:13px;color:var(--accent-ink);font-weight:600}
+h2{font-size:25px;letter-spacing:-.015em}
+.lead{color:var(--ink-2);max-width:70ch;margin:8px 0 22px}
+
+/* category cards */
+.cats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.cat{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.cat::before{content:"";position:absolute;inset:0 auto 0 0;width:4px;background:var(--accent)}
+.cat h3{font-size:17px;margin-bottom:2px}
+.cat .grp{font-size:12.5px;color:var(--ink-2);font-family:var(--mono)}
+.cat .row{display:flex;justify-content:space-between;margin-top:14px;font-size:14px}
+.cat .row .v{font-weight:700;font-variant-numeric:tabular-nums}
+.cat .bar{height:6px;border-radius:4px;background:var(--surface-2);margin-top:10px;overflow:hidden}
+.cat .bar i{display:block;height:100%;background:var(--accent)}
+@media(max-width:760px){.cats{grid-template-columns:1fr}}
+
+/* flow */
+.scroll{overflow-x:auto;padding-bottom:6px}
+.flow{display:flex;align-items:stretch;gap:0;min-width:760px}
+.node{flex:1;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-s);
+  padding:13px 14px;box-shadow:var(--shadow);position:relative}
+.node .st{font-size:11px;color:var(--ink-2);text-transform:uppercase;letter-spacing:.08em}
+.node .t{font-weight:700;font-size:14.5px;margin-top:3px}
+.node .d{font-size:12.5px;color:var(--ink-2);margin-top:4px}
+.arrow{align-self:center;flex:0 0 34px;text-align:center;color:var(--ink-2);font-size:20px}
+.branch{display:flex;gap:12px;flex-wrap:wrap;margin-top:14px}
+.chip{font-size:13px;padding:9px 13px;border-radius:9px;border:1px solid var(--line);background:var(--surface);display:flex;gap:8px;align-items:center}
+.dot{width:9px;height:9px;border-radius:50%;flex:none}
+.dot.rev{background:var(--warn)} .dot.can{background:var(--crit)} .dot.np{background:var(--vp)}
+.callout{margin-top:16px;border:1px solid var(--line);border-left:3px solid var(--accent);
+  background:var(--accent-soft);border-radius:0 var(--r-s) var(--r-s) 0;padding:12px 15px;font-size:13.5px}
+.callout b{color:var(--ink)}
+
+/* two-track pipelines */
+.tracks{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:760px){.tracks{grid-template-columns:1fr}}
+.track{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);padding:16px;box-shadow:var(--shadow)}
+.track h3{font-size:15px;display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.track .lbl{font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px}
+.rpB{background:var(--rp-soft);color:var(--rp)} .vpB{background:var(--vp-soft);color:var(--vp)}
+.steps{display:flex;flex-wrap:wrap;gap:6px}
+.step{font-size:12.5px;font-family:var(--mono);padding:5px 9px;border-radius:7px;background:var(--surface-2);border:1px solid var(--line);white-space:nowrap}
+.step b{font-weight:700;color:var(--ink)}
+
+/* generic table */
+.tbl-w{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r-s)}
+table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:520px;background:var(--surface)}
+th,td{text-align:left;padding:9px 13px;border-bottom:1px solid var(--line)}
+th{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-2);font-weight:700;background:var(--surface-2)}
+tr:last-child td{border-bottom:0}
+td.c{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.pill{font-size:11px;padding:2px 8px;border-radius:999px;font-weight:600}
+.pill.rp{background:var(--rp-soft);color:var(--rp)} .pill.vp{background:var(--vp-soft);color:var(--vp)}
+.pill.g{background:var(--surface-2);color:var(--ink-2)}
+
+/* module map */
+.mods{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+@media(max-width:860px){.mods{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:460px){.mods{grid-template-columns:1fr}}
+.mod{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-s);padding:13px 14px;box-shadow:var(--shadow)}
+.mod h4{margin:0 0 6px;font-size:14px;display:flex;align-items:center;gap:7px}
+.mod ul{margin:0;padding-left:16px;color:var(--ink-2);font-size:12.5px;line-height:1.7}
+.mk{width:8px;height:8px;border-radius:2px;background:var(--accent);flex:none}
+
+/* architecture */
+.arch{display:flex;flex-direction:column;gap:10px}
+.layer{border:1px solid var(--line);border-radius:var(--r-s);background:var(--surface);padding:14px 16px;box-shadow:var(--shadow)}
+.layer .h{display:flex;align-items:center;gap:10px;font-weight:700;font-size:14px}
+.layer .h .t2{font-size:11px;color:var(--ink-2);font-weight:600;font-family:var(--mono)}
+.layer .body{margin-top:8px;display:flex;flex-wrap:wrap;gap:7px}
+.badge{font-size:12px;padding:4px 10px;border-radius:7px;background:var(--surface-2);border:1px solid var(--line);color:var(--ink-2)}
+.layer.conn{text-align:center;color:var(--ink-2);font-size:19px;border:0;background:transparent;box-shadow:none;padding:0}
+
+/* current vs proposed */
+.vs{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:760px){.vs{grid-template-columns:1fr}}
+.panel{border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:var(--shadow);background:var(--surface)}
+.panel.bad{border-top:3px solid var(--crit)}
+.panel.good{border-top:3px solid var(--good)}
+.panel h3{font-size:15px;margin-bottom:4px}
+.panel .sub{font-size:12.5px;color:var(--ink-2);margin-bottom:12px}
+.ent{font-family:var(--mono);font-size:12.5px;background:var(--surface-2);border:1px solid var(--line);
+  border-radius:7px;padding:8px 11px;margin-bottom:7px}
+.ent .en{font-weight:700;color:var(--ink)}
+.li{display:flex;gap:9px;font-size:13.5px;margin-bottom:9px;align-items:flex-start}
+.li .i{flex:none;margin-top:2px;font-size:13px}
+.li .i.x{color:var(--crit)} .li .i.v{color:var(--good)}
+
+/* roadmap */
+.road{display:flex;flex-direction:column;gap:2px}
+.ph{display:grid;grid-template-columns:44px 1fr auto;gap:14px;align-items:start;padding:13px 0;border-bottom:1px dashed var(--line)}
+.ph:last-child{border-bottom:0}
+.ph .num{width:34px;height:34px;border-radius:9px;background:var(--accent-soft);color:var(--accent-ink);
+  font-weight:750;display:flex;align-items:center;justify-content:center;font-family:var(--mono)}
+.ph .t{font-weight:700;font-size:15px}
+.ph .d{font-size:13px;color:var(--ink-2);margin-top:2px}
+.ph .w{font-size:12px;color:var(--ink-2);font-family:var(--mono);white-space:nowrap;padding-top:6px}
+
+/* risks */
+.risks{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:760px){.risks{grid-template-columns:1fr}}
+.risk{border:1px solid var(--line);border-left:3px solid var(--crit);border-radius:0 var(--r-s) var(--r-s) 0;
+  background:var(--surface);padding:12px 14px;box-shadow:var(--shadow)}
+.risk.w{border-left-color:var(--warn)}
+.risk .t{font-weight:700;font-size:13.5px}
+.risk .d{font-size:12.5px;color:var(--ink-2);margin-top:3px}
+
+footer{padding:34px 0 60px;color:var(--ink-2);font-size:13px;border-top:1px solid var(--line)}
+footer code{font-family:var(--mono);background:var(--surface-2);padding:1px 6px;border-radius:5px}
+@media (prefers-reduced-motion:no-preference){
+  section,.stat{animation:rise .5s ease both}
+}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+</style>
+
+<div class="top">
+  <div class="wrap">
+    <div class="brand">AACD · <b>Investimentos</b></div>
+    <nav class="nav">
+      <a href="#vis">Visão</a>
+      <a href="#fluxo">Fluxo</a>
+      <a href="#status">Status</a>
+      <a href="#modulos">Módulos</a>
+      <a href="#arq">Arquitetura</a>
+      <a href="#modelo">Modelo</a>
+      <a href="#road">Roadmap</a>
+      <a href="#risco">Riscos</a>
+    </nav>
+    <button class="tgl" id="tgl" aria-label="Alternar tema">◐ Tema</button>
+  </div>
+</div>
+
+<header class="hero wrap" id="vis">
+  <div class="eyebrow">Radiografia do legado + blueprint de modernização</div>
+  <h1>Sistema de Solicitação de Investimentos</h1>
+  <p>Engenharia reversa do sistema ScriptCase atual (validada no banco <span class="mono">sc_orcamento</span>) e o plano para reconstruí-lo em <b>React + Node.js + SQL Server</b>. Foco exclusivo no fluxo de investimentos — o data mart de orçamento está descontinuado.</p>
+  <div class="meta">
+    <span class="tag">ScriptCase 9 → stack moderna</span>
+    <span class="tag">SQL Server 2016</span>
+    <span class="tag">Fluxo de aprovação configurável</span>
+    <span class="tag">Admin robusto</span>
+    <span class="tag">Auth própria (login/senha)</span>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="n tnum">691</div><div class="l">investimentos ativos</div></div>
+    <div class="stat"><div class="n tnum">~R$ 72 mi</div><div class="l">valor solicitado</div></div>
+    <div class="stat"><div class="n tnum">9</div><div class="l">unidades AACD</div></div>
+    <div class="stat"><div class="n tnum">117</div><div class="l">usuários · 5 perfis</div></div>
+    <div class="stat"><div class="n tnum">95</div><div class="l">telas ScriptCase</div></div>
+    <div class="stat"><div class="n tnum">147</div><div class="l">recebimentos</div></div>
+  </div>
+</header>
+
+<main class="wrap">
+
+<!-- CATEGORIAS -->
+<section id="cat">
+  <div class="sec-h"><span class="k">01</span><h2>As três categorias de investimento</h2></div>
+  <p class="lead">Tudo vive numa única tabela (<span class="mono">tb_investimento_unificado</span>), segmentada pelo grupo de investimento. A categoria mais pesada em valor é Obras.</p>
+  <div class="cats">
+    <div class="cat">
+      <h3>Itens</h3>
+      <div class="grp">grupos 1,2,3,4,5,6,8</div>
+      <div class="row"><span>531 pedidos</span><span class="v">R$ 39,9 mi</span></div>
+      <div class="bar"><i style="width:56%"></i></div>
+      <div class="row" style="color:var(--ink-2);font-size:12.5px;margin-top:8px"><span>Equipamentos, TI, mobiliário</span></div>
+    </div>
+    <div class="cat">
+      <h3>Obras</h3>
+      <div class="grp">grupo 9</div>
+      <div class="row"><span>129 pedidos</span><span class="v">R$ 30,8 mi</span></div>
+      <div class="bar"><i style="width:100%"></i></div>
+      <div class="row" style="color:var(--ink-2);font-size:12.5px;margin-top:8px"><span>Obras, reformas, infraestrutura</span></div>
+    </div>
+    <div class="cat">
+      <h3>Instrumentais</h3>
+      <div class="grp">grupo 7</div>
+      <div class="row"><span>31 pedidos</span><span class="v">R$ 1,2 mi</span></div>
+      <div class="bar"><i style="width:8%"></i></div>
+      <div class="row" style="color:var(--ink-2);font-size:12.5px;margin-top:8px"><span>Instrumentais cirúrgicos</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- FLUXO -->
+<section id="fluxo">
+  <div class="sec-h"><span class="k">02</span><h2>Fluxo de aprovação — configurável</h2></div>
+  <p class="lead">Hoje o fluxo de 3 níveis é fixo no código, mas na prática só o GPE atua. O novo sistema torna o fluxo <b>um dado configurável</b>: ambos os modelos coexistem e são resolvidos por contexto (unidade, grupo, verba, valor).</p>
+
+  <div class="scroll">
+    <div class="flow">
+      <div class="node"><div class="st">Solicitante</div><div class="t">Solicitação</div><div class="d">Cria o pedido · status 15 “Liberado p/ Aprovação”</div></div>
+      <div class="arrow">→</div>
+      <div class="node"><div class="st">Nível 1 · Ponto Focal</div><div class="t">Aprovação N1</div><div class="d">Fila por alçada <span class="mono">tb_aprovadores</span></div></div>
+      <div class="arrow">→</div>
+      <div class="node"><div class="st">Nível 2 · Superior</div><div class="t">Aprovação N2</div><div class="d">Aprovador superior</div></div>
+      <div class="arrow">→</div>
+      <div class="node"><div class="st">Nível 3 · GPE</div><div class="t">Aprovação Final</div><div class="d">Define o status final</div></div>
+      <div class="arrow">→</div>
+      <div class="node"><div class="st">Recebedor</div><div class="t">Recebimento</div><div class="d">NF, fornecedor, qtd, valor</div></div>
+    </div>
+  </div>
+
+  <div class="branch">
+    <span class="chip"><span class="dot rev"></span> Revisão — devolve ao solicitante (status 1)</span>
+    <span class="chip"><span class="dot can"></span> Cancelado</span>
+    <span class="chip"><span class="dot np"></span> Não Previsto — recebimento sem solicitação</span>
+  </div>
+
+  <div class="callout">
+    <b>Realidade nos dados:</b> aprovação de <b>Ponto Focal (N1)</b> e “Gestor” têm <b>0 uso</b>;
+    <span class="mono">NR_SEQ_STATUS_INV</span> nunca chega a 3 (fila N2 vazia). Superior e Final foram usados 292 vezes cada,
+    e nos registros recentes <b>apenas o GPE</b> processa. → Por isso o fluxo vira <b>configurável</b>, não fixo.
+  </div>
+
+  <div class="tracks" style="margin-top:16px">
+    <div class="track">
+      <h3><span class="lbl" style="background:var(--accent-soft);color:var(--accent-ink)">Preset A</span> GPE Direto</h3>
+      <div class="steps">
+        <span class="step"><b>1</b> Solicitação</span>
+        <span class="step">→</span>
+        <span class="step"><b>2</b> Aprovação GPE</span>
+      </div>
+      <div style="font-size:12.5px;color:var(--ink-2);margin-top:10px">Reflete a prática atual. Aprovador = perfil GPE.</div>
+    </div>
+    <div class="track">
+      <h3><span class="lbl" style="background:var(--accent-soft);color:var(--accent-ink)">Preset B</span> Três Níveis</h3>
+      <div class="steps">
+        <span class="step"><b>1</b> Ponto Focal</span>
+        <span class="step">→</span>
+        <span class="step"><b>2</b> Superior</span>
+        <span class="step">→</span>
+        <span class="step"><b>3</b> Final</span>
+      </div>
+      <div style="font-size:12.5px;color:var(--ink-2);margin-top:10px">Aprovadores resolvidos pela alçada (estab × grupo).</div>
+    </div>
+  </div>
+  <div class="callout" style="border-left-color:var(--vp);background:var(--vp-soft)">
+    <b>Regra de resolução:</b> uma regra por prioridade decide qual preset se aplica — ex.: pedidos <b>até R$ X → GPE Direto</b>; <b>acima de R$ X → Três Níveis</b>. Tudo editável no Admin, sem deploy.
+  </div>
+</section>
+
+<!-- STATUS -->
+<section id="status">
+  <div class="sec-h"><span class="k">03</span><h2>Status: dois pipelines de financiamento</h2></div>
+  <p class="lead">O campo <span class="mono">CD_APROVACAO</span> mistura dois ciclos de vida no mesmo código: <b>RP — Recurso Próprio</b> e <b>VP — Verba Pública</b>. Sem <i>default</i>, sem <i>trigger</i>: o estado é definido pela aplicação/manualmente.</p>
+
+  <div class="tracks">
+    <div class="track">
+      <h3><span class="lbl rpB">RP</span> Recurso Próprio</h3>
+      <div class="steps">
+        <span class="step"><b>2</b> Solicitado</span>
+        <span class="step"><b>3/17</b> Aprovado</span>
+        <span class="step"><b>5</b> Em andamento</span>
+        <span class="step"><b>4</b> Concluído</span>
+      </div>
+    </div>
+    <div class="track">
+      <h3><span class="lbl vpB">VP</span> Verba Pública</h3>
+      <div class="steps">
+        <span class="step"><b>7</b> Proposição</span>
+        <span class="step"><b>8</b> Submetido</span>
+        <span class="step"><b>9</b> Captação</span>
+        <span class="step"><b>10</b> Conveniamento</span>
+        <span class="step"><b>16</b> Alocar</span>
+        <span class="step"><b>11</b> Execução</span>
+        <span class="step"><b>12</b> Concluído</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="tbl-w" style="margin-top:14px">
+    <table>
+      <thead><tr><th>Código</th><th>Descrição</th><th>Pipeline</th><th>Papel no fluxo</th></tr></thead>
+      <tbody>
+        <tr><td class="c">15</td><td>Liberado para Aprovação</td><td><span class="pill g">geral</span></td><td>Estado inicial (467 registros)</td></tr>
+        <tr><td class="c">6</td><td>Aguardando</td><td><span class="pill g">geral</span></td><td>Acompanhamento do solicitante</td></tr>
+        <tr><td class="c">1</td><td>Cancelado</td><td><span class="pill g">geral</span></td><td>Encerrado / também fila de revisão</td></tr>
+        <tr><td class="c">2</td><td>RP — Solicitado</td><td><span class="pill rp">RP</span></td><td>Início Recurso Próprio</td></tr>
+        <tr><td class="c">9</td><td>VP — Captação</td><td><span class="pill vp">VP</span></td><td>Fila de recebimento</td></tr>
+        <tr><td class="c">16</td><td>VP — Alocar</td><td><span class="pill vp">VP</span></td><td>Verba Pública</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- MODULOS -->
+<section id="modulos">
+  <div class="sec-h"><span class="k">04</span><h2>Mapa de módulos (menu atual)</h2></div>
+  <p class="lead">As 95 aplicações se organizam nestes grupos. A segregação real de acesso não vem da permissão por perfil (aberta), e sim de filtros SQL por <span class="mono">usr_login</span>.</p>
+  <div class="mods">
+    <div class="mod"><h4><span class="mk"></span>Solicitações</h4><ul><li>Meus itens / obras / instrumentais</li><li>Minhas solicitações</li><li>Novos · Editar · Liberar</li><li>Pré-solicitação (grupo 6)</li></ul></div>
+    <div class="mod"><h4><span class="mk"></span>Aprovações</h4><ul><li>N1 Ponto Focal</li><li>N2 Superior</li><li>N3 Final / GPE</li><li>Itens · Obras · Instrumentais</li></ul></div>
+    <div class="mod"><h4><span class="mk"></span>Revisão</h4><ul><li>Filas de devolução</li><li>Correção pelo solicitante</li><li>por categoria</li></ul></div>
+    <div class="mod"><h4><span class="mk"></span>Recebimento</h4><ul><li>Previsto (aprovados)</li><li>Não previsto</li><li>NF, fornecedor, qtd</li></ul></div>
+    <div class="mod"><h4><span class="mk"></span>Cadastros</h4><ul><li>Itens · Instrumentais</li><li>Grupos · Motivos</li><li>Aprovadores (alçada)</li><li>Status</li></ul></div>
+    <div class="mod"><h4><span class="mk"></span>Relatórios</h4><ul><li>Consolidado geral</li><li>Todos os campos de aprovação</li></ul></div>
+    <div class="mod"><h4><span class="mk"></span>Segurança</h4><ul><li>Usuários · Grupos</li><li>Login / senha</li><li>Perfis: Solicitante, Gestor, GPE, Admin, Regras Matriz</li></ul></div>
+    <div class="mod"><h4><span class="mk"></span>Integrações</h4><ul><li>View vw_centrocusto_un</li><li>Fonte / Staging (mesma instância)</li><li>Centro de custo / unidade</li></ul></div>
+  </div>
+  <div class="callout" style="margin-top:18px">
+    <b>Módulo de Admin (robusto):</b> app dedicado onde o negócio configura tudo <b>sem depender de deploy</b> —
+    catálogos, matriz de alçada, <b>configurador de fluxo</b> (etapas + regras + simulador), status/pipelines,
+    usuários &amp; perfis &amp; permissões (RBAC), delegações, parâmetros do sistema e auditoria.
+  </div>
+</section>
+
+<!-- ARQUITETURA -->
+<section id="arq">
+  <div class="sec-h"><span class="k">05</span><h2>Arquitetura alvo</h2></div>
+  <p class="lead">Camadas desacopladas, regras no backend (não na ferramenta), banco com integridade real.</p>
+  <div class="arch">
+    <div class="layer">
+      <div class="h">Frontend <span class="t2">React + TypeScript</span></div>
+      <div class="body"><span class="badge">App do usuário</span><span class="badge">App de Admin</span><span class="badge">TanStack Query</span><span class="badge">Form + Zod</span><span class="badge">Rotas por perfil</span></div>
+    </div>
+    <div class="layer conn">↕ &nbsp;REST / JSON · JWT + refresh · <b>auth própria (Argon2)</b></div>
+    <div class="layer">
+      <div class="h">Backend <span class="t2">Node.js · NestJS</span></div>
+      <div class="body"><span class="badge">Controller → Service → Repository</span><span class="badge">Auth própria + RBAC + MFA</span><span class="badge">Motor de fluxo configurável</span><span class="badge">Máquina de estados</span><span class="badge">Prisma</span><span class="badge">Auditoria</span></div>
+    </div>
+    <div class="layer conn">↕ &nbsp;mesma instância SQL Server</div>
+    <div class="layer">
+      <div class="h">Banco <span class="t2">SQL Server (novo schema)</span></div>
+      <div class="body"><span class="badge">FKs + constraints</span><span class="badge">Migrations versionadas</span><span class="badge">Índices</span><span class="badge">lê view vw_centrocusto_un</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- MODELO -->
+<section id="modelo">
+  <div class="sec-h"><span class="k">06</span><h2>Modelo de dados: atual × proposto</h2></div>
+  <p class="lead">A tabela atual é “flat”, sem chaves e com tipos inconsistentes. A proposta normaliza cabeçalho/itens, aprovação como eventos e alçada estruturada.</p>
+  <div class="vs">
+    <div class="panel bad">
+      <h3>Atual — <span style="color:var(--crit)">problemas</span></h3>
+      <div class="sub">1 tabela central denormalizada + domínios sem integridade</div>
+      <div class="li"><span class="i x">✕</span><div><b>0 foreign keys</b> em todo o banco — vínculos só por código em texto.</div></div>
+      <div class="li"><span class="i x">✕</span><div>Colunas <span class="mono">DS_*</span> guardam <b>códigos</b>, não descrições; <span class="mono">DS_CLASSE</span>, <span class="mono">DS_TIPO_INVESTIMENTO</span>, <span class="mono">STATUS</span> sempre vazias.</div></div>
+      <div class="li"><span class="i x">✕</span><div>Mesmo conceito com tipos diferentes: <span class="mono">id_grupoinvestimento</span> é <b>int / float / varchar</b> conforme a tabela.</div></div>
+      <div class="li"><span class="i x">✕</span><div>Aprovação em colunas fixas; <span class="mono">tb_aprovadores</span> redundante (288 linhas), alçada em texto multivalorado.</div></div>
+      <div class="li"><span class="i x">✕</span><div>Senhas 5–9 chars sem hash; permissões abertas; regra <span class="mono">vdemare→vkaspar</span> no SQL.</div></div>
+    </div>
+    <div class="panel good">
+      <h3>Proposto — <span style="color:var(--good)">normalizado</span></h3>
+      <div class="sub">Entidades com PK/FK, tipos corretos, regras no backend</div>
+      <div class="ent"><span class="en">solicitacao</span> (id, solicitante, estab, cc, unidade, data, status, pipeline)</div>
+      <div class="ent"><span class="en">solicitacao_item</span> (id, solicitacao_id→, grupo, item, qtd, vl_unit, vl_total, escopo_obra)</div>
+      <div class="ent"><span class="en">aprovacao</span> (id, item_id→, nivel, aprovador, decisão, justificativa, data)</div>
+      <div class="ent"><span class="en">fluxo_aprovacao</span> · <span class="en">fluxo_etapa</span> · <span class="en">regra_fluxo</span> (motor configurável)</div>
+      <div class="ent"><span class="en">regra_alcada</span> + <span class="en">regra_alcada_aprovador</span> (estab×grupo → níveis)</div>
+      <div class="ent"><span class="en">usuario</span> · <span class="en">perfil</span> · <span class="en">permissao</span> · <span class="en">delegacao</span> (auth + RBAC)</div>
+      <div class="ent"><span class="en">recebimento</span> · <span class="en">catálogos</span> · <span class="en">evento_auditoria</span></div>
+      <div class="li" style="margin-top:12px"><span class="i v">✓</span><div>Fluxo e alçada <b>configuráveis por dado</b>; estados validados no domínio; delegação modelada.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ROADMAP -->
+<section id="road">
+  <div class="sec-h"><span class="k">07</span><h2>Roadmap sugerido</h2></div>
+  <p class="lead">Fatiado por valor entregável. As durações são orientativas, para ajustar ao time.</p>
+  <div class="road">
+    <div class="ph"><div class="num">0</div><div><div class="t">Descoberta & validação</div><div class="d">Validar fluxo real com GPE/Gestores, definir níveis de alçada e SSO.</div></div><div class="w">1–2 sem</div></div>
+    <div class="ph"><div class="num">1</div><div><div class="t">Fundação</div><div class="d">Schema novo + migrations, auth/RBAC, catálogos e integração de estabelecimentos/CC.</div></div><div class="w">2–3 sem</div></div>
+    <div class="ph"><div class="num">2</div><div><div class="t">Solicitação</div><div class="d">Criação/edição de pedido (cascata, cálculo, itens), “minhas solicitações”.</div></div><div class="w">3–4 sem</div></div>
+    <div class="ph"><div class="num">3</div><div><div class="t">Aprovação</div><div class="d">Alçada, filas por perfil, aprovar/reprovar/revisar, máquina de estados, e-mails.</div></div><div class="w">3–4 sem</div></div>
+    <div class="ph"><div class="num">4</div><div><div class="t">Recebimento</div><div class="d">Previsto + não previsto, NF/fornecedor, baixa de itens.</div></div><div class="w">2 sem</div></div>
+    <div class="ph"><div class="num">5</div><div><div class="t">Relatórios & dashboard</div><div class="d">Consolidado com filtros/export e indicadores por grupo/estab/status.</div></div><div class="w">2 sem</div></div>
+    <div class="ph"><div class="num">6</div><div><div class="t">Migração & go-live</div><div class="d">ETL do legado, validação em paralelo, treinamento, cutover.</div></div><div class="w">2–3 sem</div></div>
+  </div>
+</section>
+
+<!-- RISCOS -->
+<section id="risco">
+  <div class="sec-h"><span class="k">08</span><h2>Achados & riscos a tratar</h2></div>
+  <div class="risks">
+    <div class="risk"><div class="t">Autenticação frágil</div><div class="d">Senhas de 5–9 caracteres sem hash. Recriar auth própria com Argon2, política de senha, bloqueio e MFA opcional (SSO fica para o futuro).</div></div>
+    <div class="risk"><div class="t">Permissões abertas</div><div class="d">Todos os perfis acessam quase todas as telas; proteção depende só do filtro por login.</div></div>
+    <div class="risk w"><div class="t">Regras hard-coded</div><div class="d"><span class="mono">admin</span> vê tudo; <span class="mono">vdemare→vkaspar</span>. Modelar delegação em tabela.</div></div>
+    <div class="risk w"><div class="t">Alçada redundante</div><div class="d"><span class="mono">tb_aprovadores</span> com 288 linhas e camadas duplicadas. Deduplicar na ETL.</div></div>
+    <div class="risk w"><div class="t">Fluxo subutilizado</div><div class="d">Níveis Focal/Gestor sem uso; decidir simplificar ou reativar antes de codar.</div></div>
+    <div class="risk"><div class="t">Estado sem enforcement</div><div class="d">Sem trigger/constraint: INSERT/UPDATE direto pode gerar estado inválido.</div></div>
+  </div>
+</section>
+
+</main>
+
+<footer class="wrap">
+  Documento vivo · gerado a partir da engenharia reversa do backup ScriptCase e validado no banco <code>sc_orcamento</code> (SQL Server 2016). Complementos no repositório: <code>DOCUMENTACAO_SISTEMA_ORCAMENTARIO.md</code>, <code>DICIONARIO_DADOS.md</code>, <code>PLANO_MODERNIZACAO.md</code>.
+</footer>
+
+<script>
+(function(){
+  var root=document.documentElement, btn=document.getElementById('tgl');
+  function cur(){return root.getAttribute('data-theme')|| (matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');}
+  btn.addEventListener('click',function(){
+    var next=cur()==='dark'?'light':'dark';
+    root.setAttribute('data-theme',next);
+  });
+})();
+</script>

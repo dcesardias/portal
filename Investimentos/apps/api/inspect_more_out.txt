@@ -1,0 +1,134 @@
+﻿=== tb_grupos_investimento (all) ===
+[
+  {
+    "id_grupoinvestimento": 1,
+    "nome_grupoinvestimento": "Equipamentos de Oficina Ortopédica",
+    "cd_conta_contabil": "13002104"
+  },
+  {
+    "id_grupoinvestimento": 2,
+    "nome_grupoinvestimento": "Equipamentos de Reabilitação",
+    "cd_conta_contabil": "13002103"
+  },
+  {
+    "id_grupoinvestimento": 3,
+    "nome_grupoinvestimento": "Equipamentos Diagnósticos e Laboratoriais",
+    "cd_conta_contabil": "13002103"
+  },
+  {
+    "id_grupoinvestimento": 4,
+    "nome_grupoinvestimento": "Equipamentos Hospitalares",
+    "cd_conta_contabil": "13002103"
+  },
+  {
+    "id_grupoinvestimento": 5,
+    "nome_grupoinvestimento": "Equipamentos Não Assistenciais",
+    "cd_conta_contabil": "13002106"
+  },
+  {
+    "id_grupoinvestimento": 6,
+    "nome_grupoinvestimento": "Equipamentos, Infraestrutura e Software em TI",
+    "cd_conta_contabil": "13002105"
+  },
+  {
+    "id_grupoinvestimento": 7,
+    "nome_grupoinvestimento": "Instrumentais Cirúrgicos",
+    "cd_conta_contabil": "13002103"
+  },
+  {
+    "id_grupoinvestimento": 8,
+    "nome_grupoinvestimento": "Mobiliários e Utensílios",
+    "cd_conta_contabil": "13002108"
+  },
+  {
+    "id_grupoinvestimento": 9,
+    "nome_grupoinvestimento": "Obras, Reformas e Serviços de Infraestrutura",
+    "cd_conta_contabil": "13002102"
+  },
+  {
+    "id_grupoinvestimento": 11,
+    "nome_grupoinvestimento": "Outros",
+    "cd_conta_contabil": "Outros"
+  }
+]
+=== tb_itens sample ===
+[
+  {
+    "id_item": 3,
+    "nome_item": "ACELERADOR LINEAR SÓ DE FÓTONS (MONOENERGÉTICO 6 MV), EQUIPAMENTO PARA RADIOTERAPIA EXTERNA",
+    "agrupamento_item": "ACELERADORES DE FÓTONS",
+    "classificacao_item": "Médico Assistencial",
+    "definicao_item": "Equipamento utilizado no serviço de radioterapia, que tem como função emitir a radiação utilizada em diversos tratamentos. As radiações emitidas são os raios x de alta energia (grande poder de penetração para tratamentos de câncer mais profundo). É necessário que o bunker autorizado (licença CNEN) seja compatível com a configuração (6MV) para o devido funcionamento do equipamento.",
+    "valor_item": 39006703.65,
+    "especificacao_item": "Acelerador Linear Com Feixe De Fótons De 6 Mv; Taxa De Dose Mínima Para Todos Os Feixes De Fótons Menor Ou Igual A 100Cgy.Taxa De Dose Máxima Para Todos Os Feixes De Fótons Maior Ou Igual 350Cgy; Console De Controle Microprocessado; Comando Manual Local E Remoto Dos Movimentos De Mesa E Equipamento; Sistema De Câmaras De Ionização Composto Pelo Menos, Dois Canais Independentes; Precisão Do Sistema Dosimétrico De 1% Ou 1 Unidade Monitora; Linearidade Do Sistema Dosimétrico Para A Faixa De 50 A 300 Um, Em Qualquer Taxa De Dose, De 1% Ou 1 Unidade Monitora; Mesa De Tratamento Com Tampo Em Fibra De Carbono, Com Capacidade De Carga De No Mínimo De 200 Kg E Capaz De Realizar Todos Os Seus Movimentos Simultaneamente. Movimentação Vertical, Lateral, Longitudinal Ou Rotacional Podem Ser Manuais Ou Motorizadas Sendo Contínua E Com Velocidade Variável; Irradiação Em Qualquer Ângulo Do Gantry Com Atenuação Desprezível; Deflexão Máxima Do Tampo Deverá Ser Menor Ou Igual A 5 Mm No Isocentro; Suporte De Acessórios Para O Colimador; Jogo De Filtros Em Cunha, Dinâmico Ou Motorizado; Um Conjunto De Bandejas Para Suporte De Proteções; Ponteira Mecânica Indicadora De Distância Fonte/Isocentro; Monitor Lcd; Dispositivos De Localização De Paciente A Laser; Uma Bandeja Graticulada; Suporte Para Cassete; Colimador Multilâminas Interno Com No Mínimo De 80 Lâminas, Com Sequenciamento Automático De Campos E Com Capacidade De Seguimento Das Lâminas Durante Os Tratamentos Dinâmicos; 02 Estações De Sistema De Registro E Verificação Em Português Capacidade De Importação De Arquivos Dicom Rt; Software Clínico Com Todas As Licenças Necessárias; Hardware Compatível Com O Software Especificado; Rede De Dados, Baseada Em Switch De 1 Gbps, Para Interligação Dos Computadores. Sistema De Planejamento 2 D E 3D Para Radioterapia; No-Break E Chiller Compatível; Computador; Monitor Colorido; Disco Rígido Mínimo 250; Ram Mínimo 24 Gb; Leitor/Gravador De Cd/Dvd; Portas Usb 2.0; Impressora Laser Colorida; Sistema De Backup E Demais Acessórios Para Perfeito Funcionamento Do Equipamento. Incoterm Dap",
+    "id_grupoinvestimento": 4,
+    "Ativo": "S",
+    "id_renem": null,
+    "ds_renem": null
+  },
+  {
+    "id_item": 18,
+    "nome_item": "ANALISADOR AUTOMÁTICO PARA HEMATOLOGIA, CONTADOR HEMATOLÓGICO, ANALISADOR HEMATOLÓGICO, CONTADOR AUTOMÁTICO DE CÉLULAS/HEMATOLÓGICO",
+    "agrupamento_item": "ANALISADORES BIOQUÍMICOS",
+    "classificacao_item": "Médico Assistencial",
+    "definicao_item": "Equipamento automático para rotinas hematológicas, na análise morfológica e contagem de células do sangue.",
+    "valor_item": 92250,
+    "especificacao_item": "Análise De, No Mínimo, 26 Parâmetros; Realizando, No Mínimo, Os Seguintes Testes: Contagem Total De Leucócitos, Contagem Total De Eritrócitos, Desejável Leitura Espectrofométrica De Hemoglobina (Cianometahemoglobina), Determinação Hematócrito, Determinação De Volume Corpuscular Médio, Determinação Da Hemoglobina Corpuscular Média, Determinação Da Concentração Da Hemoglobina Corpuscular Média, Determinação Do Índice De Anisocitose, Contagem Total De Plaquetas, Determinação Do Volume Plaquetário Médio, Determinação De Plaquetócrito, Determinação Da Amplitude Da Distribuição De Plaquetas, Contagem De Linfócitos (Valor Absoluto), Contagem De Linfócitos (Valor Relativo), Contagem De Monócitos (Valor Relativo), Contagem De Monócitos (Valor Absoluto), Contagem De Neutrófilos (Valor Absoluto); Contagem De Neutrófilos (Valor Relativo), Contagem De Eosinófilos (Valor Absoluto), Contagem De Eosinófilos (Valor Relativo), Contagem De Basófilos (Valor Absoluto, Contagem De Basófilos (Valor Relativo), Contagem De Linfócitos Atípicos (Valor Absoluto), Contagem De Linfócitos Atípicos (Valor Relativo), Contagem De Grandes Células Imaturas (Valor Absoluto); Contagem De Grandes Células Imaturas (Valor Relativo). Capacidade De, No Mínimo, 60 Amostras/Hora. Análise De Amostras Em Tubos Abertos Com Aspiração De No 35µl Ou Menos. Procedimento De Limpeza E Calibração. Identificação De Amostras: Alfanumérica, Numérica Ou Sequencial. Limites De Pacientes Programáveis. Alarmes Patológicos Série Vermelha, Série Branca E Plaquetas. Alarmes Para Falhas De Contagem. Acompanha Impressora. Interface Rs 232 Incluindo Gráficos E Matriz. Leitor De Código De Barras. Alimentação Elétrica A Ser Definida Pela Entidade Solicitante.",
+    "id_grupoinvestimento": 3,
+    "Ativo": "S",
+    "id_renem": 2828,
+    "ds_renem": "ANALISADOR AUTOMÁTICO PARA HEMATOLOGIA"
+  },
+  {
+    "id_item": 33,
+    "nome_item": "APARELHO DE FOTOTERAPIA PARA PSORÍASE, FOTOTERAPIA PARA PSORÍASE",
+    "agrupamento_item": "APARELHO DE FOTOTERAPIA",
+    "classificacao_item": "Médico Assistencial",
+    "definicao_item": "Equipamento de fototerapia indicado para tratamento de psoríase, vitiligo, dermatite atópica, entre outros. Pode ser fixo aplicado para tratamentos de corpo inteiro ou portátil para aplicações em regiões isoladas, a depender do tipo da doença.",
+    "valor_item": 10092,
+    "especificacao_item": "Equipamento Portátil Para 2 Lâmpadas De 9W, Uva Ou Uvb, Com Temporizador.",
+    "id_grupoinvestimento": 4,
+    "Ativo": "S",
+    "id_renem": 11354,
+    "ds_renem": "APARELHO DE FOTOTERAPIA PARA PSORÍASE"
+  },
+  {
+    "id_item": 57,
+    "nome_item": "AR CONDICIONADO",
+    "agrupamento_item": "AR CONDICIONADO",
+    "classificacao_item": "Infraestrutura",
+    "definicao_item": "Aparelho que trata o ar, regulando sua qualidade no que diz respeito às suas condições de temperatura.",
+    "valor_item": 2307,
+    "especificacao_item": "Tipo: Split_x000D_\nCapacidade/Ciclo: 9.000 A 12.000 Btus/Quente E Frio",
+    "id_grupoinvestimento": 5,
+    "Ativo": "S",
+    "id_renem": 2569,
+    "ds_renem": "AR CONDICIONADO"
+  },
+  {
+    "id_item": 83,
+    "nome_item": "BALANÇA DINÂMICA, BALANÇA",
+    "agrupamento_item": "BALANÇAS DE PRECISÃO",
+    "classificacao_item": "Apoio",
+    "definicao_item": "Equipamento para checagem de peso em linha.",
+    "valor_item": 211500,
+    "especificacao_item": "Com Esteiras De Entrada, Pesagem E Saída. Rejeição De Produtos Fora De Peso Por_x000D_\nIntermédio De Jato De Ar._x000D_\n Painel, Corpo E Base Da Balança Em Aço Inox._x000D_\n Comando E Controles Montados No Painel De Fácil Acesso No Corpo Da Balança;_x000D_\nEsteiras Em Alumínio Anodizado Preto;_x000D_\n Célula De Carga Com Princípio De Construção Por Sensor De Deformação (Strain Gage);_x000D_\nReceptor De Produtos Rejeitados Em Policarbonato Com 300Mm;_x000D_\nPorta E Proteção Em Acrílico Transparente Com Micros De Segurança Em Conformidade Com As Normas Vigentes.",
+    "id_grupoinvestimento": 8,
+    "Ativo": "S",
+    "id_renem": 11796,
+    "ds_renem": "BALANÇA DINÂMICA"
+  }
+]
+=== distinct Ativo values in tb_itens ===
+[{"Ativo":"N"},{"Ativo":"S"},{"Ativo":null}]
+=== unidades com mais de 1 estabelecimento (conflito) ===
+[{"NR_SEQ_UNID_NEG":"4","n_estab":8},{"NR_SEQ_UNID_NEG":"5","n_estab":2},{"NR_SEQ_UNID_NEG":"7","n_estab":5},{"NR_SEQ_UNID_NEG":"10","n_estab":5},{"NR_SEQ_UNID_NEG":"11","n_estab":6},{"NR_SEQ_UNID_NEG":"30","n_estab":8},{"NR_SEQ_UNID_NEG":"31","n_estab":7},{"NR_SEQ_UNID_NEG":"32","n_estab":9},{"NR_SEQ_UNID_NEG":"33","n_estab":8},{"NR_SEQ_UNID_NEG":"35","n_estab":6},{"NR_SEQ_UNID_NEG":"1040","n_estab":9},{"NR_SEQ_UNID_NEG":"1042","n_estab":8},{"NR_SEQ_UNID_NEG":"1045","n_estab":7},{"NR_SEQ_UNID_NEG":"2041","n_estab":8},{"NR_SEQ_UNID_NEG":"4539","n_estab":7}]
+=== active users count ===
+[{"c":22}]
+=== active users with null/empty email ===
+[{"null_or_empty":0}]
+=== duplicate emails among active users ===
+[]
+=== duplicate logins among active users ===
+[]
+=== tb_aprovadores sample ===

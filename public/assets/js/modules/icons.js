@@ -412,12 +412,19 @@
 
       containers.forEach((container) => {
         const menu      = container.querySelector('#' + config.menuId);
-        const toggle    = container.querySelector('#' + config.toggleId);
+        let   toggle    = container.querySelector('#' + config.toggleId);
         const selected  = container.querySelector('#' + config.selectedId);
         if (!menu || !toggle || !selected) return;
 
         // marca container p/ estilização específica
         container.classList.add('icon-picker');
+
+        // toggle (clona p/ remover listeners antigos) — feito antes de tudo
+        // porque o cálculo de posição do menu (abaixo) precisa medir ESTE
+        // elemento (getBoundingClientRect), não o antigo já removido do DOM.
+        const newToggle = toggle.cloneNode(true);
+        toggle.parentNode.replaceChild(newToggle, toggle);
+        toggle = newToggle;
 
         // Reconstrói a estrutura interna do menu
         menu.classList.add('icon-picker-menu');
@@ -448,6 +455,82 @@
         dropdownState.set(container, state);
 
         const ALL = buildIndex();
+
+        // ------------------------------------------------------------
+        // Abrir/posicionar/fechar — o menu é escapado para document.body
+        // com position:fixed enquanto aberto. Isso é necessário porque
+        // .admin-modal e .admin-modal-body têm overflow:hidden/auto (pra
+        // rolar só o corpo do modal), e um dropdown position:absolute
+        // dentro deles fica CORTADO quando o campo de ícone está perto do
+        // fim do modal — era exatamente o bug do dropdown "cortado". Fora
+        // do modal, no fluxo normal, não muda nada visualmente.
+        const repositionMenu = () => {
+          const rect = toggle.getBoundingClientRect();
+          const viewportW = document.documentElement.clientWidth;
+          const viewportH = document.documentElement.clientHeight;
+          const width = Math.min(480, viewportW - 32);
+          let left = rect.left;
+          if (left + width > viewportW - 16) left = Math.max(16, viewportW - 16 - width);
+
+          const spaceBelow = viewportH - rect.bottom - 12;
+          const spaceAbove = rect.top - 12;
+          let top, maxHeight;
+          if (spaceBelow >= 260 || spaceBelow >= spaceAbove) {
+            top = rect.bottom + 6;
+            maxHeight = Math.max(180, Math.min(460, spaceBelow - 6));
+          } else {
+            maxHeight = Math.max(180, Math.min(460, spaceAbove - 6));
+            top = rect.top - maxHeight - 6;
+          }
+
+          menu.style.position = 'fixed';
+          menu.style.left = `${left}px`;
+          menu.style.right = 'auto';
+          menu.style.top = `${top}px`;
+          menu.style.width = `${width}px`;
+          menu.style.maxHeight = `${maxHeight}px`;
+          // Acima do overlay do modal (10040) e do dropdown-menu (10050),
+          // senão o picker escapado pro body renderiza ATRÁS do modal.
+          menu.style.zIndex = '10060';
+        };
+
+        const outsideClickHandler = (event) => {
+          if (container.contains(event.target) || menu.contains(event.target)) return;
+          closeMenu();
+        };
+
+        function closeMenu() {
+          menu.style.display = 'none';
+          menu.style.position = '';
+          menu.style.top = '';
+          menu.style.left = '';
+          menu.style.right = '';
+          menu.style.width = '';
+          menu.style.maxHeight = '';
+          menu.style.zIndex = '';
+          if (menu.parentNode !== container) container.appendChild(menu);
+          document.removeEventListener('click', outsideClickHandler);
+          window.removeEventListener('scroll', repositionMenu, true);
+          window.removeEventListener('resize', repositionMenu);
+        }
+
+        function openMenu() {
+          document.querySelectorAll('.icon-picker-menu').forEach((m) => {
+            if (m !== menu && m.style.display !== 'none' && m.style.display !== '') {
+              const evt = new CustomEvent('icon-picker-force-close');
+              m.dispatchEvent(evt);
+            }
+          });
+          document.body.appendChild(menu);
+          menu.style.display = 'flex';
+          repositionMenu();
+          setTimeout(() => searchInput.focus(), 50);
+          requestAnimationFrame(() => document.addEventListener('click', outsideClickHandler));
+          window.addEventListener('scroll', repositionMenu, true);
+          window.addEventListener('resize', repositionMenu);
+        }
+
+        menu.addEventListener('icon-picker-force-close', closeMenu);
 
         // tabs
         CATEGORY_ORDER.forEach((cat) => {
@@ -501,7 +584,7 @@
                 input.dispatchEvent(new Event('input'));
               }
               config.setSelected('');
-              menu.style.display = 'none';
+              closeMenu();
             });
             gridEl.appendChild(noneBtn);
           }
@@ -526,7 +609,7 @@
                 input.dispatchEvent(new Event('input'));
               }
               config.setSelected(it.value);
-              menu.style.display = 'none';
+              closeMenu();
             });
             frag.appendChild(cell);
           });
@@ -541,7 +624,7 @@
         });
         searchInput.addEventListener('click', (e) => e.stopPropagation());
         searchInput.addEventListener('keydown', (e) => {
-          if (e.key === 'Escape') { menu.style.display = 'none'; }
+          if (e.key === 'Escape') { closeMenu(); }
         });
         clearBtn.style.visibility = 'hidden';
         clearBtn.addEventListener('click', (e) => {
@@ -556,32 +639,12 @@
         // primeiro render
         renderGrid();
 
-        // toggle (clona p/ remover listeners antigos)
-        const newToggle = toggle.cloneNode(true);
-        toggle.parentNode.replaceChild(newToggle, toggle);
-
-        newToggle.addEventListener('click', (e) => {
+        toggle.addEventListener('click', (e) => {
           e.preventDefault();
           e.stopPropagation();
-          const isOpen = menu.style.display === 'block';
-          // fecha outros pickers
-          document.querySelectorAll('.icon-picker-menu').forEach((m) => {
-            if (m !== menu) m.style.display = 'none';
-          });
-          if (isOpen) {
-            menu.style.display = 'none';
-          } else {
-            menu.style.display = 'block';
-            // foco na busca
-            setTimeout(() => searchInput.focus(), 50);
-            const closeHandler = (event) => {
-              if (!container.contains(event.target)) {
-                menu.style.display = 'none';
-                document.removeEventListener('click', closeHandler);
-              }
-            };
-            requestAnimationFrame(() => document.addEventListener('click', closeHandler));
-          }
+          const isOpen = menu.style.display !== 'none' && menu.style.display !== '';
+          if (isOpen) closeMenu();
+          else openMenu();
         });
       });
     },

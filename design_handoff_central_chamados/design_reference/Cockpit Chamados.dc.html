@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    ::-webkit-scrollbar { height: 9px; width: 9px; }
+    ::-webkit-scrollbar-thumb { background: rgba(128,150,190,.26); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(128,150,190,.45); background-clip: padding-box; }
+    kbd { font-family: 'Inter', sans-serif; font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 5px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-3); }
+    @keyframes ck-in { from { opacity: 0; transform: translateX(6px); } to { opacity: 1; transform: none; } }
+  </style>
+</helmet>
+
+<div style="{{ shellStyle }}">
+
+  <!-- ============ TOPBAR ============ -->
+  <header style="display:flex; align-items:center; gap:16px; padding:11px 20px; background:var(--surface); border-bottom:1px solid var(--border-soft); flex:none;">
+    <div style="display:flex; align-items:center; gap:11px;">
+      <span style="width:34px; height:34px; border-radius:10px; display:grid; place-items:center; background:linear-gradient(140deg,var(--primary),var(--primary-2)); color:#fff; box-shadow:0 4px 14px var(--primary-glow);">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+      </span>
+      <div style="line-height:1.15;">
+        <div style="font-size:14.5px; font-weight:750; letter-spacing:-.2px; display:flex; align-items:center; gap:8px;">Cockpit de Triagem<span style="font-size:8.5px; font-weight:800; padding:2px 7px; border-radius:20px; text-transform:uppercase; letter-spacing:.5px; background:var(--hml-bg); color:var(--hml-fg); border:1px solid var(--hml-br);">HML</span></div>
+        <div style="color:var(--text-3); font-size:11px; font-weight:500;">Ordens de Serviço · TI</div>
+      </div>
+    </div>
+
+    <button onClick="{{ openCmd }}" style="margin-left:14px; display:flex; align-items:center; gap:9px; background:var(--surface-2); border:1px solid var(--border); color:var(--text-3); border-radius:10px; padding:8px 12px; cursor:pointer; font-family:inherit; font-size:12.5px; min-width:230px;">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      Buscar ou executar ação…
+      <span style="margin-left:auto; display:flex; gap:3px;"><kbd>⌘</kbd><kbd>K</kbd></span>
+    </button>
+
+    <div style="display:flex; gap:8px; align-items:center; margin-left:auto;">
+      <div style="display:flex; align-items:center; gap:8px; padding:5px 12px 5px 6px; border-radius:22px; background:var(--surface-2); border:1px solid var(--border-soft);">
+        <span style="width:26px; height:26px; border-radius:50%; background:{{ meColor }}; color:#fff; display:grid; place-items:center; font-size:10px; font-weight:700;">{{ meInitials }}</span>
+        <span style="font-size:12px; font-weight:600; color:var(--text-2);">{{ meName }}</span>
+      </div>
+      <button style="border:1px solid var(--primary); background:var(--primary); color:#fff; border-radius:10px; padding:9px 14px; cursor:pointer; font-size:12.5px; font-weight:650; display:inline-flex; align-items:center; gap:6px; box-shadow:0 3px 10px var(--primary-glow);">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Novo
+      </button>
+      <button onClick="{{ toggleTheme }}" title="Tema" style="border:1px solid var(--border); background:var(--surface-2); color:var(--text-2); border-radius:10px; padding:9px 10px; cursor:pointer; display:inline-flex; align-items:center;">{{ themeIcon }}</button>
+    </div>
+  </header>
+
+  <div style="display:flex; flex:1; min-height:0; overflow-x:auto;">
+
+    <!-- ============ RAIL: FILAS INTELIGENTES ============ -->
+    <aside style="width:246px; min-width:246px; background:var(--surface); border-right:1px solid var(--border-soft); display:flex; flex-direction:column; overflow-y:auto; padding:14px 12px;">
+      <div style="font-size:10px; font-weight:800; color:var(--text-3); text-transform:uppercase; letter-spacing:.7px; padding:0 8px 8px;">Filas inteligentes</div>
+      <sc-for list="{{ smartQueues }}" as="q" hint-placeholder-count="5">
+        <button onClick="{{ q.onClick }}" style="{{ q.style }}">
+          <span style="width:26px; height:26px; border-radius:8px; display:grid; place-items:center; background:{{ q.tint }}; color:{{ q.color }}; flex:none;">{{ q.icon }}</span>
+          <span style="flex:1; text-align:left; font-size:12.5px; font-weight:600;">{{ q.label }}</span>
+          <span style="{{ q.badgeStyle }}">{{ q.count }}</span>
+        </button>
+      </sc-for>
+
+      <div style="font-size:10px; font-weight:800; color:var(--text-3); text-transform:uppercase; letter-spacing:.7px; padding:16px 8px 8px;">Por status</div>
+      <sc-for list="{{ statusQueues }}" as="q" hint-placeholder-count="3">
+        <button onClick="{{ q.onClick }}" style="{{ q.style }}">
+          <span style="width:9px; height:9px; border-radius:50%; background:{{ q.color }}; margin:0 9px 0 8px; flex:none;"></span>
+          <span style="flex:1; text-align:left; font-size:12.5px; font-weight:600;">{{ q.label }}</span>
+          <span style="{{ q.badgeStyle }}">{{ q.count }}</span>
+        </button>
+      </sc-for>
+
+      <div style="font-size:10px; font-weight:800; color:var(--text-3); text-transform:uppercase; letter-spacing:.7px; padding:16px 8px 10px;">Carga da equipe</div>
+      <sc-for list="{{ workload }}" as="w" hint-placeholder-count="4">
+        <div style="display:flex; align-items:center; gap:9px; padding:5px 8px;">
+          <span style="width:24px; height:24px; border-radius:50%; background:{{ w.color }}; color:#fff; display:grid; place-items:center; font-size:9px; font-weight:700; flex:none;">{{ w.initials }}</span>
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:3px;"><span style="color:var(--text-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ w.name }}</span><span style="color:var(--text-3); font-weight:700; flex:none; margin-left:6px;">{{ w.count }}</span></div>
+            <div style="height:5px; border-radius:20px; background:var(--track); overflow:hidden;"><span style="display:block; height:100%; border-radius:20px; background:{{ w.color }}; width:{{ w.pct }};"></span></div>
+          </div>
+        </div>
+      </sc-for>
+    </aside>
+
+    <!-- ============ CENTRO: LISTA DE TRIAGEM ============ -->
+    <section style="flex:1; min-width:430px; display:flex; flex-direction:column; background:var(--bg);">
+      <div style="display:flex; align-items:center; gap:12px; padding:15px 22px 12px; flex:none;">
+        <span style="width:30px; height:30px; border-radius:9px; display:grid; place-items:center; background:{{ qTint }}; color:{{ qColor }}; flex:none;">{{ qIcon }}</span>
+        <div style="line-height:1.2;">
+          <div style="font-size:16px; font-weight:750; letter-spacing:-.3px;">{{ qTitle }}</div>
+          <div style="font-size:11.5px; color:var(--text-3); font-weight:500;">{{ qSub }}</div>
+        </div>
+        <div style="margin-left:auto; display:flex; align-items:center; gap:14px;">
+          <span style="display:inline-flex; align-items:center; gap:6px; font-size:11px; color:var(--text-3);"><span style="width:8px;height:8px;border-radius:50%;background:#3fbf82;"></span>No prazo <span style="width:8px;height:8px;border-radius:50%;background:#e2c14b;margin-left:6px;"></span>Atenção <span style="width:8px;height:8px;border-radius:50%;background:#e8564b;margin-left:6px;"></span>SLA vencido</span>
+        </div>
+      </div>
+
+      <div style="flex:1; overflow-y:auto; padding:0 14px 16px;">
+        <sc-for list="{{ rows }}" as="r" hint-placeholder-count="8">
+          <article onClick="{{ r.onClick }}" style="{{ r.style }}">
+            <div style="{{ r.ringStyle }}"><span style="{{ r.ringInner }}">{{ r.prioLetter }}</span></div>
+            <div style="flex:1; min-width:0;">
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:3px;">
+                <span style="font-size:11px; font-weight:700; color:var(--text-3); flex:none;">#{{ r.id }}</span>
+                <span style="font-size:13.5px; font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ r.title }}</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:7px; font-size:11.5px; color:var(--text-3); min-width:0;">
+                <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ r.requester }}</span>
+                <span style="color:var(--border);">·</span>
+                <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:none; max-width:150px;">{{ r.sector }}</span>
+                <span style="{{ r.teamStyle }}">{{ r.team }}</span>
+              </div>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex:none;">
+              <span style="{{ r.slaStyle }}">{{ r.slaLabel }}</span>
+              <span style="display:inline-flex; align-items:center; gap:6px;">
+                <span style="{{ r.statusStyle }}">{{ r.statusLabel }}</span>
+                <span style="width:24px; height:24px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:9px; font-weight:700; flex:none; background:{{ r.execBg }}; color:{{ r.execFg }}; {{ r.execBorder }}" title="{{ r.execName }}">{{ r.execInitials }}</span>
+              </span>
+            </div>
+          </article>
+        </sc-for>
+        <sc-if value="{{ listEmpty }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; flex-direction:column; align-items:center; gap:8px; padding:60px 20px; color:var(--text-3);">
+            <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>
+            <div style="font-size:13px; font-weight:600;">Fila zerada. Nada pendente aqui.</div>
+          </div>
+        </sc-if>
+      </div>
+
+      <div style="flex:none; padding:9px 22px; border-top:1px solid var(--border-soft); display:flex; align-items:center; gap:16px; font-size:11px; color:var(--text-3); background:var(--surface);">
+        <span style="display:inline-flex; align-items:center; gap:6px;"><kbd>J</kbd><kbd>K</kbd> navegar</span>
+        <span style="display:inline-flex; align-items:center; gap:6px;"><kbd>E</kbd> atribuir a mim</span>
+        <span style="display:inline-flex; align-items:center; gap:6px;"><kbd>C</kbd> encerrar</span>
+        <span style="margin-left:auto; font-weight:600;">{{ listCount }}</span>
+      </div>
+    </section>
+
+    <!-- ============ DIREITA: DETALHE INLINE ============ -->
+    <aside style="width:432px; min-width:432px; background:var(--surface); border-left:1px solid var(--border-soft); overflow-y:auto; display:flex; flex-direction:column;">
+      <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex; flex-direction:column; min-height:100%;">
+          <div style="padding:18px 20px 14px; border-bottom:1px solid var(--border-soft);">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px;">
+              <span style="font-size:11px; font-weight:700; color:var(--text-3);">#{{ sel.id }}</span>
+              <span style="display:inline-flex; align-items:center; gap:5px; padding:2px 9px; border-radius:20px; background:{{ sel.prioTint }}; color:{{ sel.prioColor }}; font-size:10.5px; font-weight:700;"><span style="width:6px; height:6px; border-radius:50%; background:{{ sel.prioColor }};"></span>{{ sel.prioLabel }}</span>
+            </div>
+            <h2 style="margin:0 0 14px; font-size:17.5px; font-weight:750; letter-spacing:-.3px; line-height:1.32; color:var(--text);">{{ sel.title }}</h2>
+            <div style="display:flex; gap:5px; background:var(--surface-2); border:1px solid var(--border-soft); border-radius:11px; padding:4px;">
+              <sc-for list="{{ sel.statusBtns }}" as="b" hint-placeholder-count="3">
+                <button onClick="{{ b.onClick }}" style="{{ b.style }}">{{ b.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="padding:16px 20px; display:flex; flex-direction:column; gap:16px;">
+            <div>
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:7px;">
+                <span style="font-size:11px; font-weight:700; color:var(--text-2);">{{ sel.slaTitle }}</span>
+                <span style="font-size:11px; font-weight:700; color:{{ sel.slaColor }};">{{ sel.slaLabel }}</span>
+              </div>
+              <div style="height:7px; border-radius:20px; background:var(--track); overflow:hidden;"><span style="display:block; height:100%; border-radius:20px; background:{{ sel.slaColor }}; width:{{ sel.slaPct }};"></span></div>
+              <div style="font-size:10.5px; color:var(--text-3); margin-top:5px;">Aberto {{ sel.abertura }} · meta de resposta {{ sel.slaTarget }}</div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+              <div style="background:var(--surface-2); border:1px solid var(--border-soft); border-radius:12px; padding:11px 13px;">
+                <div style="font-size:9.5px; color:var(--text-3); font-weight:700; text-transform:uppercase; letter-spacing:.4px; margin-bottom:8px;">Solicitante</div>
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:9px;">
+                  <span style="width:28px; height:28px; border-radius:50%; background:{{ sel.reqBg }}; color:#fff; display:grid; place-items:center; font-size:10px; font-weight:700; flex:none;">{{ sel.reqInitials }}</span>
+                  <div style="min-width:0;"><div style="font-size:12px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ sel.requester }}</div><div style="font-size:10.5px; color:var(--text-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ sel.sector }}</div></div>
+                </div>
+                <div style="display:flex; gap:6px;">
+                  <a style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:5px; font-size:11px; font-weight:600; padding:5px 0; border-radius:7px; text-decoration:none; background:var(--surface); border:1px solid var(--border); color:var(--text-2); cursor:pointer;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 5L2 7"/></svg>Email</a>
+                  <a style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:5px; font-size:11px; font-weight:600; padding:5px 0; border-radius:7px; text-decoration:none; background:var(--surface); border:1px solid var(--border); color:#8b7bff; cursor:pointer;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Teams</a>
+                </div>
+              </div>
+              <div style="background:var(--surface-2); border:1px solid var(--border-soft); border-radius:12px; padding:11px 13px;">
+                <div style="font-size:9.5px; color:var(--text-3); font-weight:700; text-transform:uppercase; letter-spacing:.4px; margin-bottom:8px;">Responsável</div>
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:9px;">
+                  <span style="width:28px; height:28px; border-radius:50%; background:{{ sel.execBg }}; color:{{ sel.execFg }}; display:grid; place-items:center; font-size:10px; font-weight:700; flex:none; {{ sel.execBorder }}">{{ sel.execInitials }}</span>
+                  <div style="min-width:0;"><div style="font-size:12px; font-weight:600; color:{{ sel.execNameColor }}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; {{ sel.execNameStyle }}">{{ sel.execName }}</div><div style="font-size:10.5px; color:var(--text-3);">{{ sel.team }}</div></div>
+                </div>
+                <button onClick="{{ sel.assignMe }}" style="width:100%; font-size:11px; font-weight:650; padding:6px 0; border-radius:7px; background:var(--primary); border:1px solid var(--primary); color:#fff; cursor:pointer;">Atribuir a mim</button>
+              </div>
+            </div>
+
+            <div>
+              <div style="font-size:9.5px; color:var(--text-3); font-weight:700; text-transform:uppercase; letter-spacing:.4px; margin-bottom:7px;">Descrição</div>
+              <div style="font-size:12.5px; line-height:1.55; color:var(--text-2); background:var(--surface-2); border:1px solid var(--border-soft); border-radius:12px; padding:12px 14px;">{{ sel.dano }}</div>
+            </div>
+
+            <div>
+              <div style="font-size:9.5px; color:var(--text-3); font-weight:700; text-transform:uppercase; letter-spacing:.4px; margin-bottom:10px;">Atividade</div>
+              <sc-for list="{{ sel.events }}" as="ev" hint-placeholder-count="3">
+                <div style="display:flex; gap:11px; padding-bottom:13px; position:relative;">
+                  <span style="width:24px; height:24px; border-radius:50%; background:{{ ev.tint }}; color:{{ ev.color }}; display:grid; place-items:center; flex:none; z-index:1;">{{ ev.icon }}</span>
+                  <div style="flex:1; padding-top:2px;"><div style="font-size:12px; color:var(--text); font-weight:500;">{{ ev.text }}</div><div style="font-size:10.5px; color:var(--text-3); margin-top:1px;">{{ ev.time }}</div></div>
+                </div>
+              </sc-for>
+            </div>
+
+            <div>
+              <div style="font-size:9.5px; color:var(--text-3); font-weight:700; text-transform:uppercase; letter-spacing:.4px; margin-bottom:7px;">Solução / relato técnico</div>
+              <textarea rows="3" placeholder="Descreva o que foi feito para resolver…" style="width:100%; background:var(--surface-2); color:var(--text); border:1px solid var(--border); border-radius:11px; padding:11px 13px; font-size:12.5px; font-family:inherit; line-height:1.5; resize:vertical; outline:none;">{{ sel.solucao }}</textarea>
+            </div>
+          </div>
+
+          <div style="margin-top:auto; position:sticky; bottom:0; padding:13px 20px; border-top:1px solid var(--border-soft); background:var(--surface); display:flex; gap:9px;">
+            <button onClick="{{ sel.closeTicket }}" style="{{ sel.encerrarStyle }}">{{ sel.encerrarLabel }}</button>
+            <button style="flex:none; padding:11px 15px; border-radius:10px; background:var(--surface-2); border:1px solid var(--border); color:var(--text-2); font-size:12.5px; font-weight:650; cursor:pointer;">Anexos · {{ sel.anexos }}</button>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ noSel }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; color:var(--text-3); padding:40px;">
+          <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
+          <div style="font-size:13px; font-weight:600; text-align:center;">Selecione um chamado<br><span style="font-weight:400; font-size:11.5px;">ou pressione J para começar a triagem</span></div>
+        </div>
+      </sc-if>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;dark&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;tsType&quot;:&quot;'dark'|'light'&quot;,&quot;section&quot;:&quot;Aparência&quot;},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#5b8cff&quot;,&quot;options&quot;:[&quot;#5b8cff&quot;,&quot;#7c6cff&quot;,&quot;#1f9d57&quot;,&quot;#e2a13c&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Aparência&quot;}}">
+class Component extends DCLogic {
+  ME = "Diego César";
+  state = { theme: null, selId: null, queue: "triage", tickets: null };
+
+  palette(theme, accent) {
+    const A = accent || "#5b8cff";
+    if (theme === "light") return {
+      "--bg": "#f4f6fb", "--surface": "#ffffff", "--surface-2": "#f1f4fa",
+      "--card": "#ffffff", "--card-hover": "#f4f8ff", "--sel": "color-mix(in srgb," + A + " 9%, #ffffff)",
+      "--border": "#d8dfea", "--border-soft": "#e7ecf4",
+      "--text": "#15202f", "--text-2": "#44526b", "--text-3": "#75849f",
+      "--primary": A, "--primary-2": "#8a7bff", "--primary-glow": "rgba(58,111,240,.26)",
+      "--track": "rgba(20,32,55,.09)", "--danger": "#c5362c",
+      "--hml-bg": "#fdf1d6", "--hml-fg": "#9a6a12", "--hml-br": "#f0d79a",
+    };
+    return {
+      "--bg": "#0b1119", "--surface": "#131b28", "--surface-2": "#1a2333",
+      "--card": "#161f2d", "--card-hover": "#1d2838", "--sel": "color-mix(in srgb," + A + " 15%, #131b28)",
+      "--border": "#283347", "--border-soft": "#202b3d",
+      "--text": "#e9eef8", "--text-2": "#a9b7d3", "--text-3": "#7c8caa",
+      "--primary": A, "--primary-2": "#8a7bff", "--primary-glow": "rgba(91,140,255,.35)",
+      "--track": "rgba(255,255,255,.08)", "--danger": "#e05a4f",
+      "--hml-bg": "#3a2a0f", "--hml-fg": "#e2a13c", "--hml-br": "#5a431a",
+    };
+  }
+  curTheme() { return this.state.theme || this.props.theme || "dark"; }
+
+  data() {
+    // hrs = horas desde a abertura
+    return [
+      { id: 48213, prio: "E", status: 1, title: "Sistema Tasy fora do ar no bloco cirúrgico", req: "Dra. Helena Marques", sector: "Centro Cirúrgico", exec: null, team: "Infraestrutura", anexos: 2, hrs: 3 },
+      { id: 48219, prio: "E", status: 1, title: "PACS não abre imagens de tomografia", req: "Dr. Paulo Vidal", sector: "Diagnóstico por Imagem", exec: null, team: "Sistemas", anexos: 1, hrs: 6 },
+      { id: 48207, prio: "A", status: 1, title: "Impressora de etiquetas da farmácia não imprime", req: "Rafael Nunes", sector: "Farmácia Central", exec: null, team: "Service Desk", anexos: 0, hrs: 20 },
+      { id: 48198, prio: "A", status: 1, title: "Catraca do estacionamento travando o crachá", req: "Vigilância", sector: "Segurança", exec: null, team: "Infraestrutura", anexos: 0, hrs: 30 },
+      { id: 48190, prio: "M", status: 1, title: "Solicitar acesso ao módulo de faturamento SUS", req: "Camila Duarte", sector: "Faturamento", exec: null, team: "Sistemas", anexos: 1, hrs: 52 },
+      { id: 48155, prio: "B", status: 1, title: "Troca de monitor com falha na recepção", req: "Bruno Teixeira", sector: "Recepção Ambulatório", exec: null, team: "Service Desk", anexos: 0, hrs: 96 },
+      { id: 48098, prio: "A", status: 1, title: "Relatório de produção médica com dados divergentes", req: "Patrícia Alves", sector: "Faturamento", exec: null, team: "BI", anexos: 3, hrs: 210 },
+
+      { id: 48201, prio: "E", status: 2, title: "Prontuário eletrônico lento na internação", req: "Enf. Sofia Ramos", sector: "Internação 3º andar", exec: "Diego César", team: "Sistemas", anexos: 1, hrs: 5 },
+      { id: 48176, prio: "A", status: 2, title: "VPN não conecta para equipe remota de TI", req: "Lucas Ferreira", sector: "TI", exec: "Marina Lopes", team: "Infraestrutura", anexos: 0, hrs: 40 },
+      { id: 48142, prio: "M", status: 2, title: "Configurar novo ramal e headset da ouvidoria", req: "Juliana Castro", sector: "Ouvidoria", exec: "Diego César", team: "Service Desk", anexos: 2, hrs: 66 },
+      { id: 48067, prio: "M", status: 2, title: "Painel de indicadores do PS sem atualizar", req: "Gustavo Pinto", sector: "Pronto Socorro", exec: "André Vasconcelos", team: "BI", anexos: 1, hrs: 130 },
+      { id: 48120, prio: "B", status: 2, title: "Ajuste de layout no formulário de admissão", req: "Renata Dias", sector: "Recepção", exec: "Marina Lopes", team: "Sistemas", anexos: 0, hrs: 88 },
+
+      { id: 48188, prio: "M", status: 3, title: "Reset de senha do usuário da fisioterapia", req: "Tânia Rocha", sector: "Reabilitação", exec: "Marina Lopes", team: "Service Desk", anexos: 0, hrs: 26 },
+      { id: 48170, prio: "B", status: 3, title: "Instalação do Office na sala de reuniões", req: "Fábio Menezes", sector: "Administrativo", exec: "Diego César", team: "Sistemas", anexos: 1, hrs: 48 },
+    ];
+  }
+  getTickets() { return this.state.tickets || this.data(); }
+  mutate(id, patch) {
+    const base = this.getTickets();
+    this.setState({ tickets: base.map((t) => (t.id === id ? { ...t, ...patch } : t)) });
+  }
+
+  PRIO = { E: { t: "Emergência", c: "#e8564b" }, U: { t: "Urgente", c: "#e8564b" }, A: { t: "Alta", c: "#ef9b45" }, M: { t: "Média", c: "#5b8cff" }, B: { t: "Baixa", c: "#3fbf82" }, S: { t: "Sem", c: "#7d8dab" } };
+  STATUS = { 1: { label: "Aberta", c: "#4f9dff", tint: "rgba(79,157,255,.16)" }, 2: { label: "Em processo", c: "#e2a13c", tint: "rgba(226,161,60,.16)" }, 3: { label: "Encerrada", c: "#3fbf82", tint: "rgba(63,191,130,.16)" } };
+  SLA_H = { E: 4, U: 4, A: 24, M: 72, B: 120, S: 120 };
+
+  fmtDur(h) { h = Math.abs(h); if (h < 1) return "<1h"; if (h < 24) return Math.round(h) + "h"; const d = h / 24; return (d < 10 ? d.toFixed(d % 1 ? 1 : 0) : Math.round(d)) + "d"; }
+  sla(t) {
+    const target = this.SLA_H[t.prio] || 72;
+    const pct = t.hrs / target, breached = pct >= 1, over = t.hrs - target;
+    const color = t.status === 3 ? "#3fbf82" : breached ? "#e8564b" : pct > 0.7 ? "#e2c14b" : "#3fbf82";
+    let label;
+    if (t.status === 3) label = "resolvido";
+    else if (breached) label = "venceu há " + this.fmtDur(over);
+    else label = "vence em " + this.fmtDur(target - t.hrs);
+    return { pct: Math.min(pct, 1), rawPct: t.status === 3 ? -1 : pct, breached, color, label, target };
+  }
+  iniciais(n) { if (!n) return "?"; const p = n.replace(/^(Dr\.|Dra\.|Enf\.)\s*/, "").trim().split(/\s+/); return ((p[0]?.[0] || "") + (p.length > 1 ? p[p.length - 1][0] : "")).toUpperCase(); }
+  avatarColor(n) { let h = 0; for (let i = 0; i < (n || "").length; i++) h = (h * 31 + n.charCodeAt(i)) % 360; return `hsl(${h} 50% 52%)`; }
+  fakeDate(hrs) { const d = new Date(); d.setHours(d.getHours() - hrs); return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }); }
+
+  queueFilter(key, t) {
+    if (key === "triage") return t.status !== 3;
+    if (key === "mine") return t.exec === this.ME && t.status !== 3;
+    if (key === "unassigned") return !t.exec && t.status !== 3;
+    if (key === "overdue") return t.status !== 3 && this.sla(t).breached;
+    if (key === "emerg") return (t.prio === "E" || t.prio === "U") && t.status !== 3;
+    if (key.startsWith("st:")) return t.status === Number(key.slice(3));
+    return true;
+  }
+
+  renderVals() {
+    const theme = this.curTheme();
+    const pal = this.palette(theme, this.props.accent);
+    const shellStyle = Object.entries(pal).map(([k, v]) => `${k}:${v}`).join(";") +
+      `; height:100vh; display:flex; flex-direction:column; overflow:hidden; background:var(--bg); color:var(--text); font-family:'Inter',system-ui,-apple-system,sans-serif; font-size:14px; -webkit-font-smoothing:antialiased;`;
+
+    const tickets = this.getTickets();
+    const qk = this.state.queue;
+    const svgEl = (inner, size) => React.createElement("svg", { viewBox: "0 0 24 24", width: size || 15, height: size || 15, fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", dangerouslySetInnerHTML: { __html: inner } });
+
+    // ---- filas ----
+    const cnt = (k) => tickets.filter((t) => this.queueFilter(k, t)).length;
+    const smartDefs = [
+      { key: "triage", label: "Precisam de você", color: "#e8564b", tint: "rgba(232,86,75,.15)", icon: '<path d="M13 2 3 14h9l-1 8 10-12h-9z"/>' },
+      { key: "mine", label: "Minha fila", color: "#5b8cff", tint: "rgba(91,140,255,.15)", icon: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>' },
+      { key: "emerg", label: "Emergências", color: "#e8564b", tint: "rgba(232,86,75,.15)", icon: '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/>' },
+      { key: "unassigned", label: "Sem responsável", color: "#8b7bff", tint: "rgba(139,123,255,.15)", icon: '<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 8-5.66"/><path d="M17 15v6M14 18h6"/>' },
+      { key: "overdue", label: "SLA vencido", color: "#e2c14b", tint: "rgba(226,193,75,.15)", icon: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>' },
+    ];
+    const qActive = (k) => qk === k;
+    const badge = (active, urgent) => active
+      ? "background:var(--primary); color:#fff; font-size:11px; font-weight:700; border-radius:20px; padding:1px 9px; min-width:22px; text-align:center; flex:none;"
+      : `background:var(--surface-2); color:${urgent ? "#e8564b" : "var(--text-3)"}; font-size:11px; font-weight:700; border-radius:20px; padding:1px 9px; min-width:22px; text-align:center; flex:none;`;
+    const qBtn = (active) => active
+      ? "display:flex; align-items:center; gap:10px; padding:8px 8px; border-radius:10px; background:var(--sel); border:1px solid var(--primary); cursor:pointer; font-family:inherit; color:var(--text); margin-bottom:3px; width:100%;"
+      : "display:flex; align-items:center; gap:10px; padding:8px 8px; border-radius:10px; background:transparent; border:1px solid transparent; cursor:pointer; font-family:inherit; color:var(--text-2); margin-bottom:3px; width:100%;";
+    const smartQueues = smartDefs.map((d) => ({
+      label: d.label, color: d.color, tint: d.tint, icon: svgEl(d.icon, 15),
+      count: cnt(d.key), style: qBtn(qActive(d.key)),
+      badgeStyle: badge(qActive(d.key), d.key === "overdue" || d.key === "emerg"),
+      onClick: () => this.setState({ queue: d.key, selId: null }),
+    }));
+    const statusQueues = [1, 2, 3].map((s) => ({
+      label: this.STATUS[s].label, color: this.STATUS[s].c,
+      count: tickets.filter((t) => t.status === s).length, style: qBtn(qActive("st:" + s)),
+      badgeStyle: badge(qActive("st:" + s)),
+      onClick: () => this.setState({ queue: "st:" + s, selId: null }),
+    }));
+
+    // ---- carga da equipe ----
+    const byExec = {};
+    tickets.filter((t) => t.exec && t.status !== 3).forEach((t) => { byExec[t.exec] = (byExec[t.exec] || 0) + 1; });
+    const maxLoad = Math.max(1, ...Object.values(byExec));
+    const workload = Object.entries(byExec).sort((a, b) => b[1] - a[1]).map(([name, c]) => ({
+      name, initials: this.iniciais(name), color: this.avatarColor(name), count: c, pct: Math.round((c / maxLoad) * 100) + "%",
+    }));
+
+    // ---- lista ----
+    let list = tickets.filter((t) => this.queueFilter(qk, t));
+    list.sort((a, b) => this.sla(b).rawPct - this.sla(a).rawPct);
+    this._rowIds = list.map((t) => t.id);
+    const effSel = this.state.selId != null && list.some((t) => t.id === this.state.selId)
+      ? this.state.selId : (list[0] ? list[0].id : null);
+    this._selId = effSel;
+
+    const rows = list.map((t) => {
+      const p = this.PRIO[t.prio] || this.PRIO.S, s = this.sla(t), st = this.STATUS[t.status];
+      const selc = t.id === effSel;
+      const hasE = !!t.exec;
+      return {
+        id: t.id, title: t.title, requester: t.req, sector: t.sector, team: t.team,
+        prioLetter: t.prio, onClick: () => this.setState({ selId: t.id }),
+        style: `display:flex; align-items:center; gap:13px; padding:11px 13px; border-radius:12px; cursor:pointer; margin-bottom:4px; border:1px solid ${selc ? "var(--primary)" : "transparent"}; background:${selc ? "var(--sel)" : "transparent"}; transition:background .1s;`,
+        ringStyle: `width:38px; height:38px; border-radius:50%; background:conic-gradient(${s.color} ${s.pct * 360}deg, var(--track) 0deg); display:grid; place-items:center; flex:none;`,
+        ringInner: `width:29px; height:29px; border-radius:50%; background:${selc ? "var(--sel)" : "var(--bg)"}; display:grid; place-items:center; font-size:11px; font-weight:800; color:${p.c};`,
+        slaLabel: s.label,
+        slaStyle: `font-size:11px; font-weight:700; color:${s.color};`,
+        statusLabel: st.label, statusStyle: `font-size:9.5px; font-weight:700; padding:2px 8px; border-radius:20px; background:${st.tint}; color:${st.c};`,
+        teamStyle: "font-size:9.5px; font-weight:600; padding:1px 7px; border-radius:20px; background:color-mix(in srgb, var(--primary) 14%, transparent); color:var(--primary); flex:none; margin-left:2px;",
+        execInitials: hasE ? this.iniciais(t.exec) : "?", execName: hasE ? t.exec : "Sem responsável",
+        execBg: hasE ? this.avatarColor(t.exec) : "var(--surface-2)", execFg: hasE ? "#fff" : "var(--text-3)",
+        execBorder: hasE ? "" : "border:1px dashed var(--border);",
+      };
+    });
+
+    const qMeta = {
+      triage: ["Precisam de você agora", "Ordenado por urgência de SLA", "#e8564b", "rgba(232,86,75,.15)", '<path d="M13 2 3 14h9l-1 8 10-12h-9z"/>'],
+      mine: ["Minha fila", "Chamados sob sua responsabilidade", "#5b8cff", "rgba(91,140,255,.15)", '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'],
+      emerg: ["Emergências", "Prioridade máxima · resposta em 4h", "#e8564b", "rgba(232,86,75,.15)", '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/>'],
+      unassigned: ["Sem responsável", "Aguardando atribuição de executor", "#8b7bff", "rgba(139,123,255,.15)", '<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 8-5.66"/><path d="M17 15v6M14 18h6"/>'],
+      overdue: ["SLA vencido", "Fora da meta de resposta", "#e2c14b", "rgba(226,193,75,.15)", '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'],
+    };
+    let qm = qMeta[qk];
+    if (!qm) { const s = Number(qk.slice(3)); const st = this.STATUS[s]; qm = [st.label, "Todos os chamados neste status", st.c, st.tint, '<rect x="4" y="4" width="16" height="16" rx="2"/>']; }
+
+    // ---- detalhe ----
+    const selT = list.find((t) => t.id === effSel) || tickets.find((t) => t.id === effSel);
+    let sel = null;
+    if (selT) {
+      const p = this.PRIO[selT.prio], s = this.sla(selT), hasE = !!selT.exec;
+      const stBtn = (active, c) => active
+        ? `flex:1; padding:7px 0; border-radius:8px; font-size:11.5px; font-weight:700; cursor:pointer; border:none; background:${c}; color:#fff; font-family:inherit;`
+        : "flex:1; padding:7px 0; border-radius:8px; font-size:11.5px; font-weight:600; cursor:pointer; border:none; background:transparent; color:var(--text-3); font-family:inherit;";
+      const events = [];
+      events.push({ text: `Aberto por ${selT.req}`, time: this.fakeDate(selT.hrs), color: "#5b8cff", tint: "rgba(91,140,255,.16)", icon: svgEl('<path d="M12 5v14M5 12h14"/>', 13) });
+      if (hasE) events.push({ text: `Atribuído a ${selT.exec}`, time: this.fakeDate(Math.max(0, selT.hrs - 2)), color: "#8b7bff", tint: "rgba(139,123,255,.16)", icon: svgEl('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>', 13) });
+      if (selT.status === 2) events.push({ text: "Em atendimento", time: this.fakeDate(Math.max(0, selT.hrs - 3)), color: "#e2a13c", tint: "rgba(226,161,60,.16)", icon: svgEl('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', 13) });
+      if (selT.status === 3) events.push({ text: "Encerrado — solução registrada", time: this.fakeDate(1), color: "#3fbf82", tint: "rgba(63,191,130,.16)", icon: svgEl('<path d="M20 6 9 17l-5-5"/>', 13) });
+      sel = {
+        id: selT.id, title: selT.title, requester: selT.req, sector: selT.sector, team: selT.team, anexos: selT.anexos,
+        dano: selT.title + ". Reportado pelo solicitante; equipe " + selT.team + " responsável pela tratativa. Verificar impacto e retornar ao solicitante após a solução.",
+        prioLabel: p.t, prioColor: p.c, prioTint: `color-mix(in srgb, ${p.c} 17%, transparent)`,
+        slaTitle: selT.status === 3 ? "SLA cumprido" : s.breached ? "SLA estourado" : "Dentro do SLA",
+        slaLabel: s.label, slaColor: s.color, slaPct: Math.round(s.pct * 100) + "%",
+        slaTarget: this.fmtDur(s.target), abertura: this.fakeDate(selT.hrs),
+        reqInitials: this.iniciais(selT.req), reqBg: this.avatarColor(selT.req),
+        execInitials: hasE ? this.iniciais(selT.exec) : "?", execName: hasE ? selT.exec : "Não atribuído",
+        execBg: hasE ? this.avatarColor(selT.exec) : "var(--surface-2)", execFg: hasE ? "#fff" : "var(--text-3)",
+        execBorder: hasE ? "" : "border:1px dashed var(--border);",
+        execNameColor: hasE ? "var(--text)" : "var(--text-3)", execNameStyle: hasE ? "" : "font-style:italic;",
+        events, solucao: selT.status === 3 ? "Procedimento executado e validado com o solicitante. Chamado encerrado." : "",
+        statusBtns: [1, 2, 3].map((st) => ({
+          label: this.STATUS[st].label, style: stBtn(selT.status === st, this.STATUS[st].c),
+          onClick: () => { const patch = { status: st }; if (st >= 2 && !selT.exec) patch.exec = this.ME; this.mutate(selT.id, patch); },
+        })),
+        assignMe: () => this.mutate(selT.id, { exec: this.ME, status: selT.status === 1 ? 2 : selT.status }),
+        closeTicket: () => this.mutate(selT.id, { status: selT.status === 3 ? 1 : 3, exec: selT.exec || this.ME }),
+        encerrarLabel: selT.status === 3 ? "Reabrir chamado" : "Encerrar chamado",
+        encerrarStyle: selT.status === 3
+          ? "flex:1; padding:11px 0; border-radius:10px; background:transparent; border:1px solid var(--border); color:var(--text-2); font-size:12.5px; font-weight:650; cursor:pointer;"
+          : "flex:1; padding:11px 0; border-radius:10px; background:var(--danger); border:1px solid var(--danger); color:#fff; font-size:12.5px; font-weight:650; cursor:pointer;",
+      };
+    }
+
+    const themeIcon = theme === "light"
+      ? svgEl('<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>', 15)
+      : svgEl('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>', 15);
+
+    return {
+      shellStyle, smartQueues, statusQueues, workload, rows,
+      qTitle: qm[0], qSub: qm[1], qColor: qm[2], qTint: qm[3], qIcon: svgEl(qm[4], 16),
+      listCount: list.length + (list.length === 1 ? " chamado" : " chamados"),
+      listEmpty: list.length === 0,
+      meName: this.ME, meInitials: this.iniciais(this.ME), meColor: this.avatarColor(this.ME),
+      themeIcon, hasSel: !!sel, noSel: !sel, sel: sel || {},
+      toggleTheme: () => this.setState({ theme: this.curTheme() === "dark" ? "light" : "dark" }),
+      openCmd: () => {},
+    };
+  }
+
+  componentDidMount() {
+    this._key = (e) => {
+      const tag = document.activeElement && document.activeElement.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      const ids = this._rowIds || [];
+      if (!ids.length) return;
+      const i = ids.indexOf(this._selId);
+      const k = e.key.toLowerCase();
+      if (k === "j") { e.preventDefault(); this.setState({ selId: ids[Math.min(ids.length - 1, (i < 0 ? -1 : i) + 1)] }); }
+      else if (k === "k") { e.preventDefault(); this.setState({ selId: ids[Math.max(0, (i < 0 ? 1 : i) - 1)] }); }
+      else if (k === "e" && this._selId != null) { const t = this.getTickets().find((x) => x.id === this._selId); if (t) this.mutate(t.id, { exec: this.ME, status: t.status === 1 ? 2 : t.status }); }
+      else if (k === "c" && this._selId != null) { const t = this.getTickets().find((x) => x.id === this._selId); if (t) this.mutate(t.id, { status: 3, exec: t.exec || this.ME }); }
+    };
+    window.addEventListener("keydown", this._key);
+  }
+  componentWillUnmount() { window.removeEventListener("keydown", this._key); }
+}
+</script>
+</body>
+</html>

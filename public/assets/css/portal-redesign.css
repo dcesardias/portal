@@ -1315,6 +1315,11 @@ body {
   font-size: 13px;
   flex: 1;
 }
+/* O JS controla a visibilidade via atributo [hidden]. Sem esta regra, o
+   `display: flex` acima vence o `[hidden]` (mesma especificidade, declarado
+   depois) e a mensagem "Nenhum ícone encontrado" fica SEMPRE visível no
+   rodapé da lista, mesmo com ícones presentes. */
+.icon-picker-empty[hidden] { display: none; }
 .icon-picker-empty i {
   font-size: 26px;
   color: var(--rd-text-faint);

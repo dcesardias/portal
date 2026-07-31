@@ -34,14 +34,6 @@
                     <i class="fas fa-users" aria-hidden="true"></i>
                     <span class="admin-online-label"><span id="adminOnlineCount">—</span> online</span>
                 </div>
-                <a class="admin-topbar-btn" href="/" title="Voltar ao portal">
-                    <i class="fas fa-arrow-left" aria-hidden="true"></i>
-                    Voltar ao portal
-                </a>
-                <button type="button" class="admin-topbar-btn" id="adminChangePasswordButton" onclick="openChangePasswordModal()" style="display:none;">
-                    <i class="fas fa-key" aria-hidden="true"></i>
-                    Minha senha
-                </button>
                 <a class="admin-topbar-btn" href="/mapdb/" target="_blank" rel="noopener">
                     <i class="fas fa-project-diagram" aria-hidden="true"></i>
                     MapDB
@@ -50,7 +42,7 @@
                     <i class="fas fa-table" aria-hidden="true"></i>
                     Sistema de Carga
                 </a>
-                <button type="button" class="admin-topbar-btn" onclick="logout()">
+                <button type="button" class="admin-topbar-btn admin-topbar-btn--logout" onclick="logout(); window.location.href='/';" title="Sair e voltar ao portal">
                     <i class="fas fa-sign-out-alt" aria-hidden="true"></i>
                     Sair
                 </button>
@@ -121,11 +113,11 @@
             </section>
 
             <!-- ============ PÁGINAS ============ -->
-            <section class="admin-page-section" id="section-paginas" aria-labelledby="paginasTitle">
+            <section class="admin-page-section admin-page-section--wide" id="section-paginas" aria-labelledby="paginasTitle">
                 <header class="admin-page-head">
                     <div>
                         <h1 id="paginasTitle">Páginas</h1>
-                        <p class="admin-page-subtitle">Páginas marcadas para <strong>Acesso Rápido</strong> aparecem como cards na home — a ordem deles é definida arrastando pelo ícone <strong>⠿</strong>. As demais páginas continuam acessíveis pelo menu lateral.</p>
+                        <p class="admin-page-subtitle">Páginas marcadas para <strong>Acesso Rápido</strong> aparecem como cards na home — a ordem deles é definida arrastando pelo ícone <strong>⠿</strong>. Use os filtros e as ações em massa abaixo para gerenciar muitas páginas de uma vez.</p>
                     </div>
                     <div class="admin-page-head-actions">
                         <button type="button" class="btn btn-admin btn-add-new" onclick="openPageModal()">
@@ -133,15 +125,44 @@
                         </button>
                     </div>
                 </header>
+
+                <div class="admin-list-toolbar" id="pagesToolbar">
+                    <div class="admin-list-search">
+                        <i class="fa fa-search search-icon" aria-hidden="true"></i>
+                        <input type="text" id="pagesSearchInput" placeholder="Filtrar por título ou subtítulo..." autocomplete="off" aria-label="Filtrar páginas">
+                    </div>
+                    <div class="admin-filter-chips" id="pagesFilterChips" role="group" aria-label="Filtrar páginas">
+                        <button type="button" class="admin-chip is-active" data-filter="all">Todos</button>
+                        <button type="button" class="admin-chip" data-filter="quick">Acesso Rápido</button>
+                        <button type="button" class="admin-chip" data-filter="other">Outras</button>
+                        <button type="button" class="admin-chip" data-filter="homolog">Em homologação</button>
+                        <button type="button" class="admin-chip" data-filter="redirect">Com redirecionamento</button>
+                        <button type="button" class="admin-chip" data-filter="orphan">Sem menu vinculado</button>
+                    </div>
+                    <span class="admin-list-count" id="pagesSearchCount"></span>
+                </div>
+
+                <div class="admin-bulk-bar" id="pagesBulkBar" hidden>
+                    <span class="admin-bulk-count" id="pagesBulkCount">0 selecionadas</span>
+                    <div class="admin-bulk-actions">
+                        <button type="button" class="btn-small" data-bulk="show-home"><i class="fa-solid fa-bolt" aria-hidden="true"></i> Acesso Rápido</button>
+                        <button type="button" class="btn-small" data-bulk="hide-home"><i class="fa-solid fa-eye-slash" aria-hidden="true"></i> Remover do Acesso Rápido</button>
+                        <button type="button" class="btn-small" data-bulk="mark-homolog">+ Homologação</button>
+                        <button type="button" class="btn-small" data-bulk="unmark-homolog">− Homologação</button>
+                        <button type="button" class="btn-small btn-delete" data-bulk="delete"><i class="fa-solid fa-trash" aria-hidden="true"></i> Excluir</button>
+                    </div>
+                    <button type="button" class="admin-bulk-clear" id="pagesBulkClear">Limpar seleção</button>
+                </div>
+
                 <div class="menu-list" id="pagesList"></div>
             </section>
 
             <!-- ============ MENU ============ -->
-            <section class="admin-page-section" id="section-menu" aria-labelledby="menuTitle">
+            <section class="admin-page-section admin-page-section--wide" id="section-menu" aria-labelledby="menuTitle">
                 <header class="admin-page-head">
                     <div>
                         <h1 id="menuTitle">Menu</h1>
-                        <p class="admin-page-subtitle">Estrutura hierárquica do menu lateral. Arraste pelo ícone <strong>⠿</strong> para reordenar; use ▼/► para expandir ou retrair categorias.</p>
+                        <p class="admin-page-subtitle">Estrutura do menu lateral do portal. Arraste pelo <strong>⠿</strong> para reordenar, use ▼/► para expandir categorias e vincule cada item a uma página. O <strong>preview</strong> à direita mostra como os usuários veem o menu.</p>
                     </div>
                     <div class="admin-page-head-actions">
                         <button type="button" class="btn btn-admin btn-add-new" onclick="openMenuItemModal()">
@@ -149,15 +170,30 @@
                         </button>
                     </div>
                 </header>
-                <div class="menu-expand-collapse-bar" id="menuExpandCollapseBar">
-                    <button type="button" class="btn-small btn-expand-all" onclick="expandAllMenuCategories()" title="Expandir todas as categorias">
-                        <i class="fa-solid fa-angles-down" aria-hidden="true"></i> Expandir Tudo
-                    </button>
-                    <button type="button" class="btn-small btn-collapse-all" onclick="collapseAllMenuCategories()" title="Retrair todas as categorias">
-                        <i class="fa-solid fa-angles-up" aria-hidden="true"></i> Retrair Tudo
-                    </button>
+
+                <div class="menu-editor-layout">
+                    <div class="menu-editor-col">
+                        <div class="menu-expand-collapse-bar" id="menuExpandCollapseBar">
+                            <button type="button" class="btn-small btn-expand-all" onclick="expandAllMenuCategories()" title="Expandir todas as categorias">
+                                <i class="fa-solid fa-angles-down" aria-hidden="true"></i> Expandir Tudo
+                            </button>
+                            <button type="button" class="btn-small btn-collapse-all" onclick="collapseAllMenuCategories()" title="Retrair todas as categorias">
+                                <i class="fa-solid fa-angles-up" aria-hidden="true"></i> Retrair Tudo
+                            </button>
+                        </div>
+                        <div class="menu-list" id="menuStructure"></div>
+                    </div>
+
+                    <aside class="menu-preview-col" aria-label="Pré-visualização do menu">
+                        <div class="menu-preview-panel">
+                            <div class="menu-preview-head">
+                                <span><i class="fas fa-eye" aria-hidden="true"></i> Preview do menu</span>
+                                <small>Como os usuários veem</small>
+                            </div>
+                            <div class="menu-preview-body" id="menuPreview"></div>
+                        </div>
+                    </aside>
                 </div>
-                <div class="menu-list" id="menuStructure"></div>
             </section>
 
             <!-- ============ HOMOLOGAÇÃO ============ -->
@@ -177,11 +213,11 @@
             </section>
 
             <!-- ============ USUÁRIOS ============ -->
-            <section class="admin-page-section" id="section-usuarios" aria-labelledby="usuariosTitle">
+            <section class="admin-page-section admin-page-section--wide" id="section-usuarios" aria-labelledby="usuariosTitle">
                 <header class="admin-page-head">
                     <div>
                         <h1 id="usuariosTitle">Usuários</h1>
-                        <p class="admin-page-subtitle">Usuários cadastrados aqui acessam o MapDB com login e senha. Administradores também acessam esta página.</p>
+                        <p class="admin-page-subtitle">Usuários cadastrados aqui acessam o MapDB com login e senha. Administradores também acessam esta página. Use os interruptores para liberar/revogar permissões sem abrir um formulário.</p>
                     </div>
                     <div class="admin-page-head-actions">
                         <button type="button" class="btn btn-admin btn-add-new" onclick="openUserModal()">
@@ -190,8 +226,49 @@
                     </div>
                 </header>
 
-                <div class="menu-list" id="usersList">
-                    <div class="admin-placeholder">Carregando usuários...</div>
+                <div class="admin-list-toolbar" id="usersToolbar">
+                    <div class="admin-list-search">
+                        <i class="fa fa-search search-icon" aria-hidden="true"></i>
+                        <input type="text" id="usersSearchInput" placeholder="Filtrar por nome, usuário ou e-mail..." autocomplete="off" aria-label="Filtrar usuários">
+                    </div>
+                    <div class="admin-filter-chips" id="usersFilterChips" role="group" aria-label="Filtrar por status">
+                        <button type="button" class="admin-chip is-active" data-filter="all">Todos</button>
+                        <button type="button" class="admin-chip" data-filter="admin">Admins</button>
+                        <button type="button" class="admin-chip" data-filter="active">Ativos</button>
+                        <button type="button" class="admin-chip" data-filter="inactive">Inativos</button>
+                        <button type="button" class="admin-chip" data-filter="app:fatura">Acesso Fatura</button>
+                        <button type="button" class="admin-chip" data-filter="app:chamados">Acesso Chamados</button>
+                        <button type="button" class="admin-chip" data-filter="no-app">Sem apps extras</button>
+                    </div>
+                    <span class="admin-list-count" id="usersSearchCount"></span>
+                </div>
+
+                <div class="admin-bulk-bar" id="usersBulkBar" hidden>
+                    <span class="admin-bulk-count" id="usersBulkCount">0 selecionados</span>
+                    <div class="admin-bulk-actions">
+                        <button type="button" class="btn-small" data-bulk="activate"><i class="fa-solid fa-toggle-on" aria-hidden="true"></i> Ativar</button>
+                        <button type="button" class="btn-small" data-bulk="deactivate"><i class="fa-solid fa-toggle-off" aria-hidden="true"></i> Desativar</button>
+                        <button type="button" class="btn-small" data-bulk="grant-fatura">+ Fatura</button>
+                        <button type="button" class="btn-small" data-bulk="revoke-fatura">− Fatura</button>
+                        <button type="button" class="btn-small" data-bulk="grant-chamados">+ Chamados</button>
+                        <button type="button" class="btn-small" data-bulk="revoke-chamados">− Chamados</button>
+                        <button type="button" class="btn-small btn-delete" data-bulk="delete"><i class="fa-solid fa-trash" aria-hidden="true"></i> Excluir</button>
+                    </div>
+                    <button type="button" class="admin-bulk-clear" id="usersBulkClear">Limpar seleção</button>
+                </div>
+
+                <div class="users-table" id="usersTable">
+                    <div class="users-row users-row--head" role="row">
+                        <span class="users-col-check"><input type="checkbox" id="usersSelectAll" aria-label="Selecionar todos os usuários visíveis"></span>
+                        <span class="users-col-name users-col-sort" data-sort="name">Usuário <i class="fa-solid fa-sort" aria-hidden="true"></i></span>
+                        <span class="users-col-status">Status</span>
+                        <span class="users-col-apps">Apps</span>
+                        <span class="users-col-login users-col-sort" data-sort="lastLogin">Último login <i class="fa-solid fa-sort" aria-hidden="true"></i></span>
+                        <span class="users-col-actions">Ações</span>
+                    </div>
+                    <div class="users-table-body" id="usersList">
+                        <div class="admin-placeholder">Carregando usuários...</div>
+                    </div>
                 </div>
             </section>
 

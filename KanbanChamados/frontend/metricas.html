@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <base href="/chamados/" />
+  <script>
+    // define o tema antes da pintura (evita flash). Escolha salva > preferência do SO.
+    (function () {
+      var t = localStorage.getItem("kanban_tema");
+      if (!t) t = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", t);
+    })();
+    // /metricas agora é o modo Indicadores dentro do shell único (Fase 4 do handoff de design).
+    location.replace("/chamados/#/indicadores");
+  </script>
+  <title>Indicadores · Chamados TI</title>
+  <link rel="stylesheet" href="style.css?v=26" />
+</head>
+<body>
+  <p style="padding:24px;font-family:'Inter',system-ui,sans-serif;color:var(--text-3)">
+    Redirecionando para os <a href="/chamados/#/indicadores">indicadores</a>…
+  </p>
+</body>
+</html>

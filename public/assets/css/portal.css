@@ -1405,6 +1405,8 @@ body {
 .badge-success  { background: #e8f5e9; color: #1b5e20; border: 1px solid #c8e6c9; }
 .badge-gray,
 .badge-neutral  { background: #f1f3f5; color: #495057; border: 1px solid #dee2e6; }
+.badge-amber,
+.badge-warning  { background: #fff4e0; color: #b26a00; border: 1px solid #ffe0a3; }
 
 /* === Menu Item Wrapper (drag & drop + hierarchy) === */
 .menu-item-wrapper {

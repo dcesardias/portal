@@ -1,0 +1,258 @@
+﻿[
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "secusr_apps"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "secusr_groups"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "secusr_groups_apps"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "secusr_settings"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "secusr_users"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "secusr_users_apps"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "secusr_users_groups"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "sysdiagrams"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "tb_aprovadores"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "tb_base_projecao"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "tb_cenario_projecao"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "tb_depara_itensrecebidos_temp"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "tb_grupos_investimento"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "tb_instrumentaiscirurgicos"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "tb_investimento_carga"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "tb_investimento_naoprevisto"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "tb_investimento_stg"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "tb_investimento_unificado"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "tb_investimento_unificado_bkp"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "tb_investimento_unificado_historico"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "tb_investimentos_recebimentos"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "tb_itens"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "tb_itens_bkp"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "tb_motivos"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "tb_orcamento_atendimentos"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "tb_orcamento_atendimentos_base"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "tb_orcamento_financeiro"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "tb_orcamento_financeiro_alteracao"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "tb_orcamento_financeiro_base"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "tb_orcamento_financeiro_base_agg"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "tb_orcamento_financeiro_base_final"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "tb_permissao_orc_atendimentos"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "tb_permissoes_orcamento_financeiro"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "tb_permissoes_orcamento_financeiro_vis"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "tb_pre_solicitacao"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "tb_projecao"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "tb_regra_orcamento"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "tb_regra_orcamento_2"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "tb_status_aprovacao"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "tb_status_aprovacao_bkp"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "tb_status_investimento"
+  },
+  {
+    "TABLE_SCHEMA": "dbo",
+    "TABLE_NAME": "tb_tipo_calculo"
+  },
+  {
+    "TABLE_SCHEMA": "investimentos",
+    "TABLE_NAME": "_prisma_migrations"
+  },
+  {
+    "TABLE_SCHEMA": "investimentos",
+    "TABLE_NAME": "Aprovacao"
+  },
+  {
+    "TABLE_SCHEMA": "investimentos",
+    "TABLE_NAME": "CentroCusto"
+  },
+  {
+    "TABLE_SCHEMA": "investimentos",
+    "TABLE_NAME": "Estabelecimento"
+  },
+  {
+    "TABLE_SCHEMA": "investimentos",
+    "TABLE_NAME": "EtapaFluxo"
+  },
+  {
+    "TABLE_SCHEMA": "investimentos",
+    "TABLE_NAME": "EventoAuditoria"
+  },
+  {
+    "TABLE_SCHEMA": "investimentos",
+    "TABLE_NAME": "Fluxo"
+  },
+  {
+    "TABLE_SCHEMA": "investimentos",
+    "TABLE_NAME": "GrupoInvestimento"
+  },
+  {
+    "TABLE_SCHEMA": "investimentos",
+    "TABLE_NAME": "ItemCatalogo"
+  },
+  {
+    "TABLE_SCHEMA": "investimentos",
+    "TABLE_NAME": "Motivo"
+  },
+  {
+    "TABLE_SCHEMA": "investimentos",
+    "TABLE_NAME": "Perfil"
+  },
+  {
+    "TABLE_SCHEMA": "investimentos",
+    "TABLE_NAME": "PerfilPermissao"
+  },
+  {
+    "TABLE_SCHEMA": "investimentos",
+    "TABLE_NAME": "Permissao"
+  },
+  {
+    "TABLE_SCHEMA": "investimentos",
+    "TABLE_NAME": "Recebimento"
+  },
+  {
+    "TABLE_SCHEMA": "investimentos",
+    "TABLE_NAME": "RefreshToken"
+  },
+  {
+    "TABLE_SCHEMA": "investimentos",
+    "TABLE_NAME": "RegraAlcada"
+  },
+  {
+    "TABLE_SCHEMA": "investimentos",
+    "TABLE_NAME": "RegraFluxo"
+  },
+  {
+    "TABLE_SCHEMA": "investimentos",
+    "TABLE_NAME": "Solicitacao"
+  },
+  {
+    "TABLE_SCHEMA": "investimentos",
+    "TABLE_NAME": "SolicitacaoItem"
+  },
+  {
+    "TABLE_SCHEMA": "investimentos",
+    "TABLE_NAME": "UnidadeNegocio"
+  },
+  {
+    "TABLE_SCHEMA": "investimentos",
+    "TABLE_NAME": "User"
+  },
+  {
+    "TABLE_SCHEMA": "investimentos",
+    "TABLE_NAME": "UserPerfil"
+  }
+]

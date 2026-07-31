@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    ::-webkit-scrollbar { height: 10px; width: 10px; }
+    ::-webkit-scrollbar-thumb { background: rgba(128,150,190,.28); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(128,150,190,.5); background-clip: padding-box; }
+    @keyframes kb-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes kb-pop { from { opacity: 0; transform: scale(.97) translateY(6px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+    @keyframes kb-fade { from { opacity: 0; } to { opacity: 1; } }
+  </style>
+</helmet>
+
+<div style="{{ shellStyle }}">
+
+  <!-- ============ TOPBAR ============ -->
+  <header style="display:flex; align-items:center; gap:18px; flex-wrap:wrap; padding:12px 24px; background:var(--surface); border-bottom:1px solid var(--border-soft); flex:none;">
+    <div style="display:flex; align-items:center; gap:12px;">
+      <span style="width:38px; height:38px; border-radius:11px; display:grid; place-items:center; background:linear-gradient(140deg,var(--primary),var(--primary-2)); color:#fff; box-shadow:0 4px 14px var(--primary-glow);">
+        <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="18" rx="1.5"/><rect x="14" y="3" width="7" height="11" rx="1.5"/></svg>
+      </span>
+      <div style="line-height:1.15;">
+        <h1 style="margin:0; font-size:15.5px; font-weight:750; letter-spacing:-.2px; display:flex; align-items:center; gap:9px;">
+          Central de Chamados · TI
+          <span style="font-size:9px; font-weight:800; padding:2px 8px; border-radius:20px; text-transform:uppercase; letter-spacing:.5px; background:var(--hml-bg); color:var(--hml-fg); border:1px solid var(--hml-br);">Homologação</span>
+        </h1>
+        <small style="color:var(--text-3); font-size:11.5px; font-weight:500;">Ordens de Serviço · Sistemas · Service Desk · Infraestrutura · BI</small>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:9px; align-items:center; margin-left:auto;">
+      <div style="position:relative; display:flex; align-items:center;">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute; left:12px; color:var(--text-3); pointer-events:none;"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input value="{{ busca }}" onInput="{{ onBusca }}" type="search" placeholder="Buscar nº, solicitante, descrição…" style="background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:9px 13px 9px 34px; border-radius:10px; font-size:13px; width:300px; max-width:34vw; font-family:inherit; outline:none;" />
+      </div>
+      <button title="Indicadores" style="border:1px solid var(--border); background:var(--surface-2); color:var(--text-2); border-radius:10px; padding:9px 11px; cursor:pointer; display:inline-flex; align-items:center;">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
+      </button>
+      <button style="border:1px solid var(--primary); background:var(--primary); color:#fff; border-radius:10px; padding:9px 14px; cursor:pointer; font-size:13px; font-weight:650; display:inline-flex; align-items:center; gap:6px; box-shadow:0 3px 10px var(--primary-glow);">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+        Novo chamado
+      </button>
+      <button onClick="{{ toggleTheme }}" title="Alternar tema" style="border:1px solid var(--border); background:var(--surface-2); color:var(--text-2); border-radius:10px; padding:9px 11px; cursor:pointer; display:inline-flex; align-items:center;">{{ themeIcon }}</button>
+      <button title="Atualizar" style="border:1px solid var(--border); background:var(--surface-2); color:var(--text-2); border-radius:10px; padding:9px 11px; cursor:pointer; display:inline-flex; align-items:center;">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ============ KPIs ============ -->
+  <div style="display:flex; gap:10px; padding:14px 24px 4px; overflow-x:auto; flex:none;">
+    <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="5">
+      <button onClick="{{ k.onClick }}" style="{{ k.style }}">
+        <span style="width:34px; height:34px; border-radius:9px; display:grid; place-items:center; background:{{ k.tint }}; color:{{ k.color }}; flex:none;">{{ k.icon }}</span>
+        <span style="display:flex; flex-direction:column; align-items:flex-start; line-height:1.05;">
+          <b style="font-size:20px; font-weight:800; letter-spacing:-.5px; color:var(--text);">{{ k.value }}</b>
+          <span style="font-size:11px; color:var(--text-3); font-weight:600; white-space:nowrap;">{{ k.label }}</span>
+        </span>
+      </button>
+    </sc-for>
+  </div>
+
+  <!-- ============ FILTER BAR ============ -->
+  <div style="display:flex; gap:9px; align-items:center; flex-wrap:wrap; padding:13px 24px 10px; flex:none;">
+    <span style="font-size:10.5px; font-weight:700; color:var(--text-3); text-transform:uppercase; letter-spacing:.6px;">Filtros</span>
+    <select value="{{ fPrio }}" onChange="{{ onPrio }}" style="{{ selStyle }}">
+      <option value="">Todas prioridades</option>
+      <option value="E">Emergência</option>
+      <option value="A">Alta</option>
+      <option value="M">Média</option>
+      <option value="B">Baixa</option>
+    </select>
+    <select value="{{ fTeam }}" onChange="{{ onTeam }}" style="{{ selStyle }}">
+      <option value="">Todas as equipes</option>
+      <option value="Sistemas">Sistemas</option>
+      <option value="Service Desk">Service Desk</option>
+      <option value="Infraestrutura">Infraestrutura</option>
+      <option value="BI">BI</option>
+    </select>
+    <select style="{{ selStyle }}">
+      <option value="">Todos os setores</option>
+    </select>
+    <select style="{{ selStyle }}">
+      <option value="recentes">↓ Mais recentes</option>
+      <option value="antigos">↑ Mais antigos</option>
+      <option value="prioridade">★ Prioridade</option>
+    </select>
+    <label style="display:inline-flex; align-items:center; gap:7px; font-size:12.5px; color:var(--text-2); cursor:pointer; user-select:none; padding:0 4px;">
+      <input type="checkbox" checked="{{ fSemExec }}" onChange="{{ onSemExec }}" style="accent-color:var(--primary); width:15px; height:15px;" /> Sem responsável
+    </label>
+    <button onClick="{{ limpar }}" style="background:transparent; color:var(--text-2); border:1px solid var(--border); border-radius:9px; padding:7px 13px; cursor:pointer; font-size:12.5px; font-weight:600;">Limpar</button>
+    <span style="font-size:12.5px; color:var(--text-3); margin-left:auto; font-weight:600;">{{ contagem }}</span>
+  </div>
+
+  <!-- ============ BOARD ============ -->
+  <main style="display:flex; gap:16px; padding:8px 24px 22px; overflow-x:auto; flex:1; align-items:flex-start; min-height:0;">
+    <sc-for list="{{ columns }}" as="col" hint-placeholder-count="3">
+      <section style="background:var(--surface); border:1px solid var(--border-soft); border-radius:16px; width:344px; min-width:344px; max-height:100%; display:flex; flex-direction:column; overflow:hidden;">
+        <div style="height:3px; background:{{ col.color }}; flex:none;"></div>
+        <div style="padding:13px 16px 11px; display:flex; justify-content:space-between; align-items:center; flex:none;">
+          <span style="display:flex; align-items:center; gap:9px; font-weight:700; font-size:13px; color:var(--text);">
+            <span style="width:9px; height:9px; border-radius:50%; background:{{ col.color }}; box-shadow:0 0 0 3px {{ col.tint }};"></span>
+            {{ col.label }}
+          </span>
+          <span style="background:var(--surface-2); color:var(--text-2); border-radius:20px; padding:2px 11px; font-size:12px; font-weight:700; min-width:26px; text-align:center;">{{ col.count }}</span>
+        </div>
+        <div style="{{ col.listStyle }}">
+          <sc-for list="{{ col.cards }}" as="c" hint-placeholder-count="3">
+            <article onClick="{{ c.onClick }}" style="{{ c.style }}">
+              <div style="position:absolute; left:0; top:0; bottom:0; width:3px; border-radius:3px 0 0 3px; background:{{ c.railColor }};"></div>
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:7px;">
+                <span style="display:inline-flex; align-items:center; gap:6px; padding:2px 8px 2px 7px; border-radius:20px; background:{{ c.prioTint }}; color:{{ c.prioColor }}; font-size:10px; font-weight:700;">
+                  <span style="width:6px; height:6px; border-radius:50%; background:{{ c.prioColor }};"></span>{{ c.prioLabel }}
+                </span>
+                <span style="display:inline-flex; align-items:center; gap:6px;">
+                  <span style="{{ c.novoStyle }}">NOVO</span>
+                  <span style="display:inline-flex; align-items:center; gap:3px; font-size:10.5px; font-weight:600; color:{{ c.ageColor }};">
+                    <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>{{ c.ageLabel }}
+                  </span>
+                </span>
+              </div>
+              <div style="font-size:13.5px; font-weight:600; color:var(--text); line-height:1.35; margin-bottom:9px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">{{ c.title }}</div>
+              <div style="display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--text-2); margin-bottom:2px; min-width:0;">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none; color:var(--text-3);"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ c.requester }}</span>
+              </div>
+              <div style="font-size:11.5px; color:var(--text-3); margin-bottom:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding-left:18px;">{{ c.sector }}</div>
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding-top:9px; border-top:1px solid var(--border-soft);">
+                <span style="display:inline-flex; align-items:center; gap:7px; min-width:0;">
+                  <span style="width:23px; height:23px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:9.5px; font-weight:700; flex:none; background:{{ c.execBg }}; color:{{ c.execFg }}; {{ c.execBorder }}">{{ c.execInitials }}</span>
+                  <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11.5px; color:{{ c.execNameColor }}; max-width:120px; {{ c.execNameStyle }}">{{ c.execName }}</span>
+                </span>
+                <span style="display:inline-flex; align-items:center; gap:8px; flex:none;">
+                  <span style="{{ c.anexoStyle }}">
+                    <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>{{ c.anexos }}
+                  </span>
+                  <span style="{{ c.teamStyle }}">{{ c.team }}</span>
+                </span>
+              </div>
+            </article>
+          </sc-for>
+          <sc-if value="{{ col.empty }}" hint-placeholder-val="{{ false }}">
+            <div style="color:var(--text-3); font-size:12px; text-align:center; padding:26px 10px; font-style:italic;">Nenhum chamado aqui</div>
+          </sc-if>
+        </div>
+      </section>
+    </sc-for>
+  </main>
+
+  <!-- ============ MODAL DE DETALHE ============ -->
+  <sc-if value="{{ modalOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeModal }}" style="position:fixed; inset:0; background:rgba(6,10,18,.62); backdrop-filter:blur(3px); display:flex; align-items:center; justify-content:center; z-index:50; padding:22px; animation:kb-fade .16s ease;">
+      <div onClick="{{ stop }}" style="background:var(--surface); border:1px solid var(--border); border-radius:18px; width:600px; max-width:96vw; max-height:92vh; overflow-y:auto; box-shadow:0 24px 70px rgba(0,0,0,.5); animation:kb-pop .2s cubic-bezier(.2,.8,.3,1);">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:14px; padding:22px 24px 16px; border-bottom:1px solid var(--border-soft); position:sticky; top:0; background:var(--surface); z-index:1;">
+          <div style="min-width:0;">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+              <span style="font-size:12px; font-weight:700; color:var(--text-3);">#{{ sel.id }}</span>
+              <span style="{{ sel.statusPill }}">{{ sel.statusLabel }}</span>
+              <span style="display:inline-flex; align-items:center; gap:5px; padding:2px 9px; border-radius:20px; background:{{ sel.prioTint }}; color:{{ sel.prioColor }}; font-size:10.5px; font-weight:700;"><span style="width:6px; height:6px; border-radius:50%; background:{{ sel.prioColor }};"></span>{{ sel.prioLabel }}</span>
+            </div>
+            <h2 style="margin:0; font-size:19px; font-weight:750; letter-spacing:-.3px; color:var(--text); line-height:1.3;">{{ sel.title }}</h2>
+          </div>
+          <button onClick="{{ closeModal }}" style="background:var(--surface-2); border:1px solid var(--border-soft); color:var(--text-3); font-size:20px; cursor:pointer; line-height:1; width:32px; height:32px; border-radius:9px; flex:none; display:grid; place-items:center;">×</button>
+        </div>
+
+        <div style="padding:20px 24px 24px; display:flex; flex-direction:column; gap:18px;">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div style="background:var(--surface-2); border:1px solid var(--border-soft); border-radius:12px; padding:12px 14px;">
+              <div style="font-size:10.5px; color:var(--text-3); font-weight:700; text-transform:uppercase; letter-spacing:.4px; margin-bottom:8px;">Solicitante</div>
+              <div style="display:flex; align-items:center; gap:9px;">
+                <span style="width:30px; height:30px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; background:{{ sel.reqBg }}; color:#fff; flex:none;">{{ sel.reqInitials }}</span>
+                <div style="min-width:0;">
+                  <div style="font-size:13px; font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ sel.requester }}</div>
+                  <div style="font-size:11px; color:var(--text-3);">{{ sel.sector }}</div>
+                </div>
+              </div>
+              <div style="display:flex; gap:7px; margin-top:11px;">
+                <a style="display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:600; padding:5px 11px; border-radius:8px; text-decoration:none; background:var(--surface); border:1px solid var(--border); color:var(--text-2); cursor:pointer;"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 5L2 7"/></svg>Email</a>
+                <a style="display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:600; padding:5px 11px; border-radius:8px; text-decoration:none; background:var(--surface); border:1px solid var(--border); color:#8b7bff; cursor:pointer;"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Teams</a>
+              </div>
+            </div>
+            <div style="background:var(--surface-2); border:1px solid var(--border-soft); border-radius:12px; padding:12px 14px; display:flex; flex-direction:column; gap:9px;">
+              <div style="display:flex; justify-content:space-between; font-size:12px;"><span style="color:var(--text-3);">Abertura</span><span style="color:var(--text-2); font-weight:600;">{{ sel.abertura }}</span></div>
+              <div style="display:flex; justify-content:space-between; font-size:12px;"><span style="color:var(--text-3);">Em aberto há</span><span style="color:{{ sel.ageColor }}; font-weight:700;">{{ sel.ageLabel }}</span></div>
+              <div style="display:flex; justify-content:space-between; font-size:12px;"><span style="color:var(--text-3);">Grupo planej.</span><span style="color:var(--text-2); font-weight:600;">TI · {{ sel.team }}</span></div>
+              <div style="display:flex; justify-content:space-between; font-size:12px;"><span style="color:var(--text-3);">Anexos</span><span style="color:var(--text-2); font-weight:600;">{{ sel.anexos }}</span></div>
+            </div>
+          </div>
+
+          <label style="display:block; font-size:11.5px; color:var(--text-2); font-weight:650;">Descrição breve
+            <input value="{{ sel.title }}" style="{{ inputStyle }}" />
+          </label>
+          <label style="display:block; font-size:11.5px; color:var(--text-2); font-weight:650;">Descrição (dano)
+            <textarea rows="5" style="{{ inputStyle }} resize:vertical; line-height:1.5;">{{ sel.dano }}</textarea>
+          </label>
+          <div style="display:flex; gap:12px;">
+            <label style="flex:1; font-size:11.5px; color:var(--text-2); font-weight:650;">Prioridade
+              <select style="{{ inputStyle }}"><option>{{ sel.prioLabel }}</option></select>
+            </label>
+            <label style="flex:1; font-size:11.5px; color:var(--text-2); font-weight:650;">Status
+              <select style="{{ inputStyle }}"><option>{{ sel.statusLabel }}</option></select>
+            </label>
+          </div>
+          <label style="display:block; font-size:11.5px; color:var(--text-2); font-weight:650;">Responsável (executor)
+            <input value="{{ sel.execName }}" placeholder="Digite p/ buscar usuário…" style="{{ inputStyle }}" />
+          </label>
+
+          <div style="display:flex; align-items:center; gap:10px; padding-top:6px; border-top:1px solid var(--border-soft);">
+            <button style="background:transparent; border:1px solid var(--danger); color:var(--danger); border-radius:10px; padding:10px 16px; cursor:pointer; font-size:13px; font-weight:650;">Encerrar chamado</button>
+            <div style="flex:1;"></div>
+            <button onClick="{{ closeModal }}" style="background:var(--surface-2); color:var(--text-2); border:1px solid var(--border); border-radius:10px; padding:10px 17px; cursor:pointer; font-size:13px; font-weight:600;">Cancelar</button>
+            <button style="background:var(--primary); color:#fff; border:1px solid var(--primary); border-radius:10px; padding:10px 20px; cursor:pointer; font-size:13px; font-weight:650; box-shadow:0 3px 10px var(--primary-glow);">Salvar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:840},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;dark&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;tsType&quot;:&quot;'dark'|'light'&quot;,&quot;section&quot;:&quot;Aparência&quot;},&quot;density&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;balanced&quot;,&quot;options&quot;:[&quot;compact&quot;,&quot;balanced&quot;,&quot;comfortable&quot;],&quot;tsType&quot;:&quot;'compact'|'balanced'|'comfortable'&quot;,&quot;section&quot;:&quot;Aparência&quot;},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#5b8cff&quot;,&quot;options&quot;:[&quot;#5b8cff&quot;,&quot;#7c6cff&quot;,&quot;#1f9d57&quot;,&quot;#e2a13c&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Aparência&quot;}}">
+class Component extends DCLogic {
+  state = { theme: null, busca: "", fPrio: "", fTeam: "", fSemExec: false, sel: null };
+
+  // ---------- paleta por tema ----------
+  palette(theme, accent) {
+    const A = accent || "#5b8cff";
+    if (theme === "light") {
+      return {
+        "--bg": "#eef1f7", "--surface": "#ffffff", "--surface-2": "#f1f4fa",
+        "--card": "#ffffff", "--card-hover": "#f5f8ff",
+        "--border": "#d6dde9", "--border-soft": "#e6ebf3",
+        "--text": "#16202f", "--text-2": "#45526b", "--text-3": "#7484a0",
+        "--primary": A, "--primary-2": "#8a7bff", "--primary-glow": "rgba(58,111,240,.28)",
+        "--danger": "#c5362c",
+        "--hml-bg": "#fdf1d6", "--hml-fg": "#9a6a12", "--hml-br": "#f0d79a",
+      };
+    }
+    return {
+      "--bg": "#0d1420", "--surface": "#141d2c", "--surface-2": "#1a2536",
+      "--card": "#1a2434", "--card-hover": "#212e42",
+      "--border": "#28344a", "--border-soft": "#212c40",
+      "--text": "#e9eef8", "--text-2": "#a9b7d3", "--text-3": "#7d8dab",
+      "--primary": A, "--primary-2": "#8a7bff", "--primary-glow": "rgba(91,140,255,.35)",
+      "--danger": "#e05a4f",
+      "--hml-bg": "#3a2a0f", "--hml-fg": "#e2a13c", "--hml-br": "#5a431a",
+    };
+  }
+
+  curTheme() { return this.state.theme || this.props.theme || "dark"; }
+
+  // ---------- dados de exemplo (formato da API) ----------
+  data() {
+    return [
+      { id: 48213, prio: "E", status: 1, title: "Sistema Tasy fora do ar no bloco cirúrgico", req: "Dra. Helena Marques", sector: "Centro Cirúrgico", exec: null, team: "Infraestrutura", anexos: 2, age: 0 },
+      { id: 48207, prio: "A", status: 1, title: "Impressora de etiquetas da farmácia não imprime", req: "Rafael Nunes", sector: "Farmácia Central", exec: null, team: "Service Desk", anexos: 0, age: 1 },
+      { id: 48190, prio: "M", status: 1, title: "Solicitar acesso ao módulo de faturamento SUS", req: "Camila Duarte", sector: "Faturamento", exec: null, team: "Sistemas", anexos: 1, age: 3 },
+      { id: 48155, prio: "B", status: 1, title: "Troca de monitor com falha na recepção", req: "Bruno Teixeira", sector: "Recepção Ambulatório", exec: null, team: "Service Desk", anexos: 0, age: 9 },
+      { id: 48098, prio: "A", status: 1, title: "Relatório de produção médica com dados divergentes", req: "Patrícia Alves", sector: "Faturamento", exec: null, team: "BI", anexos: 3, age: 16 },
+
+      { id: 48201, prio: "E", status: 2, title: "Prontuário eletrônico lento na internação", req: "Enf. Sofia Ramos", sector: "Internação 3º andar", exec: "Diego César", team: "Sistemas", anexos: 1, age: 2 },
+      { id: 48176, prio: "A", status: 2, title: "VPN não conecta para equipe remota de TI", req: "Lucas Ferreira", sector: "TI", exec: "Marina Lopes", team: "Infraestrutura", anexos: 0, age: 5 },
+      { id: 48142, prio: "M", status: 2, title: "Configurar novo ramal e headset da ouvidoria", req: "Juliana Castro", sector: "Ouvidoria", exec: "Diego César", team: "Service Desk", anexos: 2, age: 11 },
+      { id: 48067, prio: "M", status: 2, title: "Painel de indicadores do PS sem atualizar", req: "Gustavo Pinto", sector: "Pronto Socorro", exec: "André Vasconcelos", team: "BI", anexos: 1, age: 22 },
+
+      { id: 48188, prio: "M", status: 3, title: "Reset de senha do usuário da fisioterapia", req: "Tânia Rocha", sector: "Reabilitação", exec: "Marina Lopes", team: "Service Desk", anexos: 0, age: 1 },
+      { id: 48170, prio: "B", status: 3, title: "Instalação do Office na sala de reuniões", req: "Fábio Menezes", sector: "Administrativo", exec: "Diego César", team: "Sistemas", anexos: 1, age: 2 },
+    ];
+  }
+
+  PRIO = {
+    E: { t: "Emergência", c: "#e8564b" }, U: { t: "Urgente", c: "#e8564b" },
+    A: { t: "Alta", c: "#ef9b45" }, M: { t: "Média", c: "#5b8cff" },
+    B: { t: "Baixa", c: "#3fbf82" }, S: { t: "Sem", c: "#7d8dab" },
+  };
+  COLS = [
+    { id: 1, key: "aberta", label: "Aberta", c: "#4f9dff", tint: "rgba(79,157,255,.16)" },
+    { id: 2, key: "processo", label: "Em processo", c: "#e2a13c", tint: "rgba(226,161,60,.16)" },
+    { id: 3, key: "encerrada", label: "Encerrada", c: "#3fbf82", tint: "rgba(63,191,130,.16)" },
+  ];
+
+  ageColor(d) {
+    if (d <= 2) return "var(--text-3)";
+    if (d <= 7) return "var(--text-3)";
+    if (d <= 15) return "#e2c14b";
+    if (d <= 90) return "#ef9b45";
+    return "#e8564b";
+  }
+  ageLabel(d) {
+    if (d <= 0) return "hoje";
+    if (d === 1) return "1 dia";
+    if (d < 60) return d + " dias";
+    const m = Math.floor(d / 30); return m < 24 ? m + " meses" : Math.floor(d / 365) + " anos";
+  }
+  iniciais(n) {
+    if (!n) return "?";
+    const p = n.trim().split(/\s+/);
+    return ((p[0]?.[0] || "") + (p.length > 1 ? p[p.length - 1][0] : "")).toUpperCase();
+  }
+  avatarColor(n) {
+    let h = 0; for (let i = 0; i < (n || "").length; i++) h = (h * 31 + n.charCodeAt(i)) % 360;
+    return `hsl(${h} 52% 52%)`;
+  }
+  density() {
+    const d = this.props.density || "balanced";
+    if (d === "compact") return { pad: "9px 12px 10px", gap: "7px" };
+    if (d === "comfortable") return { pad: "14px 16px 15px", gap: "13px" };
+    return { pad: "12px 13px 13px", gap: "10px" };
+  }
+
+  visivel(c) {
+    const s = this.state;
+    if (s.fPrio && c.prio !== s.fPrio) return false;
+    if (s.fTeam && c.team !== s.fTeam) return false;
+    if (s.fSemExec && c.exec) return false;
+    if (s.busca) {
+      const blob = (c.id + " " + c.title + " " + c.req + " " + c.sector + " " + (c.exec || "")).toLowerCase();
+      if (!blob.includes(s.busca.toLowerCase())) return false;
+    }
+    return true;
+  }
+
+  cardVM(c) {
+    const p = this.PRIO[c.prio] || this.PRIO.S;
+    const dens = this.density();
+    const hasExec = !!c.exec;
+    return {
+      onClick: () => this.setState({ sel: c }),
+      style: `position:relative; background:var(--card); border:1px solid var(--border-soft); border-radius:12px; padding:${dens.pad}; padding-left:14px; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,.18); transition:background .12s, border-color .12s, transform .12s;`,
+      railColor: p.c,
+      prioLabel: p.t, prioColor: p.c, prioTint: `color-mix(in srgb, ${p.c} 17%, transparent)`,
+      novoStyle: c.age <= 1 && c.status !== 3
+        ? "font-size:9px; font-weight:800; letter-spacing:.3px; padding:1px 6px; border-radius:20px; background:color-mix(in srgb, #3fbf82 20%, transparent); color:#3fbf82;"
+        : "display:none;",
+      ageColor: this.ageColor(c.age), ageLabel: this.ageLabel(c.age),
+      title: c.title, requester: c.req, sector: c.sector,
+      execInitials: hasExec ? this.iniciais(c.exec) : "?",
+      execBg: hasExec ? this.avatarColor(c.exec) : "var(--surface-2)",
+      execFg: hasExec ? "#fff" : "var(--text-3)",
+      execBorder: hasExec ? "" : "border:1px dashed var(--border);",
+      execName: hasExec ? c.exec : "Sem responsável",
+      execNameColor: hasExec ? "var(--text-2)" : "var(--text-3)",
+      execNameStyle: hasExec ? "" : "font-style:italic;",
+      anexos: c.anexos,
+      anexoStyle: c.anexos > 0
+        ? "display:inline-flex; align-items:center; gap:3px; font-size:10.5px; font-weight:600; color:var(--text-3);"
+        : "display:none;",
+      team: c.team,
+      teamStyle: "font-size:10px; font-weight:600; padding:2px 9px; border-radius:20px; background:color-mix(in srgb, var(--primary) 15%, transparent); color:var(--primary); max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;",
+    };
+  }
+
+  renderVals() {
+    const theme = this.curTheme();
+    const pal = this.palette(theme, this.props.accent);
+    const dens = this.density();
+    const shellStyle = Object.entries(pal).map(([k, v]) => `${k}:${v}`).join(";") +
+      `; height:100vh; display:flex; flex-direction:column; overflow:hidden; background:var(--bg); color:var(--text); font-family:'Inter',system-ui,-apple-system,sans-serif; font-size:14px; -webkit-font-smoothing:antialiased;`;
+
+    const all = this.data();
+    const shown = all.filter((c) => this.visivel(c));
+    const columns = this.COLS.map((col) => {
+      const cards = shown.filter((c) => c.status === col.id);
+      return {
+        label: col.label, color: col.c, tint: col.tint, count: cards.length,
+        empty: cards.length === 0,
+        listStyle: `padding:6px 10px 12px; overflow-y:auto; flex:1; min-height:60px; display:flex; flex-direction:column; gap:${dens.gap};`,
+        cards: cards.map((c) => this.cardVM(c)),
+      };
+    });
+
+    const svgEl = (inner, size) => React.createElement("svg", {
+      viewBox: "0 0 24 24", width: size || 17, height: size || 17, fill: "none",
+      stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round",
+      dangerouslySetInnerHTML: { __html: inner },
+    });
+    const cnt = (f) => all.filter(f).length;
+    const kpiBase = "display:flex; align-items:center; gap:11px; border-radius:13px; padding:9px 15px 9px 9px; min-width:150px; cursor:pointer; background:var(--surface); border:1px solid var(--border-soft); font-family:inherit; text-align:left;";
+    const kpiActive = "display:flex; align-items:center; gap:11px; border-radius:13px; padding:9px 15px 9px 9px; min-width:150px; cursor:pointer; background:color-mix(in srgb, var(--primary) 12%, var(--surface)); border:1px solid var(--primary); font-family:inherit; text-align:left;";
+    const ic = (p) => svgEl(p, 17);
+    const kpis = [
+      { label: "Abertos", value: cnt((c) => c.status === 1), color: "#4f9dff", tint: "rgba(79,157,255,.15)", icon: ic('<circle cx="12" cy="12" r="9"/>'), onClick: () => {} },
+      { label: "Em processo", value: cnt((c) => c.status === 2), color: "#e2a13c", tint: "rgba(226,161,60,.15)", icon: ic('<path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4"/>'), onClick: () => {} },
+      { label: "Sem responsável", value: cnt((c) => c.status !== 3 && !c.exec), color: "#8b7bff", tint: "rgba(139,123,255,.15)", icon: ic('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 11h-6"/>'), onClick: () => this.setState({ fSemExec: !this.state.fSemExec }) },
+      { label: "Atrasados +7d", value: cnt((c) => c.status !== 3 && c.age > 7), color: "#e8564b", tint: "rgba(232,86,75,.15)", icon: ic('<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/>'), onClick: () => {} },
+      { label: "Novos (≤2d)", value: cnt((c) => c.status !== 3 && c.age <= 2), color: "#3fbf82", tint: "rgba(63,191,130,.15)", icon: ic('<path d="M12 2v20M2 12h20"/>'), onClick: () => {} },
+    ].map((k) => ({ ...k, style: (k.label === "Sem responsável" && this.state.fSemExec) ? kpiActive : kpiBase }));
+
+    const selStyle = "background:var(--surface-2); border:1px solid var(--border); color:var(--text-2); padding:7px 10px; border-radius:9px; font-size:12.5px; cursor:pointer; font-family:inherit; outline:none;";
+    const inputStyle = "width:100%; margin-top:6px; background:var(--surface-2); color:var(--text); border:1px solid var(--border); border-radius:10px; padding:10px 12px; font-size:13px; font-family:inherit; font-weight:400; outline:none;";
+
+    const themeIcon = theme === "light"
+      ? svgEl('<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>', 15)
+      : svgEl('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>', 15);
+
+    // modal
+    let sel = null;
+    if (this.state.sel) {
+      const c = this.state.sel;
+      const p = this.PRIO[c.prio] || this.PRIO.S;
+      const col = this.COLS.find((x) => x.id === c.status);
+      sel = {
+        id: c.id, title: c.title, requester: c.req, sector: c.sector, team: c.team, anexos: c.anexos,
+        dano: c.title + ". Reportado pelo solicitante; aguardando tratativa da equipe responsável.",
+        prioLabel: p.t, prioColor: p.c, prioTint: `color-mix(in srgb, ${p.c} 17%, transparent)`,
+        statusLabel: col.label,
+        statusPill: `display:inline-flex; align-items:center; gap:5px; padding:2px 10px; border-radius:20px; font-size:10.5px; font-weight:700; background:${col.tint}; color:${col.c};`,
+        ageLabel: this.ageLabel(c.age), ageColor: this.ageColor(c.age),
+        abertura: this.fakeDate(c.age),
+        execName: c.exec || "",
+        reqInitials: this.iniciais(c.req), reqBg: this.avatarColor(c.req),
+      };
+    }
+
+    return {
+      shellStyle, columns, kpis, selStyle, inputStyle, themeIcon,
+      busca: this.state.busca, fPrio: this.state.fPrio, fTeam: this.state.fTeam, fSemExec: this.state.fSemExec,
+      contagem: `${shown.length} de ${all.length} chamados`,
+      modalOpen: !!sel, sel: sel || {},
+      onBusca: (e) => this.setState({ busca: e.target.value }),
+      onPrio: (e) => this.setState({ fPrio: e.target.value }),
+      onTeam: (e) => this.setState({ fTeam: e.target.value }),
+      onSemExec: (e) => this.setState({ fSemExec: e.target.checked }),
+      limpar: () => this.setState({ busca: "", fPrio: "", fTeam: "", fSemExec: false }),
+      toggleTheme: () => this.setState({ theme: this.curTheme() === "dark" ? "light" : "dark" }),
+      closeModal: () => this.setState({ sel: null }),
+      stop: (e) => e.stopPropagation(),
+    };
+  }
+
+  fakeDate(age) {
+    const d = new Date(); d.setDate(d.getDate() - age);
+    return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  }
+}
+</script>
+</body>
+</html>

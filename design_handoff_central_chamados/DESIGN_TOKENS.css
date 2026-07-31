@@ -1,0 +1,94 @@
+/* =============================================================================
+   DESIGN TOKENS — Central de Chamados (novo modelo)
+   Cole/mescle isto no TOPO de frontend/style.css, substituindo o bloco :root
+   atual. São APENAS variáveis CSS — nenhuma mudança de comportamento.
+   O tema é controlado por <html data-theme="dark|light"> (já existe no app).
+   Fonte: Inter (já carregada no index.html).
+   ============================================================================= */
+
+:root {                         /* ---------- TEMA ESCURO (padrão) ---------- */
+  --bg: #0b1119;
+  --surface: #131b28;           /* colunas, painéis, topbar */
+  --surface-2: #1a2333;         /* inputs, selects, chips neutros, trilhos */
+  --card: #161f2d;              /* card do kanban / linha selecionada */
+  --sel: color-mix(in srgb, var(--primary) 15%, #131b28); /* fundo selecionado */
+
+  --border: #283347;
+  --border-soft: #202b3d;
+
+  --text: #e9eef8;
+  --text-2: #a9b7d3;
+  --text-3: #7c8caa;
+
+  --primary: #5b8cff;           /* acento principal (botões, ativos, tags equipe) */
+  --primary-2: #8a7bff;         /* fim do gradiente do logo */
+  --primary-glow: rgba(91,140,255,.35);
+
+  --track: rgba(255,255,255,.08); /* fundo de barras/anel de progresso */
+  --danger: #e05a4f;            /* encerrar */
+  --home-glow: rgba(91,140,255,.14);
+
+  /* status (domínio 1279) */
+  --st-aberta: #4f9dff;
+  --st-processo: #e2a13c;
+  --st-encerrada: #3fbf82;
+
+  /* prioridade (ie_prioridade) */
+  --p-emerg: #e8564b;           /* E / U */
+  --p-alta: #ef9b45;            /* A */
+  --p-media: #5b8cff;           /* M */
+  --p-baixa: #3fbf82;           /* B */
+  --p-sem: #7d8dab;             /* S */
+
+  /* SLA / urgência (semântica NOVA, 100% calculada no front) */
+  --sla-ok: #3fbf82;            /* dentro do prazo */
+  --sla-warn: #e2c14b;          /* > 70% da meta consumida */
+  --sla-crit: #e8564b;          /* meta estourada */
+
+  /* selo Homologação */
+  --hml-bg: #3a2a0f; --hml-fg: #e2a13c; --hml-br: #5a431a;
+
+  --radius: 12px;
+  --radius-lg: 16px;
+  --shadow: 0 1px 3px rgba(0,0,0,.18);
+  --shadow-lg: 0 24px 70px rgba(0,0,0,.5);
+}
+
+:root[data-theme="light"] {     /* ---------- TEMA CLARO ---------- */
+  --bg: #f4f6fb;
+  --surface: #ffffff;
+  --surface-2: #f1f4fa;
+  --card: #ffffff;
+  --sel: color-mix(in srgb, var(--primary) 9%, #ffffff);
+
+  --border: #d8dfea;
+  --border-soft: #e7ecf4;
+
+  --text: #15202f;
+  --text-2: #44526b;
+  --text-3: #75849f;
+
+  --primary: #3a6ff0;
+  --primary-2: #8a7bff;
+  --primary-glow: rgba(58,111,240,.26);
+
+  --track: rgba(20,32,55,.09);
+  --danger: #c5362c;
+  --home-glow: rgba(58,111,240,.10);
+
+  --st-aberta: #3a6ff0;
+  --st-processo: #d8902a;
+  --st-encerrada: #1e8a52;
+
+  --p-emerg: #d64a40; --p-alta: #d8902a; --p-media: #3a6ff0; --p-baixa: #1e8a52; --p-sem: #6b7c9c;
+  --sla-ok: #1e8a52; --sla-warn: #b8952b; --sla-crit: #d64a40;
+
+  --hml-bg: #fdf1d6; --hml-fg: #9a6a12; --hml-br: #f0d79a;
+
+  --shadow: 0 1px 3px rgba(25,35,60,.10);
+  --shadow-lg: 0 16px 48px rgba(30,42,72,.22);
+}
+
+/* NOTA sobre color-mix(): suportado em navegadores modernos (Chrome/Edge 111+,
+   Firefox 113+, Safari 16.2+). Se precisar suportar algo mais antigo, troque os
+   valores --sel por um rgba fixo. O restante são cores sólidas comuns. */

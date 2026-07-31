@@ -848,6 +848,163 @@
 
         .sc-prefix-row .sc-input { flex: 1; }
 
+        /* ─── DW Update panel ────────────────────────── */
+        .sc-main.sc-main-dw { overflow-y: hidden; }
+
+        .sc-dw-panel {
+            max-width: none;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 24px 32px 20px;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .sc-dw-form-wrap { max-width: 640px; flex-shrink: 0; }
+
+        #dwResultSection {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .sc-dw-daterow {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            align-items: end;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        .sc-dw-daterow .sc-btn-up { white-space: nowrap; }
+
+        @media (max-width: 640px) {
+            .sc-dw-daterow { grid-template-columns: 1fr 1fr; }
+            .sc-dw-daterow .sc-btn-up { grid-column: 1 / -1; }
+        }
+
+        .sc-dw-date-lbl {
+            display: block;
+            font-size: 12px;
+            color: var(--sc-text-2);
+            margin-bottom: 5px;
+        }
+
+        .sc-dw-total {
+            font-size: 12px;
+            color: var(--sc-text-2);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .sc-dw-table-wrap {
+            flex: 1;
+            min-height: 200px;
+            overflow: auto;
+            border: 1px solid var(--sc-border);
+            border-radius: 8px;
+        }
+
+        .sc-dw-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        .sc-dw-table th, .sc-dw-table td {
+            padding: 7px 10px;
+            text-align: left;
+            white-space: nowrap;
+            border-bottom: 1px solid var(--sc-border);
+        }
+
+        .sc-dw-table th {
+            position: sticky;
+            top: 0;
+            background: var(--sc-bg);
+            color: var(--sc-text-2);
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 10px;
+            letter-spacing: 0.3px;
+        }
+
+        .sc-dw-th {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .sc-dw-th:hover { color: var(--sc-text); }
+        .sc-dw-th-active { color: var(--sc-red); }
+        .sc-dw-th i { font-size: 11px; }
+
+        .sc-dw-table tbody tr:hover { background: var(--sc-bg); }
+
+        .sc-dw-empty {
+            padding: 24px;
+            text-align: center;
+            color: var(--sc-text-3);
+            font-size: 13px;
+        }
+
+        .sc-dw-pager {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            margin-top: 12px;
+            font-size: 12px;
+            color: var(--sc-text-2);
+            flex-shrink: 0;
+        }
+
+        .sc-dw-pg-info { font-size: 11px; color: var(--sc-text-3); }
+
+        .sc-dw-pg-nav {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .sc-dw-pg-btn {
+            min-width: 28px;
+            height: 28px;
+            padding: 0 8px;
+            border: 1px solid var(--sc-border-2);
+            border-radius: 6px;
+            background: var(--sc-surface);
+            color: var(--sc-text-2);
+            font-size: 12px;
+            font-family: inherit;
+            cursor: pointer;
+            transition: border-color 0.13s, color 0.13s, background 0.13s;
+        }
+
+        .sc-dw-pg-btn:hover:not(:disabled) {
+            border-color: var(--sc-text-2);
+            color: var(--sc-text);
+        }
+
+        .sc-dw-pg-btn.active {
+            background: var(--sc-red);
+            border-color: var(--sc-red);
+            color: #fff;
+            font-weight: 700;
+            cursor: default;
+        }
+
+        .sc-dw-pg-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .sc-dw-pg-ellipsis {
+            padding: 0 4px;
+            color: var(--sc-text-3);
+        }
+
         /* ─── Responsive ─────────────────────────────── */
         @media (max-width: 640px) {
             .sc-layout { flex-direction: column; }

@@ -370,10 +370,6 @@
         // 3) Carrega dados que toda seção depende (páginas + menu + config)
         await loadInitialData();
 
-        // 4) Mostra botão de "Minha senha" se aplicável
-        const cpBtn = document.getElementById('adminChangePasswordButton');
-        if (cpBtn && window.PortalApp.isAdmin) cpBtn.style.display = 'inline-flex';
-
         // 5) Routing
         setupSidenavClicks();
         setupRouting();
